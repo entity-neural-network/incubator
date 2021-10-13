@@ -75,11 +75,33 @@ class Environment(ABC):
 
     @classmethod
     def entity_dict(cls) -> Dict[str, Entity]:
-        return {e.name: e for e in cls.entit915ies()}
+        return {e.name: e for e in cls.entities()}
 
     @classmethod
     def action_space_dict(cls) -> Dict[str, ActionSpace]:
         return {a.name: a for a in cls.action_space()}
+
+    # TODO: cache this
+    @classmethod
+    def _compile_feature_selection(cls, obs_config: ObsConfig) -> Dict[str, np.ndarray]:
+        entity_dict = cls.entity_dict()
+        feature_selection = {}
+        for entity_name, entity_features in obs_config.entities.items():
+            entity = entity_dict[entity_name]
+            feature_selection[entity_name] = np.array(
+                [entity.features.index(f) for f in entity_features])
+        return feature_selection
+
+    # TODO: generic way of filtering selected entities/features so environments don't have to implement this (but still have the option to do so for potentially better efficiency).
+    def filter_obs(self, obs: Observation, obs_config: ObsConfig) -> Observation:
+        entities = []
+        selectors = self.__class__._compile_feature_selection(obs_config)
+        for entity_name, entity_features in obs.entities:
+            entities.append((entity_name, entity_features[:, selectors[entity_name]]))
+        return Observation(entities, obs.ids, obs.actions, obs.reward, obs.done)
+
+    def simple_reset(self) -> Observation:
+        raise NotImplementedError
 
     def reset(self, obs_config: ObsConfig) -> Observation:
         raise NotImplementedError
@@ -179,26 +201,20 @@ class MoveToOrigin(Environment):
         return self.observe(obs_config, done)
 
     def observe(self, obs_config: ObsConfig, done: bool = False) -> Observation:
-        entities = []
-        for entity_name, features in obs_config.entities.items():
-            if entity_name == "Spaceship":
-                feature_vals = []
-                for feature in features:
-                    if feature in ["x_pos", "y_pos", "x_velocity", "y_velocity", "step"]:
-                        feature_vals.append(getattr(self, feature))
-                    else:
-                        raise ValueError(f"Unknown feature {feature}")
-                entities.append(
-                    (entity_name, np.array(feature_vals).reshape(1, -1)))
-
-        return Observation(
-            entities=entities,
+        return self.filter_obs(Observation(
+            entities=[
+                (
+                    "Spaceship",
+                    np.array(
+                        [[self.x_pos, self.y_pos, self.x_velocity, self.y_velocity, self.step]])
+                ),
+            ],
             actions=[("horizontal_thruster", [0]), ("vertical_thruster", [0])],
             ids=[0],
             reward=(self.last_x_pos ** 2 + self.last_y_pos ** 2) ** 0.5 -
             (self.x_pos ** 2 + self.y_pos ** 2) ** 0.5,
             done=done,
-        )
+        ), obs_config)
 
 
 if __name__ == "__main__":
@@ -236,3 +252,4 @@ if __name__ == "__main__":
                 else:
                     raise ValueError(f"Unknown action type {action_def}")
         obs = env.act(Action(chosen_actions), obs_config)
+000
