@@ -184,16 +184,8 @@ class MoveToOrigin(Environment):
             if entity_name == "Spaceship":
                 feature_vals = []
                 for feature in features:
-                    if feature == "x_pos":
-                        feature_vals.append(self.x_pos)
-                    elif feature == "y_pos":
-                        feature_vals.append(self.y_pos)
-                    elif feature == "x_velocity":
-                        feature_vals.append(self.x_velocity)
-                    elif feature == "y_velocity":
-                        feature_vals.append(self.y_velocity)
-                    elif feature == "step":
-                        feature_vals.append(self.step)
+                    if feature in ["x_pos", "y_pos", "x_velocity", "y_velocity", "step"]:
+                        feature_vals.append(getattr(self, feature))
                     else:
                         raise ValueError(f"Unknown feature {feature}")
                 entities.append(
