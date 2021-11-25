@@ -1,15 +1,19 @@
 # adapted from https://github.com/vwxyzjn/cleanrl
 import argparse
+from dataclasses import dataclass
+from functools import reduce
 import os
 import random
 import time
 from distutils.util import strtobool
-from typing import Any, Dict, List, Type
+from typing import Any, Dict, List, Optional, Tuple, Type
 
 import numpy as np
 from entity_gym.environment import (
+    Action,
     ActionSpace,
     CategoricalAction,
+    CategoricalActionSpace,
     DenseCategoricalActionMask,
     EnvList,
     Environment,
@@ -26,6 +30,7 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.distributions.categorical import Categorical
 from torch.utils.tensorboard import SummaryWriter
+import torch_scatter
 
 
 def parse_args() -> argparse.Namespace:
@@ -115,6 +120,10 @@ class Agent(nn.Module):
         d_model: int = 64,
     ):
         super(Agent, self).__init__()
+
+        self.obs_filter = obs_filter
+        self.action_space = action_space
+
         self.d_model = d_model
         self.embedding = nn.ModuleDict(
             {
@@ -122,68 +131,149 @@ class Agent(nn.Module):
                 for entity, features in obs_filter.entity_to_feats.items()
             }
         )
-        self.action_heads = nn.ModuleDict(
-            {
-                entity: nn.Linear(d_model, len(action_space[entity].choices))
-                for entity in action_space
-            }
-        )
+        action_heads = {}
+        for name, space in action_space.items():
+            assert isinstance(space, CategoricalActionSpace)
+            action_heads[name] = nn.Linear(d_model, len(space.choices))
+        self.action_heads = nn.ModuleDict(action_heads)
         self.value_head = nn.Linear(d_model, 1)
 
-    def embed(self, obs: Observation) -> torch.Tensor:
-        return torch.cat(
-            [
-                self.embedding[name](
-                    torch.tensor(features.astype(np.float32)).to(
-                        self.embedding[name].weight.device
-                    )
+    def device(self) -> torch.device:
+        return next(self.parameters()).device
+
+    def batch_and_embed(
+        self, obs: List[Observation]
+    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+        """
+        Example:
+        entities in obs 0: [A0, A0, A0, B0]
+        entities in obs 1: [A1, B1, B1]
+        entities in obs 2: [A2, A2]
+
+        `x` is a flattened tensor of entity embeddings sorted first by entity type, then by batch index:
+        [A0, A0, A0, A1, A2, A2, B0, B1, B1]
+
+        `index_map` translates the index of entities sorted first by batch index then by entity type to their index in `x`:
+        [0, 1, 2, 6, 3, 7, 8, 4, 5]
+
+        `batch_index` gives the batch index of each entity in `x`:
+        [0, 0, 0, 1, 2, 2, 0, 1, 1]
+
+        `lengths` gives the number of entities in each observation:
+        [4, 3, 2]
+        """
+        entity_embeds = []
+        index_offsets = {}
+        index_offset = 0
+        for entity, embedding in self.embedding.items():
+            batch = torch.cat(
+                [torch.tensor(o.entities[entity], dtype=torch.float32) for o in obs],
+            ).to(self.device())
+            entity_embeds.append(embedding(batch))
+            index_offsets[entity] = index_offset
+            index_offset += batch.size(0)
+        x = torch.cat(entity_embeds)
+        index_map = []
+        batch_index = []
+        lengths = []
+        for i, o in enumerate(obs):
+            lengths.append(0)
+            for entity in self.obs_filter.entity_to_feats.keys():
+                count = len(o.entities[entity])
+                index_map.append(
+                    torch.arange(index_offsets[entity], index_offsets[entity] + count)
                 )
-                for name, features in obs.entities.items()
-            ]
+                batch_index.append(torch.full((count,), i, dtype=torch.int64))
+                index_offsets[entity] += count
+                lengths[-1] += count
+
+        return (
+            x,
+            torch.cat(index_map).to(self.device()),
+            torch.cat(batch_index).to(self.device()),
+            torch.tensor(lengths).to(self.device()),
         )
 
     def get_value(self, x: List[Observation]) -> torch.Tensor:
-        values = []
-        for obs in x:
-            embeddings = self.embed(obs)
-            values.append(self.value_head(embeddings).mean())
-        return torch.tensor(values, device=self.value_head.weight.device)
+        embeddings, _, batch_index, _ = self.batch_and_embed(x)
+        pooled = torch_scatter.scatter(
+            src=embeddings, dim=0, index=batch_index, reduce="mean"
+        )
+        return self.value_head(pooled)  # type: ignore
 
-    def get_action_and_value(self, x: List[Observation], prev_actions=None):
-        actions = []
-        probs = []
-        entropies = []
-        values = []
-        for i, obs in enumerate(x):
-            embeddings = self.embed(obs)
-            _actions = {}
-            _probs = []
-            _entropies = []
-            for action_name, mask in obs.action_masks.items():
-                assert isinstance(mask, DenseCategoricalActionMask)
-                selected_embeddings = embeddings[mask.actors, :]
-                # TODO: apply mask
-                logits = self.action_heads[action_name](selected_embeddings)
-                dist = Categorical(logits=logits)
-                # TODO: entity id, multiple entities
-                if prev_actions is None:
-                    action = dist.sample()
-                    _actions[action_name] = CategoricalAction([(0, action.item())])
-                else:
-                    action = torch.tensor(
-                        prev_actions[i][action_name].actions[0][1], device=logits.device
+    def get_action_and_value(
+        self,
+        obs: List[Observation],
+        prev_actions: Optional[List[Dict[str, torch.Tensor]]] = None
+        # ) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, torch.Tensor], torch.Tensor]:
+    ) -> Tuple[
+        List[Dict[str, torch.Tensor]],
+        List[Dict[str, torch.Tensor]],
+        List[Dict[str, torch.Tensor]],
+        torch.Tensor,
+    ]:
+        actions = {}
+        probs = {}
+        entropies = {}
+        x, index_map, batch_index, lengths = self.batch_and_embed(obs)
+        index_offsets = (lengths.cumsum(0) - lengths[0]).cpu().numpy()
+        actor_counts = {}
+        for action_name, action_head in self.action_heads.items():
+            actor_counts[action_name] = [
+                len(o.action_masks[action_name].actors) for o in obs
+            ]
+            actors = torch.cat(
+                [
+                    # TODO: should already be ndarray
+                    torch.tensor(
+                        np.array(o.action_masks[action_name].actors) + np.array(offset)
                     )
-                _probs.append(dist.log_prob(action))
-                _entropies.append(dist.entropy())
-            actions.append(_actions)
-            probs.append(torch.cat(_probs))
-            entropies.append(torch.cat(_entropies))
-            values.append(self.value_head(embeddings).mean())
+                    for (o, offset) in zip(obs, index_offsets)
+                ]
+            ).to(self.device())
+            actor_embeds = x[index_map[actors]]
+            logits = action_head(actor_embeds)
+            dist = Categorical(logits=logits)
+            if prev_actions is None:
+                action = dist.sample()
+            else:
+                action = torch.cat([a[action_name] for a in prev_actions])
+            actions[action_name] = action
+            probs[action_name] = dist.log_prob(action)
+            entropies[action_name] = dist.entropy()
+
+        pooled = torch_scatter.scatter(src=x, dim=0, index=batch_index, reduce="mean")
+        values = self.value_head(pooled)
+
+        if prev_actions is None:
+            unbatched_actions: List[Dict[str, torch.Tensor]] = [{} for _ in obs]
+        unbatched_probs: List[Dict[str, torch.Tensor]] = [{} for _ in obs]
+        unbatched_entropies: List[Dict[str, torch.Tensor]] = [{} for _ in obs]
+        for action_name, ragged_batch_action_tensor in actions.items():
+            if prev_actions is None:
+                for action_dict, a in zip(
+                    unbatched_actions,
+                    torch.split(ragged_batch_action_tensor, actor_counts[action_name]),
+                ):
+                    action_dict[action_name] = a
+            ragged_batch_probs_tensor = probs[action_name]
+            for probs_dict, p in zip(
+                unbatched_probs,
+                torch.split(ragged_batch_probs_tensor, actor_counts[action_name]),
+            ):
+                probs_dict[action_name] = p
+            ragged_batch_entropies_tensor = entropies[action_name]
+            for entropies_dict, e in zip(
+                unbatched_entropies,
+                torch.split(ragged_batch_entropies_tensor, actor_counts[action_name]),
+            ):
+                entropies_dict[action_name] = e
+
         return (
-            actions,
-            probs,
-            entropies,
-            torch.tensor(values, device=self.value_head.weight.device),
+            prev_actions or unbatched_actions,
+            unbatched_probs,
+            unbatched_entropies,
+            values,
         )
 
 
@@ -258,8 +348,23 @@ if __name__ == "__main__":
             actions.append(action)
             logprobs.append(logprob)
 
+            # Join all actions with corresponding `EntityID`s
+            _actions = []
+            for _obs, action_dict in zip(next_obs, action):
+                _action_dict = {}
+                for action_name, action_tensor in action_dict.items():
+                    mask = _obs.action_masks[action_name]
+                    actor_action = [
+                        (_obs.ids[actor_idx], _act)
+                        for actor_idx, _act in zip(
+                            mask.actors, action_tensor.cpu().numpy()
+                        )
+                    ]
+                    _action_dict[action_name] = CategoricalAction(actor_action)
+                _actions.append(_action_dict)
+
             # TRY NOT TO MODIFY: execute the game and log data.
-            next_obs = envs.act(action, obs_filter)
+            next_obs = envs.act(_actions, obs_filter)
             rewards[step] = (
                 torch.tensor([o.reward for o in next_obs]).to(device).view(-1)
             )
@@ -321,6 +426,9 @@ if __name__ == "__main__":
         b_returns = returns.reshape(-1)
         b_values = values.reshape(-1)
 
+        def dictcat(x: Dict[str, torch.Tensor]) -> torch.Tensor:
+            return torch.cat(list(x.values()))
+
         # Optimizaing the policy and value network
         b_inds = np.arange(args.batch_size)
         clipfracs = []
@@ -334,7 +442,8 @@ if __name__ == "__main__":
                     [b_obs[i] for i in mb_inds], [b_actions[i] for i in mb_inds]
                 )
                 logratio = [
-                    newlogprob[i] - b_logprobs[mb_inds[i]] for i in range(len(mb_inds))
+                    dictcat(newlogprob[i]) - dictcat(b_logprobs[mb_inds[i]])
+                    for i in range(len(mb_inds))
                 ]
                 ratio = [l.exp() for l in logratio]
 
@@ -398,7 +507,7 @@ if __name__ == "__main__":
                 else:
                     v_loss = 0.5 * ((newvalue - b_returns[mb_inds]) ** 2).mean()
 
-                entropy_loss = torch.cat(entropy).mean()
+                entropy_loss = torch.cat([dictcat(e) for e in entropy]).mean()
                 loss = pg_loss - args.ent_coef * entropy_loss + v_loss * args.vf_coef
 
                 optimizer.zero_grad()
@@ -429,5 +538,5 @@ if __name__ == "__main__":
             "charts/SPS", int(global_step / (time.time() - start_time)), global_step
         )
 
-    envs.close()
+    # envs.close()
     writer.close()
