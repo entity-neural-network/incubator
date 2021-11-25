@@ -1,12 +1,10 @@
 # adapted from https://github.com/vwxyzjn/cleanrl
 import argparse
-from dataclasses import dataclass
-from functools import reduce
 import os
 import random
 import time
 from distutils.util import strtobool
-from typing import Any, Dict, List, Optional, Tuple, Type
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 from entity_gym.environment import (
@@ -14,17 +12,11 @@ from entity_gym.environment import (
     ActionSpace,
     CategoricalAction,
     CategoricalActionSpace,
-    DenseCategoricalActionMask,
     EnvList,
-    Environment,
     ObsFilter,
     Observation,
 )
-from entity_gym.envs.cherry_pick import CherryPick
-from entity_gym.envs.minefield import Minefield
-from entity_gym.envs.move_to_origin import MoveToOrigin
-from entity_gym.envs.multi_snake import MultiSnake
-from entity_gym.envs.pick_matching_balls import PickMatchingBalls
+from entity_gym.envs import ENV_REGISTRY
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -97,15 +89,6 @@ def parse_args() -> argparse.Namespace:
     return args
 
 
-ENV_MAPPING: Dict[str, Type[Environment]] = {
-    "MoveToOrigin": MoveToOrigin,
-    "CherryPick": CherryPick,
-    "PickMatchingBalls": PickMatchingBalls,
-    "Minefield": Minefield,
-    "MultiSnake": MultiSnake,
-}
-
-
 def layer_init(layer: Any, std: float = np.sqrt(2), bias_const: float = 0.0) -> Any:
     torch.nn.init.orthogonal_(layer.weight, std)
     torch.nn.init.constant_(layer.bias, bias_const)
@@ -127,16 +110,21 @@ class Agent(nn.Module):
         self.d_model = d_model
         self.embedding = nn.ModuleDict(
             {
-                entity: nn.Linear(len(features), d_model)
+                entity: nn.Sequential(
+                    nn.Linear(len(features), d_model), nn.ReLU(), nn.LayerNorm(d_model)
+                )
                 for entity, features in obs_filter.entity_to_feats.items()
             }
         )
+        self.backbone = nn.Sequential(nn.Linear(d_model, d_model), nn.ReLU(),)
         action_heads = {}
         for name, space in action_space.items():
             assert isinstance(space, CategoricalActionSpace)
             action_heads[name] = nn.Linear(d_model, len(space.choices))
         self.action_heads = nn.ModuleDict(action_heads)
         self.value_head = nn.Linear(d_model, 1)
+        self.value_head.weight.data.fill_(0.0)
+        self.value_head.bias.data.fill_(0.0)
 
     def device(self) -> torch.device:
         return next(self.parameters()).device
@@ -186,6 +174,7 @@ class Agent(nn.Module):
                 batch_index.append(torch.full((count,), i, dtype=torch.int64))
                 index_offsets[entity] += count
                 lengths[-1] += count
+        x = self.backbone(x)
 
         return (
             x,
@@ -224,10 +213,7 @@ class Agent(nn.Module):
             ]
             actors = torch.cat(
                 [
-                    # TODO: should already be ndarray
-                    torch.tensor(
-                        np.array(o.action_masks[action_name].actors) + np.array(offset)
-                    )
+                    torch.tensor(o.action_masks[action_name].actors + offset)
                     for (o, offset) in zip(obs, index_offsets)
                 ]
             ).to(self.device())
@@ -306,18 +292,16 @@ if __name__ == "__main__":
 
     device = torch.device("cuda" if torch.cuda.is_available() and args.cuda else "cpu")
 
-    env_cls = ENV_MAPPING[args.gym_id]
+    env_cls = ENV_REGISTRY[args.gym_id]
     # env setup
     envs = EnvList([env_cls() for _ in range(args.num_envs)])
     obs_filter = env_cls.full_obs_filter()
+    action_space = env_cls.action_space()
 
-    agent = Agent(obs_filter, env_cls.action_space()).to(device)
+    agent = Agent(obs_filter, action_space).to(device)
     optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5)
 
     # ALGO Logic: Storage setup
-    obs = []
-    actions = []
-    logprobs = []
     rewards = torch.zeros((args.num_steps, args.num_envs)).to(device)
     dones = torch.zeros((args.num_steps, args.num_envs)).to(device)
     values = torch.zeros((args.num_steps, args.num_envs)).to(device)
@@ -330,6 +314,10 @@ if __name__ == "__main__":
     num_updates = args.total_timesteps // args.batch_size
 
     for update in range(1, num_updates + 1):
+        obs = []
+        actions = []
+        logprobs = []
+
         # Annealing the rate if instructed to do so.
         if args.anneal_lr:
             frac = 1.0 - (update - 1.0) / num_updates
@@ -512,7 +500,9 @@ if __name__ == "__main__":
 
                 optimizer.zero_grad()
                 loss.backward()
-                nn.utils.clip_grad_norm_(agent.parameters(), args.max_grad_norm)
+                gradnorm = nn.utils.clip_grad_norm_(
+                    agent.parameters(), args.max_grad_norm
+                )
                 optimizer.step()
 
             if args.target_kl is not None:
@@ -533,6 +523,17 @@ if __name__ == "__main__":
         writer.add_scalar("losses/approx_kl", approx_kl.item(), global_step)
         writer.add_scalar("losses/clipfrac", np.mean(clipfracs), global_step)
         writer.add_scalar("losses/explained_variance", explained_var, global_step)
+        writer.add_scalar("losses/gradnorm", gradnorm, global_step)
+        writer.add_scalar("meanrew", rewards.mean().item(), global_step)
+        for action_name, space in action_space.items():
+            assert isinstance(space, CategoricalActionSpace)
+            choices = torch.cat([a[action_name] for a in b_actions]).cpu().numpy()
+            for i, label in enumerate(space.choices):
+                writer.add_scalar(
+                    "actions/{}/{}".format(action_name, label),
+                    np.sum(choices == i).item() / len(choices),
+                    global_step,
+                )
         print("SPS:", int(global_step / (time.time() - start_time)))
         writer.add_scalar(
             "charts/SPS", int(global_step / (time.time() - start_time)), global_step
