@@ -25,7 +25,7 @@ from torch.utils.tensorboard import SummaryWriter
 import torch_scatter
 
 
-def parse_args() -> argparse.Namespace:
+def parse_args(override_args: Optional[List[str]] = None) -> argparse.Namespace:
     # fmt: off
     parser = argparse.ArgumentParser()
     parser.add_argument('--exp-name', type=str, default=os.path.basename(__file__).rstrip(".py"),
@@ -50,6 +50,10 @@ def parse_args() -> argparse.Namespace:
         help="the entity (team) of wandb's project")
     parser.add_argument('--capture-video', type=lambda x:bool(strtobool(x)), default=False, nargs='?', const=True,
         help='weather to capture videos of the agent performances (check out `videos` folder)')
+    
+    # Network architecture
+    parser.add_argument('--hidden-size', type=int, default=64,
+        help='the hidden size of the network layers')
 
     # Algorithm specific arguments
     parser.add_argument('--num-envs', type=int, default=4,
@@ -82,7 +86,7 @@ def parse_args() -> argparse.Namespace:
         help='the maximum norm for the gradient clipping')
     parser.add_argument('--target-kl', type=float, default=None,
         help='the target KL divergence threshold')
-    args = parser.parse_args()
+    args = parser.parse_args(args=override_args)
     args.batch_size = int(args.num_envs * args.num_steps)
     args.minibatch_size = int(args.batch_size // args.num_minibatches)
     # fmt: on
@@ -263,8 +267,7 @@ class Agent(nn.Module):
         )
 
 
-if __name__ == "__main__":
-    args = parse_args()
+def train(args: argparse.Namespace) -> float:
     run_name = f"{args.gym_id}__{args.exp_name}__{args.seed}__{int(time.time())}"
     if args.track:
         import wandb
@@ -298,7 +301,7 @@ if __name__ == "__main__":
     obs_filter = env_cls.full_obs_filter()
     action_space = env_cls.action_space()
 
-    agent = Agent(obs_filter, action_space).to(device)
+    agent = Agent(obs_filter, action_space, d_model=args.hidden_size).to(device)
     optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5)
 
     # ALGO Logic: Storage setup
@@ -541,3 +544,10 @@ if __name__ == "__main__":
 
     # envs.close()
     writer.close()
+
+    return rewards.mean().item()
+
+
+if __name__ == "__main__":
+    args = parse_args()
+    train(args)
