@@ -13,7 +13,7 @@ from entity_gym.environment import (
     CategoricalAction,
     CategoricalActionSpace,
     EnvList,
-    ObsFilter,
+    ObsSpace,
     Observation,
 )
 from entity_gym.envs import ENV_REGISTRY
@@ -102,25 +102,30 @@ def layer_init(layer: Any, std: float = np.sqrt(2), bias_const: float = 0.0) -> 
 class Agent(nn.Module):
     def __init__(
         self,
-        obs_filter: ObsFilter,
+        obs_space: ObsSpace,
         action_space: Dict[str, ActionSpace],
         d_model: int = 64,
     ):
         super(Agent, self).__init__()
 
-        self.obs_filter = obs_filter
+        self.obs_space = obs_space
         self.action_space = action_space
 
         self.d_model = d_model
         self.embedding = nn.ModuleDict(
             {
-                entity: nn.Sequential(
-                    nn.Linear(len(features), d_model), nn.ReLU(), nn.LayerNorm(d_model)
+                name: nn.Sequential(
+                    nn.Linear(len(entity.features), d_model),
+                    nn.ReLU(),
+                    nn.LayerNorm(d_model),
                 )
-                for entity, features in obs_filter.entity_to_feats.items()
+                for name, entity in obs_space.entities.items()
             }
         )
-        self.backbone = nn.Sequential(nn.Linear(d_model, d_model), nn.ReLU(),)
+        self.backbone = nn.Sequential(
+            nn.Linear(d_model, d_model),
+            nn.ReLU(),
+        )
         action_heads = {}
         for name, space in action_space.items():
             assert isinstance(space, CategoricalActionSpace)
@@ -170,7 +175,7 @@ class Agent(nn.Module):
         lengths = []
         for i, o in enumerate(obs):
             lengths.append(0)
-            for entity in self.obs_filter.entity_to_feats.keys():
+            for entity in self.obs_space.entities.keys():
                 count = len(o.entities[entity])
                 index_map.append(
                     torch.arange(index_offsets[entity], index_offsets[entity] + count)
@@ -298,7 +303,7 @@ def train(args: argparse.Namespace) -> float:
     env_cls = ENV_REGISTRY[args.gym_id]
     # env setup
     envs = EnvList([env_cls() for _ in range(args.num_envs)])
-    obs_filter = env_cls.full_obs_filter()
+    obs_filter = env_cls.obs_space()
     action_space = env_cls.action_space()
 
     agent = Agent(obs_filter, action_space, d_model=args.hidden_size).to(device)
@@ -494,7 +499,9 @@ def train(args: argparse.Namespace) -> float:
                 if args.clip_vloss:
                     v_loss_unclipped = (newvalue - b_returns[mb_inds]) ** 2
                     v_clipped = b_values[mb_inds] + torch.clamp(
-                        newvalue - b_values[mb_inds], -args.clip_coef, args.clip_coef,
+                        newvalue - b_values[mb_inds],
+                        -args.clip_coef,
+                        args.clip_coef,
                     )
                     v_loss_clipped = (v_clipped - b_returns[mb_inds]) ** 2
                     v_loss_max = torch.max(v_loss_unclipped, v_loss_clipped)

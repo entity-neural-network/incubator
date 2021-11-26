@@ -11,6 +11,7 @@ from entity_gym.environment import (
     CategoricalActionSpace,
     ActionSpace,
     EpisodeStats,
+    ObsSpace,
     Observation,
     Action,
 )
@@ -23,10 +24,12 @@ class MultiArmedBandit(Environment):
     """
 
     @classmethod
-    def state_space(cls) -> Dict[str, Entity]:
-        return {
-            "MultiArmedBandit": Entity(["step"]),
-        }
+    def obs_space(cls) -> ObsSpace:
+        return ObsSpace(
+            {
+                "MultiArmedBandit": Entity(["step"]),
+            }
+        )
 
     @classmethod
     def action_space(cls) -> Dict[str, ActionSpace]:
@@ -54,7 +57,15 @@ class MultiArmedBandit(Environment):
 
     def observe(self, done: bool = False, reward: float = 0) -> Observation:
         return Observation(
-            entities={"MultiArmedBandit": np.array([[self.step,]]),},
+            entities={
+                "MultiArmedBandit": np.array(
+                    [
+                        [
+                            self.step,
+                        ]
+                    ]
+                ),
+            },
             action_masks={
                 "pull": DenseCategoricalActionMask(actors=np.array([0]), mask=None),
             },

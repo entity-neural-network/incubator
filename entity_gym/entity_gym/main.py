@@ -5,7 +5,7 @@ from entity_gym.environment import (
     CategoricalAction,
     DenseSelectEntityActionMask,
     Environment,
-    ObsFilter,
+    ObsSpace,
     CategoricalActionSpace,
     Action,
     Observation,
@@ -15,14 +15,14 @@ from entity_gym.environment import (
 from entity_gym.envs import ENV_REGISTRY
 
 
-def print_obs(obs: Observation, total_reward: float, obs_filter: ObsFilter) -> None:
+def print_obs(obs: Observation, total_reward: float, obs_filter: ObsSpace) -> None:
     print(f"Reward: {obs.reward}")
     print(f"Total reward: {total_reward}")
     entity_index = 0
     for entity_type, features in obs.entities.items():
         for entity in range(features.shape[0]):
             print(
-                f"{obs.ids[entity_index]}: {entity_type}({', '.join(map(lambda nv: nv[0] + '=' + str(nv[1]), zip(obs_filter.entity_to_feats[entity_type], features[entity, :])))})"
+                f"{obs.ids[entity_index]}: {entity_type}({', '.join(map(lambda nv: nv[0] + '=' + str(nv[1]), zip(obs_filter.entities[entity_type], features[entity, :])))})"
             )
             entity_index += 1
 
@@ -42,9 +42,9 @@ if __name__ == "__main__":
 
     print(env_cls)
     env = env_cls()
-    obs_filter = ObsFilter(
-        entity_to_feats={
-            name: entity.features for name, entity in env_cls.state_space().items()
+    obs_filter = ObsSpace(
+        entities={
+            name: entity.features for name, entity in env_cls.obs_space().items()
         },
     )
 
