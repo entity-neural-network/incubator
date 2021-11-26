@@ -25,7 +25,7 @@ from torch.utils.tensorboard import SummaryWriter
 import torch_scatter
 
 
-def parse_args(args: Optional[List[str]] = None) -> argparse.Namespace:
+def parse_args(override_args: Optional[List[str]] = None) -> argparse.Namespace:
     # fmt: off
     parser = argparse.ArgumentParser()
     parser.add_argument('--exp-name', type=str, default=os.path.basename(__file__).rstrip(".py"),
@@ -86,7 +86,7 @@ def parse_args(args: Optional[List[str]] = None) -> argparse.Namespace:
         help='the maximum norm for the gradient clipping')
     parser.add_argument('--target-kl', type=float, default=None,
         help='the target KL divergence threshold')
-    args = parser.parse_args(args=args)
+    args = parser.parse_args(args=override_args)
     args.batch_size = int(args.num_envs * args.num_steps)
     args.minibatch_size = int(args.batch_size // args.num_minibatches)
     # fmt: on
