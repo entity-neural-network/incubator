@@ -22,7 +22,7 @@ def print_obs(obs: Observation, total_reward: float, obs_filter: ObsSpace) -> No
     for entity_type, features in obs.entities.items():
         for entity in range(features.shape[0]):
             print(
-                f"{obs.ids[entity_index]}: {entity_type}({', '.join(map(lambda nv: nv[0] + '=' + str(nv[1]), zip(obs_filter.entities[entity_type], features[entity, :])))})"
+                f"{obs.ids[entity_index]}: {entity_type}({', '.join(map(lambda nv: nv[0] + '=' + str(nv[1]), zip(obs_filter.entities[entity_type].features, features[entity, :])))})"
             )
             entity_index += 1
 
@@ -42,17 +42,12 @@ if __name__ == "__main__":
 
     print(env_cls)
     env = env_cls()
-    obs_filter = ObsSpace(
-        entities={
-            name: entity.features for name, entity in env_cls.obs_space().items()
-        },
-    )
-
+    obs_space = env_cls.obs_space()
     actions = env_cls.action_space()
-    obs = env.reset(obs_filter)
+    obs = env.reset(obs_space)
     total_reward = obs.reward
     while not obs.done:
-        print_obs(obs, total_reward, obs_filter)
+        print_obs(obs, total_reward, obs_space)
         action: Dict[str, Action] = {}
         for action_name, action_mask in obs.action_masks.items():
             action_def = actions[action_name]
@@ -82,8 +77,8 @@ if __name__ == "__main__":
                     action[action_name].actions.append((actor_id, entity_id))
                 else:
                     raise ValueError(f"Unknown action type {action_def}")
-        obs = env.act(action, obs_filter)
+        obs = env.act(action, obs_space)
         total_reward += obs.reward
 
-    print_obs(obs, total_reward, obs_filter)
+    print_obs(obs, total_reward, obs_space)
     print("Episode finished")
