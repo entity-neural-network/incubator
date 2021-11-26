@@ -1,4 +1,7 @@
 # ENN Incubator
+
+[![Discord](https://img.shields.io/discord/913497968701747270?style=flat-square)](https://discord.gg/SjVqhSW4Qf)
+
 Collection of in-progress libraries for entity neural networks: [Neural Network Architectures for Structured State](https://docs.google.com/document/d/1Q87zeY7Z4u9cU0oLoH-BPQZDBQd4tHLWiEkj5YDSGw4)
 
 - [Entity Gym](entity_gym): Abstraction over reinforcement learning environments that represent observations as lists of structured objects.
