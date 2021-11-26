@@ -61,5 +61,7 @@ class MultiArmedBandit(Environment):
             ids=[0],
             reward=reward,
             done=done,
-            end_of_episode_info=EpisodeStats(self.step, self._total_reward) if done else None,
+            end_of_episode_info=EpisodeStats(self.step, self._total_reward)
+            if done
+            else None,
         )

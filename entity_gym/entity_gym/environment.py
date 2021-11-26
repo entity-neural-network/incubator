@@ -173,7 +173,14 @@ class Environment(ABC):
             entity_name: entity_features[:, selectors[entity_name]]
             for entity_name, entity_features in obs.entities.items()
         }
-        return Observation(entities, obs.ids, obs.action_masks, obs.reward, obs.done, obs.end_of_episode_info)
+        return Observation(
+            entities,
+            obs.ids,
+            obs.action_masks,
+            obs.reward,
+            obs.done,
+            obs.end_of_episode_info,
+        )
 
     @classmethod
     def _compile_feature_filter(cls, obs_filter: ObsFilter) -> Dict[str, np.ndarray]:

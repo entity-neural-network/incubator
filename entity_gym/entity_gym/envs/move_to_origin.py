@@ -133,7 +133,7 @@ class MoveToOrigin(Environment):
             done=done,
             end_of_episode_info=EpisodeStats(
                 length=self.step,
-                total_reward=1 - (self.x_pos ** 2 + self.y_pos ** 2) ** 0.5
+                total_reward=1 - (self.x_pos ** 2 + self.y_pos ** 2) ** 0.5,
             )
             if done
             else None,
