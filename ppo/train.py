@@ -122,10 +122,7 @@ class Agent(nn.Module):
                 for name, entity in obs_space.entities.items()
             }
         )
-        self.backbone = nn.Sequential(
-            nn.Linear(d_model, d_model),
-            nn.ReLU(),
-        )
+        self.backbone = nn.Sequential(nn.Linear(d_model, d_model), nn.ReLU(),)
         action_heads = {}
         for name, space in action_space.items():
             assert isinstance(space, CategoricalActionSpace)
@@ -499,9 +496,7 @@ def train(args: argparse.Namespace) -> float:
                 if args.clip_vloss:
                     v_loss_unclipped = (newvalue - b_returns[mb_inds]) ** 2
                     v_clipped = b_values[mb_inds] + torch.clamp(
-                        newvalue - b_values[mb_inds],
-                        -args.clip_coef,
-                        args.clip_coef,
+                        newvalue - b_values[mb_inds], -args.clip_coef, args.clip_coef,
                     )
                     v_loss_clipped = (v_clipped - b_returns[mb_inds]) ** 2
                     v_loss_max = torch.max(v_loss_unclipped, v_loss_clipped)
