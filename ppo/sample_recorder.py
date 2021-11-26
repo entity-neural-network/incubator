@@ -3,6 +3,7 @@ from typing import Dict, List, Mapping
 
 from entity_gym.environment import ActionSpace, ObsSpace
 
+import tqdm
 import numpy as np
 import msgpack
 import msgpack_numpy
@@ -18,6 +19,7 @@ class Sample:
     action_masks: Mapping[str, np.ndarray]
     probabilities: Mapping[str, np.ndarray]
     reward: float
+    step: int
     episode: int
 
     def serialize(self) -> bytes:
@@ -55,7 +57,9 @@ class SampleRecorder:
     Writes samples to disk.
     """
 
-    def __init__(self, path: str, act_space: ActionSpace, obs_space: ObsSpace) -> None:
+    def __init__(
+        self, path: str, act_space: Dict[str, ActionSpace], obs_space: ObsSpace
+    ) -> None:
         self.path = path
         self.file = open(path, "wb")
         # TODO: write header and obs space and act space
@@ -77,12 +81,18 @@ class Trace:
     samples: List[Sample]
 
     @classmethod
-    def deserialize(cls, data: bytes) -> "Trace":
+    def deserialize(cls, data: bytes, progress_bar: bool = False) -> "Trace":
         samples = []
-        while len(data) > 0:
-            size = int(np.frombuffer(data[:8], dtype=np.uint64)[0])
-            sample = Sample.deserialize(data[8 : 8 + size])
-            data = data[8 + size :]
-            samples.append(sample)
-        return Trace(None, None, samples)  # type: ignore
+        if progress_bar:
+            pbar = tqdm.tqdm(total=len(data))
 
+        offset = 0
+        while offset < len(data):
+            size = int(np.frombuffer(data[offset : offset + 8], dtype=np.uint64)[0])
+            offset += 8
+            sample = Sample.deserialize(data[offset : offset + size])
+            samples.append(sample)
+            offset += size
+            if progress_bar:
+                pbar.update(size + 8)
+        return Trace(None, None, samples)  # type: ignore

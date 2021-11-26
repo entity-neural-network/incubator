@@ -33,6 +33,7 @@ def test_serde_sample() -> None:
             "explode": np.array([[0.3, 0.7], [0.2, 0.8], [0.1, 0.9]]),
         },
         reward=0.3124125987123489,
+        step=13,
         episode=4213,
     )
     serialized = sample.serialize()
@@ -70,6 +71,7 @@ def test_sampe_recorder() -> None:
             "explode": np.array([[0.3, 0.7], [0.2, 0.8], [0.1, 0.9]]),
         },
         reward=0.3124125987123489,
+        step=50,
         episode=4213,
     )
 
