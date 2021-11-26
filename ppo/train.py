@@ -17,6 +17,7 @@ from entity_gym.environment import (
     Observation,
 )
 from entity_gym.envs import ENV_REGISTRY
+from sample_recorder import SampleRecorder, Sample
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -50,6 +51,8 @@ def parse_args(override_args: Optional[List[str]] = None) -> argparse.Namespace:
         help="the entity (team) of wandb's project")
     parser.add_argument('--capture-video', type=lambda x:bool(strtobool(x)), default=False, nargs='?', const=True,
         help='weather to capture videos of the agent performances (check out `videos` folder)')
+    parser.add_argument('--capture-samples', type=str, default=None,
+        help='if set, write the samples to this file')
     
     # Network architecture
     parser.add_argument('--hidden-size', type=int, default=64,
@@ -300,21 +303,26 @@ def train(args: argparse.Namespace) -> float:
     env_cls = ENV_REGISTRY[args.gym_id]
     # env setup
     envs = EnvList([env_cls() for _ in range(args.num_envs)])
-    obs_filter = env_cls.obs_space()
+    obs_space = env_cls.obs_space()
     action_space = env_cls.action_space()
+    if args.capture_samples:
+        sample_recorder = SampleRecorder(args.capture_samples, action_space, obs_space)
 
-    agent = Agent(obs_filter, action_space, d_model=args.hidden_size).to(device)
+    agent = Agent(obs_space, action_space, d_model=args.hidden_size).to(device)
     optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5)
 
     # ALGO Logic: Storage setup
     rewards = torch.zeros((args.num_steps, args.num_envs)).to(device)
     dones = torch.zeros((args.num_steps, args.num_envs)).to(device)
     values = torch.zeros((args.num_steps, args.num_envs)).to(device)
+    episodes = list(range(args.num_envs))
+    curr_step = [0] * args.num_envs
+    next_episode = args.num_envs
 
     # TRY NOT TO MODIFY: start the game
     global_step = 0
     start_time = time.time()
-    next_obs = envs.reset(obs_filter)
+    next_obs = envs.reset(obs_space)
     next_done = torch.zeros(args.num_envs).to(device)
     num_updates = args.total_timesteps // args.batch_size
 
@@ -340,6 +348,24 @@ def train(args: argparse.Namespace) -> float:
                 values[step] = value.flatten()
             actions.append(action)
             logprobs.append(logprob)
+            if args.capture_samples:
+                for i, o in enumerate(next_obs):
+                    sample_recorder.record(
+                        Sample(
+                            entities=o.entities,
+                            action_masks={
+                                n: a.actors for n, a in o.action_masks.items()
+                            },
+                            # TODO: capture full logprobs, not just chosen action
+                            probabilities={
+                                n: l.cpu().numpy() for n, l in logprob[i].items()
+                            },
+                            # TODO: actually want to capture returns, need to move after rollout
+                            reward=o.reward,
+                            step=curr_step[i],
+                            episode=episodes[i],
+                        )
+                    )
 
             # Join all actions with corresponding `EntityID`s
             _actions = []
@@ -357,13 +383,13 @@ def train(args: argparse.Namespace) -> float:
                 _actions.append(_action_dict)
 
             # TRY NOT TO MODIFY: execute the game and log data.
-            next_obs = envs.act(_actions, obs_filter)
+            next_obs = envs.act(_actions, obs_space)
             rewards[step] = (
                 torch.tensor([o.reward for o in next_obs]).to(device).view(-1)
             )
             next_done = torch.tensor([o.done for o in next_obs]).to(device).view(-1)
 
-            for o in next_obs:
+            for i, o in enumerate(next_obs):
                 if o.end_of_episode_info is not None:
                     print(
                         f"global_step={global_step}, episodic_return={o.end_of_episode_info.total_reward}"
@@ -379,6 +405,14 @@ def train(args: argparse.Namespace) -> float:
                         global_step,
                     )
                     break
+            if args.capture_samples:
+                for i, o in enumerate(next_obs):
+                    if o.done:
+                        episodes[i] = next_episode
+                        next_episode += 1
+                        curr_step[i] = 0
+                    else:
+                        curr_step[i] += 1
 
         # bootstrap value if not done
         with torch.no_grad():
@@ -549,6 +583,8 @@ def train(args: argparse.Namespace) -> float:
         )
 
     # envs.close()
+    if args.capture_samples:
+        sample_recorder.close()
     writer.close()
 
     return rewards.mean().item()
