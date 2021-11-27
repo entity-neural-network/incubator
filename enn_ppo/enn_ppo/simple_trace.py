@@ -16,7 +16,8 @@ class Tracer:
         self.start_time.append(time.time())
 
     def end(self, name: str) -> None:
-        torch.cuda.synchronize()
+        if torch.cuda.is_available():
+            torch.cuda.synchronize()
         self.total_time[self.stack] += time.time() - self.start_time.pop()
         actual_name = self.callstack.pop()
         assert (
