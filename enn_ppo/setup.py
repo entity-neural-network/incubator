@@ -15,9 +15,9 @@ setup(
         "numpy==1.21",
         "torch==1.10",
         "tensorboard==2.7",
-        "torch-scatter==2.0.9",
         "msgpack==1.0.3",
         "msgpack-numpy==0.4.7.1",
         "tqdm==4.62.3",
+        "torch-scatter==2.0.9",
     ],
 )
