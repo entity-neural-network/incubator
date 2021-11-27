@@ -431,7 +431,9 @@ def train(args: argparse.Namespace) -> float:
 
             # ALGO LOGIC: action logic
             with torch.no_grad(), tracer.span("forward"):
-                action, logprob, _, value = agent.get_action_and_value(next_obs, tracer=tracer)
+                action, logprob, _, value = agent.get_action_and_value(
+                    next_obs, tracer=tracer
+                )
                 values[step] = value.flatten()
             actions.append(action)
             logprobs.append(logprob)
@@ -566,7 +568,9 @@ def train(args: argparse.Namespace) -> float:
 
                 with tracer.span("forward"):
                     _, newlogprob, entropy, newvalue = agent.get_action_and_value(
-                        [b_obs[i] for i in mb_inds], [b_actions[i] for i in mb_inds], tracer=tracer
+                        [b_obs[i] for i in mb_inds],
+                        [b_actions[i] for i in mb_inds],
+                        tracer=tracer,
                     )
 
                 with tracer.span("ratio"):
