@@ -130,18 +130,21 @@ class InputNorm(nn.Module):
         if count == 0:
             return
         mean = input.mean(dim=0)
+        square_sum = ((input - mean) * (input - mean)).sum(dim=0)
         if self.count == 0:
             self.count += count
             self.mean = mean
-            self.squares_sum = ((input - mean) * (input - mean)).sum(dim=0)
+            self.squares_sum = square_sum
         else:
+            # This does not follow directly Welford's method since it is a batched update
+            # Instead we consider computing the statistics of two sets, A="current set so far" B="current batch"
+            # See Chan, Tony F.; Golub, Gene H.; LeVeque, Randall J. (1979), "Updating Formulae and a Pairwise Algorithm for Computing Sample Variances.", Technical Report STAN-CS-79-773, Department of Computer Science, Stanford University.
+            delta = mean - self.mean
+            self.mean += delta * count / (count + self.count)
+            self.squares_sum += square_sum + torch.square(
+                delta
+            ) * count * self.count / (count + self.count)
             self.count += count
-            new_mean = self.mean + (mean - self.mean) * count / self.count
-            # This is probably not quite right because it applies multiple updates simultaneously.
-            self.squares_sum = self.squares_sum + (
-                (input - self.mean) * (input - new_mean)
-            ).sum(dim=0)
-            self.mean = new_mean
 
     def forward(
         self, input: torch.Tensor, mask: Optional[torch.Tensor] = None
