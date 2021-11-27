@@ -30,7 +30,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install black==19.10b0 pytest mypy
           pip install -e entity_gym
-          pip install -r ppo/requirements.txt
+          pip install -e enn_ppo
       - name: Black code formatting
         run: |
           black --check --diff .
