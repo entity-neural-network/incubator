@@ -1,4 +1,4 @@
-from train import InputNorm
+from enn_ppo.train import InputNorm
 
 import torch
 import numpy as np

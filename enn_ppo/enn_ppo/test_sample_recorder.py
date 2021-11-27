@@ -1,6 +1,6 @@
 import numpy as np
 import tempfile
-from sample_recorder import SampleRecorder, Sample, Trace
+from enn_ppo.sample_recorder import SampleRecorder, Sample, Trace
 
 
 def test_serde_sample() -> None:

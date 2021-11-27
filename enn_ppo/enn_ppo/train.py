@@ -17,7 +17,7 @@ from entity_gym.environment import (
     Observation,
 )
 from entity_gym.envs import ENV_REGISTRY
-from sample_recorder import SampleRecorder, Sample
+from enn_ppo.sample_recorder import SampleRecorder, Sample
 import torch
 import torch.nn as nn
 import torch.optim as optim
