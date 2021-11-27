@@ -140,7 +140,7 @@ class InputNorm(nn.Module):
             # See Chan, Tony F.; Golub, Gene H.; LeVeque, Randall J. (1979), "Updating Formulae and a Pairwise Algorithm for Computing Sample Variances.", Technical Report STAN-CS-79-773, Department of Computer Science, Stanford University.
             delta = mean - self.mean
             self.mean += delta * count / (count + self.count)
-            self.squares_sum += input.square().sum(dim=0) + delta * delta * count * self.count / (count + self.count)
+            self.squares_sum += input.square().sum(dim=0) + torch.square(delta) * count * self.count / (count + self.count)
             self.count += count
 
     def forward(
