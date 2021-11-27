@@ -1,4 +1,4 @@
-import train
+from enn_ppo import train
 
 
 def test_multi_armed_bandit() -> None:
