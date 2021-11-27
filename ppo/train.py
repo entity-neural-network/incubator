@@ -102,6 +102,73 @@ def layer_init(layer: Any, std: float = np.sqrt(2), bias_const: float = 0.0) -> 
     return layer
 
 
+class InputNorm(nn.Module):
+    """
+    Computes a running mean/variance of input features and performs normalization.
+    Adapted from https://www.johndcook.com/blog/standard_deviation/
+    """
+
+    # Pretend that `count` is a float to make MyPy happy
+    count: float
+
+    def __init__(self, num_features: int, cliprange: float = 5) -> None:
+        super(InputNorm, self).__init__()
+
+        self.cliprange = cliprange
+        self.register_buffer("count", torch.tensor(0.0))
+        self.register_buffer("mean", torch.zeros(num_features))
+        self.register_buffer("squares_sum", torch.zeros(num_features))
+        self.fp16 = False
+        self._stddev: Optional[torch.Tensor] = None
+        self._dirty = True
+
+    def update(self, input: torch.Tensor) -> None:
+        self._dirty = True
+        dbatch, dfeat = input.size()
+
+        count = input.numel() / dfeat
+        if count == 0:
+            return
+        mean = input.mean(dim=0)
+        if self.count == 0:
+            self.count += count
+            self.mean = mean
+            self.squares_sum = ((input - mean) * (input - mean)).sum(dim=0)
+        else:
+            self.count += count
+            new_mean = self.mean + (mean - self.mean) * count / self.count
+            # This is probably not quite right because it applies multiple updates simultaneously.
+            self.squares_sum = self.squares_sum + (
+                (input - self.mean) * (input - new_mean)
+            ).sum(dim=0)
+            self.mean = new_mean
+
+    def forward(
+        self, input: torch.Tensor, mask: Optional[torch.Tensor] = None
+    ) -> torch.Tensor:
+        with torch.no_grad():
+            if self.training:
+                self.update(input)
+            if self.count > 1:
+                input = (input - self.mean) / self.stddev()
+            input = torch.clamp(input, -self.cliprange, self.cliprange)
+
+        return input.half() if self.fp16 else input
+
+    def enable_fp16(self) -> None:
+        # Convert buffers back to fp32, fp16 has insufficient precision and runs into overflow on squares_sum
+        self.float()
+        self.fp16 = True
+
+    def stddev(self) -> torch.Tensor:
+        if self._dirty or self._stddev is None:
+            sd = torch.sqrt(self.squares_sum / (self.count - 1))
+            sd[sd == 0] = 1
+            self._stddev = sd
+            self._dirty = False
+        return self._stddev
+
+
 class Agent(nn.Module):
     def __init__(
         self,
@@ -118,6 +185,7 @@ class Agent(nn.Module):
         self.embedding = nn.ModuleDict(
             {
                 name: nn.Sequential(
+                    InputNorm(len(entity.features)),
                     nn.Linear(len(entity.features), d_model),
                     nn.ReLU(),
                     nn.LayerNorm(d_model),
