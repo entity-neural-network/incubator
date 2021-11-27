@@ -18,6 +18,7 @@ from entity_gym.environment import (
 )
 from entity_gym.envs import ENV_REGISTRY
 from enn_ppo.sample_recorder import SampleRecorder, Sample
+from enn_ppo.simple_trace import Tracer
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -210,7 +211,7 @@ class Agent(nn.Module):
         return next(self.parameters()).device
 
     def batch_and_embed(
-        self, obs: List[Observation]
+        self, obs: List[Observation],
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         """
         Example:
@@ -273,8 +274,8 @@ class Agent(nn.Module):
     def get_action_and_value(
         self,
         obs: List[Observation],
-        prev_actions: Optional[List[Dict[str, torch.Tensor]]] = None
-        # ) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, torch.Tensor], torch.Tensor]:
+        prev_actions: Optional[List[Dict[str, torch.Tensor]]] = None,
+        tracer: Optional[Tracer] = None,
     ) -> Tuple[
         List[Dict[str, torch.Tensor]],
         List[Dict[str, torch.Tensor]],
@@ -284,7 +285,12 @@ class Agent(nn.Module):
         actions = {}
         probs = {}
         entropies = {}
+        if tracer:
+            tracer.start("batch_and_embed")
         x, index_map, batch_index, lengths = self.batch_and_embed(obs)
+        if tracer:
+            tracer.end("batch_and_embed")
+            tracer.start("action_heads")
         index_offsets = (lengths.cumsum(0) - lengths[0]).cpu().numpy()
         actor_counts = {}
         for action_name, action_head in self.action_heads.items():
@@ -307,10 +313,14 @@ class Agent(nn.Module):
             actions[action_name] = action
             probs[action_name] = dist.log_prob(action)
             entropies[action_name] = dist.entropy()
+        if tracer:
+            tracer.end("action_heads")
 
         pooled = torch_scatter.scatter(src=x, dim=0, index=batch_index, reduce="mean")
         values = self.value_head(pooled)
 
+        if tracer:
+            tracer.start("unbatch")
         if prev_actions is None:
             unbatched_actions: List[Dict[str, torch.Tensor]] = [{} for _ in obs]
         unbatched_probs: List[Dict[str, torch.Tensor]] = [{} for _ in obs]
@@ -334,6 +344,8 @@ class Agent(nn.Module):
                 torch.split(ragged_batch_entropies_tensor, actor_counts[action_name]),
             ):
                 entropies_dict[action_name] = e
+        if tracer:
+            tracer.end("unbatch")
 
         return (
             prev_actions or unbatched_actions,
@@ -362,6 +374,8 @@ def train(args: argparse.Namespace) -> float:
         "|param|value|\n|-|-|\n%s"
         % ("\n".join([f"|{key}|{value}|" for key, value in vars(args).items()])),
     )
+
+    tracer = Tracer()
 
     # TRY NOT TO MODIFY: seeding
     random.seed(args.seed)
@@ -398,6 +412,7 @@ def train(args: argparse.Namespace) -> float:
     num_updates = args.total_timesteps // args.batch_size
 
     for update in range(1, num_updates + 1):
+        tracer.start("update")
         obs = []
         actions = []
         logprobs = []
@@ -408,57 +423,64 @@ def train(args: argparse.Namespace) -> float:
             lrnow = frac * args.learning_rate
             optimizer.param_groups[0]["lr"] = lrnow
 
+        tracer.start("rollout")
         for step in range(0, args.num_steps):
             global_step += 1 * args.num_envs
             obs.append(next_obs)
             dones[step] = next_done
 
             # ALGO LOGIC: action logic
-            with torch.no_grad():
-                action, logprob, _, value = agent.get_action_and_value(next_obs)
+            with torch.no_grad(), tracer.span("forward"):
+                action, logprob, _, value = agent.get_action_and_value(
+                    next_obs, tracer=tracer
+                )
                 values[step] = value.flatten()
             actions.append(action)
             logprobs.append(logprob)
             if args.capture_samples:
-                for i, o in enumerate(next_obs):
-                    sample_recorder.record(
-                        Sample(
-                            entities=o.entities,
-                            action_masks={
-                                n: a.actors for n, a in o.action_masks.items()
-                            },
-                            # TODO: capture full logprobs, not just chosen action
-                            probabilities={
-                                n: l.cpu().numpy() for n, l in logprob[i].items()
-                            },
-                            # TODO: actually want to capture returns, need to move after rollout
-                            reward=o.reward,
-                            step=curr_step[i],
-                            episode=episodes[i],
+                with tracer.span("record_samples"):
+                    for i, o in enumerate(next_obs):
+                        sample_recorder.record(
+                            Sample(
+                                entities=o.entities,
+                                action_masks={
+                                    n: a.actors for n, a in o.action_masks.items()
+                                },
+                                # TODO: capture full logprobs, not just chosen action
+                                probabilities={
+                                    n: l.cpu().numpy() for n, l in logprob[i].items()
+                                },
+                                # TODO: actually want to capture returns, need to move after rollout
+                                reward=o.reward,
+                                step=curr_step[i],
+                                episode=episodes[i],
+                            )
                         )
-                    )
 
             # Join all actions with corresponding `EntityID`s
-            _actions = []
-            for _obs, action_dict in zip(next_obs, action):
-                _action_dict = {}
-                for action_name, action_tensor in action_dict.items():
-                    mask = _obs.action_masks[action_name]
-                    actor_action = [
-                        (_obs.ids[actor_idx], _act)
-                        for actor_idx, _act in zip(
-                            mask.actors, action_tensor.cpu().numpy()
-                        )
-                    ]
-                    _action_dict[action_name] = CategoricalAction(actor_action)
-                _actions.append(_action_dict)
+            with tracer.span("join_actions"):
+                _actions = []
+                for _obs, action_dict in zip(next_obs, action):
+                    _action_dict = {}
+                    for action_name, action_tensor in action_dict.items():
+                        mask = _obs.action_masks[action_name]
+                        actor_action = [
+                            (_obs.ids[actor_idx], _act)
+                            for actor_idx, _act in zip(
+                                mask.actors, action_tensor.cpu().numpy()
+                            )
+                        ]
+                        _action_dict[action_name] = CategoricalAction(actor_action)
+                    _actions.append(_action_dict)
 
             # TRY NOT TO MODIFY: execute the game and log data.
-            next_obs = envs.act(_actions, obs_space)
-            rewards[step] = (
-                torch.tensor([o.reward for o in next_obs]).to(device).view(-1)
-            )
-            next_done = torch.tensor([o.done for o in next_obs]).to(device).view(-1)
+            with tracer.span("step"):
+                next_obs = envs.act(_actions, obs_space)
+            with tracer.span("reward_done_to_device"):
+                rewards[step] = (
+                    torch.tensor([o.reward for o in next_obs]).to(device).view(-1)
+                )
+                next_done = torch.tensor([o.done for o in next_obs]).to(device).view(-1)
 
             for i, o in enumerate(next_obs):
                 if o.end_of_episode_info is not None:
@@ -486,7 +508,7 @@ def train(args: argparse.Namespace) -> float:
                         curr_step[i] += 1
 
         # bootstrap value if not done
-        with torch.no_grad():
+        with torch.no_grad(), tracer.span("advantages"):
             next_value = agent.get_value(next_obs).reshape(1, -1)
             if args.gae:
                 advantages = torch.zeros_like(rewards).to(device)
@@ -521,17 +543,21 @@ def train(args: argparse.Namespace) -> float:
                 advantages = returns - values
 
         # flatten the batch
-        b_obs = [o for _obs in obs for o in _obs]
-        b_logprobs = [l for _logprobs in logprobs for l in _logprobs]
-        b_actions = [a for _actions in actions for a in _actions]
-        b_advantages = advantages.reshape(-1)
-        b_returns = returns.reshape(-1)
-        b_values = values.reshape(-1)
+        with tracer.span("flatten"):
+            b_obs = [o for _obs in obs for o in _obs]
+            b_logprobs = [l for _logprobs in logprobs for l in _logprobs]
+            b_actions = [a for _actions in actions for a in _actions]
+            b_advantages = advantages.reshape(-1)
+            b_returns = returns.reshape(-1)
+            b_values = values.reshape(-1)
+
+        tracer.end("rollout")
 
         def dictcat(x: Dict[str, torch.Tensor]) -> torch.Tensor:
             return torch.cat(list(x.values()))
 
         # Optimizaing the policy and value network
+        tracer.start("optimize")
         b_inds = np.arange(args.batch_size)
         clipfracs = []
         for epoch in range(args.update_epochs):
@@ -540,16 +566,21 @@ def train(args: argparse.Namespace) -> float:
                 end = start + args.minibatch_size
                 mb_inds = b_inds[start:end]
 
-                _, newlogprob, entropy, newvalue = agent.get_action_and_value(
-                    [b_obs[i] for i in mb_inds], [b_actions[i] for i in mb_inds]
-                )
-                logratio = [
-                    dictcat(newlogprob[i]) - dictcat(b_logprobs[mb_inds[i]])
-                    for i in range(len(mb_inds))
-                ]
-                ratio = [l.exp() for l in logratio]
+                with tracer.span("forward"):
+                    _, newlogprob, entropy, newvalue = agent.get_action_and_value(
+                        [b_obs[i] for i in mb_inds],
+                        [b_actions[i] for i in mb_inds],
+                        tracer=tracer,
+                    )
 
-                with torch.no_grad():
+                with tracer.span("ratio"):
+                    logratio = [
+                        dictcat(newlogprob[i]) - dictcat(b_logprobs[mb_inds[i]])
+                        for i in range(len(mb_inds))
+                    ]
+                    ratio = [l.exp() for l in logratio]
+
+                with torch.no_grad(), tracer.span("kl"):
                     # calculate approx_kl http://joschu.net/blog/kl-approx.html
                     # old_approx_kl = (-logratio).mean()
                     # TODO: mean across everything rather than nested mean?
@@ -581,39 +612,46 @@ def train(args: argparse.Namespace) -> float:
                     )
 
                 # Policy loss
-                pg_loss1 = torch.cat(
-                    [
-                        -_mb_advantages * _ratio
-                        for (_mb_advantages, _ratio) in zip(mb_advantages, ratio)
-                    ]
-                )
-                pg_loss2 = torch.cat(
-                    [
-                        -_mb_advantages
-                        * torch.clamp(_ratio, 1 - args.clip_coef, 1 + args.clip_coef)
-                        for (_mb_advantages, _ratio) in zip(mb_advantages, ratio)
-                    ]
-                )
-                pg_loss = torch.max(pg_loss1, pg_loss2).mean()
+                with tracer.span("policy_loss"):
+                    pg_loss1 = torch.cat(
+                        [
+                            -_mb_advantages * _ratio
+                            for (_mb_advantages, _ratio) in zip(mb_advantages, ratio)
+                        ]
+                    )
+                    pg_loss2 = torch.cat(
+                        [
+                            -_mb_advantages
+                            * torch.clamp(
+                                _ratio, 1 - args.clip_coef, 1 + args.clip_coef
+                            )
+                            for (_mb_advantages, _ratio) in zip(mb_advantages, ratio)
+                        ]
+                    )
+                    pg_loss = torch.max(pg_loss1, pg_loss2).mean()
 
                 # Value loss
-                newvalue = newvalue.view(-1)
-                if args.clip_vloss:
-                    v_loss_unclipped = (newvalue - b_returns[mb_inds]) ** 2
-                    v_clipped = b_values[mb_inds] + torch.clamp(
-                        newvalue - b_values[mb_inds], -args.clip_coef, args.clip_coef,
-                    )
-                    v_loss_clipped = (v_clipped - b_returns[mb_inds]) ** 2
-                    v_loss_max = torch.max(v_loss_unclipped, v_loss_clipped)
-                    v_loss = 0.5 * v_loss_max.mean()
-                else:
-                    v_loss = 0.5 * ((newvalue - b_returns[mb_inds]) ** 2).mean()
+                with tracer.span("value_loss"):
+                    newvalue = newvalue.view(-1)
+                    if args.clip_vloss:
+                        v_loss_unclipped = (newvalue - b_returns[mb_inds]) ** 2
+                        v_clipped = b_values[mb_inds] + torch.clamp(
+                            newvalue - b_values[mb_inds],
+                            -args.clip_coef,
+                            args.clip_coef,
+                        )
+                        v_loss_clipped = (v_clipped - b_returns[mb_inds]) ** 2
+                        v_loss_max = torch.max(v_loss_unclipped, v_loss_clipped)
+                        v_loss = 0.5 * v_loss_max.mean()
+                    else:
+                        v_loss = 0.5 * ((newvalue - b_returns[mb_inds]) ** 2).mean()
 
                 entropy_loss = torch.cat([dictcat(e) for e in entropy]).mean()
                 loss = pg_loss - args.ent_coef * entropy_loss + v_loss * args.vf_coef
 
                 optimizer.zero_grad()
-                loss.backward()
+                with tracer.span("backward"):
+                    loss.backward()
                 gradnorm = nn.utils.clip_grad_norm_(
                     agent.parameters(), args.max_grad_norm
                 )
@@ -623,6 +661,9 @@ def train(args: argparse.Namespace) -> float:
                 if approx_kl > args.target_kl:
                     break
 
+        tracer.end("optimize")
+
+        tracer.start("metrics")
         y_pred, y_true = b_values.cpu().numpy(), b_returns.cpu().numpy()
         var_y = np.var(y_true)
         explained_var = np.nan if var_y == 0 else 1 - np.var(y_true - y_pred) / var_y
@@ -652,6 +693,11 @@ def train(args: argparse.Namespace) -> float:
         writer.add_scalar(
             "charts/SPS", int(global_step / (time.time() - start_time)), global_step
         )
+        tracer.end("metrics")
+        tracer.end("update")
+        traces = tracer.finish()
+        for callstack, timing in traces.items():
+            writer.add_scalar(f"trace/{callstack}", timing, global_step)
 
     # envs.close()
     if args.capture_samples:
