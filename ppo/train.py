@@ -141,7 +141,9 @@ class InputNorm(nn.Module):
             # See Chan, Tony F.; Golub, Gene H.; LeVeque, Randall J. (1979), "Updating Formulae and a Pairwise Algorithm for Computing Sample Variances.", Technical Report STAN-CS-79-773, Department of Computer Science, Stanford University.
             delta = mean - self.mean
             self.mean += delta * count / (count + self.count)
-            self.squares_sum += square_sum + torch.square(delta) * count * self.count / (count + self.count)
+            self.squares_sum += square_sum + torch.square(
+                delta
+            ) * count * self.count / (count + self.count)
             self.count += count
 
     def forward(
@@ -194,7 +196,10 @@ class Agent(nn.Module):
                 for name, entity in obs_space.entities.items()
             }
         )
-        self.backbone = nn.Sequential(nn.Linear(d_model, d_model), nn.ReLU(),)
+        self.backbone = nn.Sequential(
+            nn.Linear(d_model, d_model),
+            nn.ReLU(),
+        )
         action_heads = {}
         for name, space in action_space.items():
             assert isinstance(space, CategoricalActionSpace)
@@ -599,7 +604,9 @@ def train(args: argparse.Namespace) -> float:
                 if args.clip_vloss:
                     v_loss_unclipped = (newvalue - b_returns[mb_inds]) ** 2
                     v_clipped = b_values[mb_inds] + torch.clamp(
-                        newvalue - b_values[mb_inds], -args.clip_coef, args.clip_coef,
+                        newvalue - b_values[mb_inds],
+                        -args.clip_coef,
+                        args.clip_coef,
                     )
                     v_loss_clipped = (v_clipped - b_returns[mb_inds]) ** 2
                     v_loss_max = torch.max(v_loss_unclipped, v_loss_clipped)

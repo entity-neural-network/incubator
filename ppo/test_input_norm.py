@@ -3,6 +3,7 @@ from train import InputNorm
 import torch
 import numpy as np
 
+
 def test_correct_normalization():
     generator = torch.random.manual_seed(0)
     np.random.seed(0)
@@ -21,10 +22,12 @@ def test_correct_normalization():
             remaining = size[0]
             while remaining > 0:
                 # Select a number of samples to take
-                batch_size = min(remaining, np.random.randint(min_batch_size, max_batch_size))
+                batch_size = min(
+                    remaining, np.random.randint(min_batch_size, max_batch_size)
+                )
                 # Take it
-                batch = sample[size[0] - remaining: size[0] - remaining + batch_size]
-                samples_seen_so_far = sample[:size[0] - remaining + batch_size]
+                batch = sample[size[0] - remaining : size[0] - remaining + batch_size]
+                samples_seen_so_far = sample[: size[0] - remaining + batch_size]
                 remaining -= batch_size
                 # Compute output
                 out = layer(batch)
@@ -32,7 +35,7 @@ def test_correct_normalization():
                 mean_so_far = samples_seen_so_far.mean(dim=0)
                 std_so_far = samples_seen_so_far.std(dim=0)
 
-                assert layer.count.item()  == size[0] - remaining
+                assert layer.count.item() == size[0] - remaining
                 # Note that this does not work when atol=1e-7
                 assert torch.allclose(layer.mean, mean_so_far, rtol=0, atol=1e-6)
                 assert torch.allclose(layer.stddev(), std_so_far, atol=1e-6, rtol=0)
