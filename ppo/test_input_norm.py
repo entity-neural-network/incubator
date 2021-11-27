@@ -4,7 +4,7 @@ import torch
 import numpy as np
 
 
-def test_correct_normalization():
+def test_correct_normalization() -> None:
     generator = torch.random.manual_seed(0)
     np.random.seed(0)
 
@@ -35,7 +35,7 @@ def test_correct_normalization():
                 mean_so_far = samples_seen_so_far.mean(dim=0)
                 std_so_far = samples_seen_so_far.std(dim=0)
 
-                assert layer.count.item() == size[0] - remaining
+                assert layer.count == size[0] - remaining
                 # Note that this does not work when atol=1e-7
                 assert torch.allclose(layer.mean, mean_so_far, rtol=0, atol=1e-6)
                 assert torch.allclose(layer.stddev(), std_so_far, atol=1e-6, rtol=0)
