@@ -36,7 +36,8 @@ jobs:
           black --check --diff .
       - name: MyPy
         run: |
-          mypy entity_gym enn_ppo
+          mypy entity_gym
+          mypy enn_ppo
       - name: Run tests
         run: |
           pytest
