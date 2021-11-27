@@ -17,7 +17,6 @@ from entity_gym.environment import (
     Observation,
 )
 from entity_gym.envs import ENV_REGISTRY
-from torch.functional import Tensor
 from sample_recorder import SampleRecorder, Sample
 import torch
 import torch.nn as nn
