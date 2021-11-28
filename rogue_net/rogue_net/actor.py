@@ -99,7 +99,7 @@ class Actor(nn.Module):
         )
         return self.auxiliary_heads[head_name](pooled)  # type: ignore
 
-    def get_action_and_value(
+    def get_action_and_auxiliary(
         self,
         obs: List[Observation],
         prev_actions: Optional[List[Dict[str, torch.Tensor]]] = None,
