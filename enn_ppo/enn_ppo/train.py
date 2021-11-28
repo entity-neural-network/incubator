@@ -19,6 +19,8 @@ from entity_gym.environment import (
 from entity_gym.envs import ENV_REGISTRY
 from enn_ppo.sample_recorder import SampleRecorder, Sample
 from enn_ppo.simple_trace import Tracer
+from rogue_net.actor import AutoActor
+from rogue_net import backbone_creator, head_creator
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -103,173 +105,26 @@ def layer_init(layer: Any, std: float = np.sqrt(2), bias_const: float = 0.0) -> 
     return layer
 
 
-class InputNorm(nn.Module):
-    """
-    Computes a running mean/variance of input features and performs normalization.
-    Adapted from https://www.johndcook.com/blog/standard_deviation/
-    """
-
-    # Pretend that `count` is a float to make MyPy happy
-    count: float
-
-    def __init__(self, num_features: int, cliprange: float = 5) -> None:
-        super(InputNorm, self).__init__()
-
-        self.cliprange = cliprange
-        self.register_buffer("count", torch.tensor(0.0))
-        self.register_buffer("mean", torch.zeros(num_features))
-        self.register_buffer("squares_sum", torch.zeros(num_features))
-        self.fp16 = False
-        self._stddev: Optional[torch.Tensor] = None
-        self._dirty = True
-
-    def update(self, input: torch.Tensor) -> None:
-        self._dirty = True
-        dbatch, dfeat = input.size()
-
-        count = input.numel() / dfeat
-        if count == 0:
-            return
-        mean = input.mean(dim=0)
-        square_sum = ((input - mean) * (input - mean)).sum(dim=0)
-        if self.count == 0:
-            self.count += count
-            self.mean = mean
-            self.squares_sum = square_sum
-        else:
-            # This does not follow directly Welford's method since it is a batched update
-            # Instead we consider computing the statistics of two sets, A="current set so far" B="current batch"
-            # See Chan, Tony F.; Golub, Gene H.; LeVeque, Randall J. (1979), "Updating Formulae and a Pairwise Algorithm for Computing Sample Variances.", Technical Report STAN-CS-79-773, Department of Computer Science, Stanford University.
-            delta = mean - self.mean
-            self.mean += delta * count / (count + self.count)
-            self.squares_sum += square_sum + torch.square(
-                delta
-            ) * count * self.count / (count + self.count)
-            self.count += count
-
-    def forward(
-        self, input: torch.Tensor, mask: Optional[torch.Tensor] = None
-    ) -> torch.Tensor:
-        with torch.no_grad():
-            if self.training:
-                self.update(input)
-            if self.count > 1:
-                input = (input - self.mean) / self.stddev()
-            input = torch.clamp(input, -self.cliprange, self.cliprange)
-
-        return input.half() if self.fp16 else input
-
-    def enable_fp16(self) -> None:
-        # Convert buffers back to fp32, fp16 has insufficient precision and runs into overflow on squares_sum
-        self.float()
-        self.fp16 = True
-
-    def stddev(self) -> torch.Tensor:
-        if self._dirty or self._stddev is None:
-            sd = torch.sqrt(self.squares_sum / (self.count - 1))
-            sd[sd == 0] = 1
-            self._stddev = sd
-            self._dirty = False
-        return self._stddev
-
-
-class Agent(nn.Module):
+class PPOActor(AutoActor):
     def __init__(
         self,
         obs_space: ObsSpace,
         action_space: Dict[str, ActionSpace],
         d_model: int = 64,
     ):
-        super(Agent, self).__init__()
-
-        self.obs_space = obs_space
-        self.action_space = action_space
-
-        self.d_model = d_model
-        self.embedding = nn.ModuleDict(
-            {
-                name: nn.Sequential(
-                    InputNorm(len(entity.features)),
-                    nn.Linear(len(entity.features), d_model),
-                    nn.ReLU(),
-                    nn.LayerNorm(d_model),
-                )
-                for name, entity in obs_space.entities.items()
-            }
+        auxiliary_heads = nn.ModuleDict(
+            {"value": head_creator.create_value_head(d_model)}
         )
-        self.backbone = nn.Sequential(nn.Linear(d_model, d_model), nn.ReLU(),)
-        action_heads = {}
-        for name, space in action_space.items():
-            assert isinstance(space, CategoricalActionSpace)
-            action_heads[name] = nn.Linear(d_model, len(space.choices))
-        self.action_heads = nn.ModuleDict(action_heads)
-        self.value_head = nn.Linear(d_model, 1)
-        self.value_head.weight.data.fill_(0.0)
-        self.value_head.bias.data.fill_(0.0)
-
-    def device(self) -> torch.device:
-        return next(self.parameters()).device
-
-    def batch_and_embed(
-        self, obs: List[Observation],
-    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
-        """
-        Example:
-        entities in obs 0: [A0, A0, A0, B0]
-        entities in obs 1: [A1, B1, B1]
-        entities in obs 2: [A2, A2]
-
-        `x` is a flattened tensor of entity embeddings sorted first by entity type, then by batch index:
-        [A0, A0, A0, A1, A2, A2, B0, B1, B1]
-
-        `index_map` translates the index of entities sorted first by batch index then by entity type to their index in `x`:
-        [0, 1, 2, 6, 3, 7, 8, 4, 5]
-
-        `batch_index` gives the batch index of each entity in `x`:
-        [0, 0, 0, 1, 2, 2, 0, 1, 1]
-
-        `lengths` gives the number of entities in each observation:
-        [4, 3, 2]
-        """
-        entity_embeds = []
-        index_offsets = {}
-        index_offset = 0
-        for entity, embedding in self.embedding.items():
-            batch = torch.cat(
-                [torch.tensor(o.entities[entity], dtype=torch.float32) for o in obs],
-            ).to(self.device())
-            entity_embeds.append(embedding(batch))
-            index_offsets[entity] = index_offset
-            index_offset += batch.size(0)
-        x = torch.cat(entity_embeds)
-        index_map = []
-        batch_index = []
-        lengths = []
-        for i, o in enumerate(obs):
-            lengths.append(0)
-            for entity in self.obs_space.entities.keys():
-                count = len(o.entities[entity])
-                index_map.append(
-                    torch.arange(index_offsets[entity], index_offsets[entity] + count)
-                )
-                batch_index.append(torch.full((count,), i, dtype=torch.int64))
-                index_offsets[entity] += count
-                lengths[-1] += count
-        x = self.backbone(x)
-
-        return (
-            x,
-            torch.cat(index_map).to(self.device()),
-            torch.cat(batch_index).to(self.device()),
-            torch.tensor(lengths).to(self.device()),
+        super().__init__(
+            obs_space,
+            action_space,
+            d_model,
+            backbone_creator.mlp_backbone(d_model, 1),
+            auxiliary_heads,
         )
 
     def get_value(self, x: List[Observation]) -> torch.Tensor:
-        embeddings, _, batch_index, _ = self.batch_and_embed(x)
-        pooled = torch_scatter.scatter(
-            src=embeddings, dim=0, index=batch_index, reduce="mean"
-        )
-        return self.value_head(pooled)  # type: ignore
+        return self.get_auxiliary_head(x, "value")
 
     def get_action_and_value(
         self,
@@ -282,77 +137,10 @@ class Agent(nn.Module):
         List[Dict[str, torch.Tensor]],
         torch.Tensor,
     ]:
-        actions = {}
-        probs = {}
-        entropies = {}
-        if tracer:
-            tracer.start("batch_and_embed")
-        x, index_map, batch_index, lengths = self.batch_and_embed(obs)
-        if tracer:
-            tracer.end("batch_and_embed")
-            tracer.start("action_heads")
-        index_offsets = (lengths.cumsum(0) - lengths[0]).cpu().numpy()
-        actor_counts = {}
-        for action_name, action_head in self.action_heads.items():
-            actor_counts[action_name] = [
-                len(o.action_masks[action_name].actors) for o in obs
-            ]
-            actors = torch.cat(
-                [
-                    torch.tensor(o.action_masks[action_name].actors + offset)
-                    for (o, offset) in zip(obs, index_offsets)
-                ]
-            ).to(self.device())
-            actor_embeds = x[index_map[actors]]
-            logits = action_head(actor_embeds)
-            dist = Categorical(logits=logits)
-            if prev_actions is None:
-                action = dist.sample()
-            else:
-                action = torch.cat([a[action_name] for a in prev_actions])
-            actions[action_name] = action
-            probs[action_name] = dist.log_prob(action)
-            entropies[action_name] = dist.entropy()
-        if tracer:
-            tracer.end("action_heads")
-
-        pooled = torch_scatter.scatter(src=x, dim=0, index=batch_index, reduce="mean")
-        values = self.value_head(pooled)
-
-        if tracer:
-            tracer.start("unbatch")
-        if prev_actions is None:
-            unbatched_actions: List[Dict[str, torch.Tensor]] = [{} for _ in obs]
-        unbatched_probs: List[Dict[str, torch.Tensor]] = [{} for _ in obs]
-        unbatched_entropies: List[Dict[str, torch.Tensor]] = [{} for _ in obs]
-        for action_name, ragged_batch_action_tensor in actions.items():
-            if prev_actions is None:
-                for action_dict, a in zip(
-                    unbatched_actions,
-                    torch.split(ragged_batch_action_tensor, actor_counts[action_name]),
-                ):
-                    action_dict[action_name] = a
-            ragged_batch_probs_tensor = probs[action_name]
-            for probs_dict, p in zip(
-                unbatched_probs,
-                torch.split(ragged_batch_probs_tensor, actor_counts[action_name]),
-            ):
-                probs_dict[action_name] = p
-            ragged_batch_entropies_tensor = entropies[action_name]
-            for entropies_dict, e in zip(
-                unbatched_entropies,
-                torch.split(ragged_batch_entropies_tensor, actor_counts[action_name]),
-            ):
-                entropies_dict[action_name] = e
-        if tracer:
-            tracer.end("unbatch")
-
-        return (
-            prev_actions or unbatched_actions,
-            unbatched_probs,
-            unbatched_entropies,
-            values,
+        actions, probs, entropies, aux = self.get_action_and_auxiliary(
+            obs, prev_actions, tracer
         )
+        return (actions, probs, entropies, aux["value"])
 
 
 def train(args: argparse.Namespace) -> float:
@@ -393,7 +181,7 @@ def train(args: argparse.Namespace) -> float:
     if args.capture_samples:
         sample_recorder = SampleRecorder(args.capture_samples, action_space, obs_space)
 
-    agent = Agent(obs_space, action_space, d_model=args.hidden_size).to(device)
+    agent = PPOActor(obs_space, action_space, d_model=args.hidden_size).to(device)
     optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5)
 
     # ALGO Logic: Storage setup
