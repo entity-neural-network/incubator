@@ -210,6 +210,6 @@ class AutoActor(Actor):
             embedding_creator.create_embeddings(obs_space, d_model),
             action_space,
             backbone,
-            head_creator.create_action_heads(action_space),
+            head_creator.create_action_heads(action_space, d_model),
             auxiliary_heads=auxiliary_heads,
         )
