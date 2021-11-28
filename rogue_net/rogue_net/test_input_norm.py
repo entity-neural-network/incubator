@@ -1,4 +1,4 @@
-from rogue_net.rogue_net.input_norm import InputNorm
+from rogue_net.input_norm import InputNorm
 
 
 import torch
