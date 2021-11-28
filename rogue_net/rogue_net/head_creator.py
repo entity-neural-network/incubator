@@ -17,7 +17,9 @@ def create_value_head(d_model: int) -> nn.Module:
     return value_head
 
 
-def create_action_heads(action_space: Dict[str, ActionSpace], d_model: int) -> nn.ModuleDict:
+def create_action_heads(
+    action_space: Dict[str, ActionSpace], d_model: int
+) -> nn.ModuleDict:
     action_heads = {}
     for name, space in action_space.items():
         action_heads[name] = create_head_for(space, d_model)

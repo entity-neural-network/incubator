@@ -104,6 +104,7 @@ def layer_init(layer: Any, std: float = np.sqrt(2), bias_const: float = 0.0) -> 
     torch.nn.init.constant_(layer.bias, bias_const)
     return layer
 
+
 class PPOActor(AutoActor):
     def __init__(
         self,
@@ -111,13 +112,19 @@ class PPOActor(AutoActor):
         action_space: Dict[str, ActionSpace],
         d_model: int = 64,
     ):
-        auxiliary_heads = nn.ModuleDict({"value": head_creator.create_value_head(d_model)})
-        super().__init__(obs_space, action_space, d_model, backbone_creator.mlp_backbone(d_model, 1), auxiliary_heads)
-
+        auxiliary_heads = nn.ModuleDict(
+            {"value": head_creator.create_value_head(d_model)}
+        )
+        super().__init__(
+            obs_space,
+            action_space,
+            d_model,
+            backbone_creator.mlp_backbone(d_model, 1),
+            auxiliary_heads,
+        )
 
     def get_value(self, x: List[Observation]) -> torch.Tensor:
         return self.get_auxiliary_head(x, "value")
-
 
     def get_action_and_value(
         self,
@@ -130,10 +137,10 @@ class PPOActor(AutoActor):
         List[Dict[str, torch.Tensor]],
         torch.Tensor,
     ]:
-        actions, probs, entropies, aux = self.get_action_and_auxiliary(obs, prev_actions, tracer)
-        return (
-            actions, probs, entropies, aux["value"]
+        actions, probs, entropies, aux = self.get_action_and_auxiliary(
+            obs, prev_actions, tracer
         )
+        return (actions, probs, entropies, aux["value"])
 
 
 def train(args: argparse.Namespace) -> float:
