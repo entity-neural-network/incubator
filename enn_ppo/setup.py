@@ -12,12 +12,12 @@ setup(
     package_data={"enn_ppo": ["py.typed"]},
     dependency_links=["https://data.pyg.org/whl/torch-1.10.0+cu102.html",],
     install_requires=[
-        "numpy==1.21",
-        "torch==1.10",
-        "tensorboard==2.7",
-        "msgpack==1.0.3",
-        "msgpack-numpy==0.4.7.1",
-        "tqdm==4.62.3",
+        "numpy~=1.21",
+        "torch==1.10.*",
+        "tensorboard~=2.7",
+        "msgpack~=1.0",
+        "msgpack-numpy~=0.4.7",
+        "tqdm~=4.62",
         "torch-scatter==2.0.9",
     ],
 )
