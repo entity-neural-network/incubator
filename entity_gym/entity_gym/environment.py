@@ -86,11 +86,11 @@ class Observation:
 
 
 @dataclass
-class ObsBatch:  # type: ignore
-    entities: Dict[str, RaggedBufferF32]  # type: ignore
+class ObsBatch:
+    entities: Dict[str, RaggedBufferF32]
     ids: Sequence[Sequence[EntityID]]
     # TODO: currently assumes categorical actions and no mask
-    action_masks: Mapping[str, RaggedBufferI64]  # type: ignore
+    action_masks: Mapping[str, RaggedBufferI64]
     reward: npt.NDArray[np.float32]
     done: npt.NDArray[np.bool_]
     end_of_episode_info: Dict[int, EpisodeStats]
