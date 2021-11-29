@@ -3,13 +3,12 @@ from torch import nn
 import torch
 import numpy as np
 from entity_gym.environment import ActionSpace, CategoricalActionSpace
-from typing import (
-    Any,
-    Dict,
-)
+from typing import Dict
 
 
-def layer_init(layer: Any, std: float = np.sqrt(2), bias_const: float = 0.0) -> Any:
+def layer_init(
+    layer: nn.Module, std: float = np.sqrt(2), bias_const: float = 0.0
+) -> nn.Module:
     torch.nn.init.orthogonal_(layer.weight, std)
     torch.nn.init.constant_(layer.bias, bias_const)
     return layer
