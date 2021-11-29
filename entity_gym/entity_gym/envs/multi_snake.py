@@ -186,7 +186,9 @@ class MultiSnake(Environment):
                 range(sum([len(s.segments) for s in self.snakes]) + len(self.food))
             ),
             action_masks={
-                "move": DenseCategoricalActionMask(actors=np.arange(self.num_snakes, dtype=np.int64),),
+                "move": DenseCategoricalActionMask(
+                    actors=np.arange(self.num_snakes, dtype=np.int64),
+                ),
             },
             reward=self.scores[player] - self.last_scores[player],
             done=done,
