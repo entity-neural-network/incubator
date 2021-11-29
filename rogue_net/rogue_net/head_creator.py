@@ -1,19 +1,28 @@
 from typing import Dict
 from torch import nn
-
+import torch
+import numpy as np
 from entity_gym.environment import ActionSpace, CategoricalActionSpace
+from typing import (
+    Any,
+    Dict,
+)
+
+
+def layer_init(layer: Any, std: float = np.sqrt(2), bias_const: float = 0.0) -> Any:
+    torch.nn.init.orthogonal_(layer.weight, std)
+    torch.nn.init.constant_(layer.bias, bias_const)
+    return layer
 
 
 def create_head_for(space: ActionSpace, d_model: int) -> nn.Module:
     if isinstance(space, CategoricalActionSpace):
-        return nn.Linear(d_model, len(space.choices))
+        return layer_init(nn.Linear(d_model, len(space.choices)), std=0.01)
     raise NotImplementedError()
 
 
 def create_value_head(d_model: int) -> nn.Module:
-    value_head = nn.Linear(d_model, 1)
-    value_head.weight.data.fill_(0.0)
-    value_head.bias.data.fill_(0.0)
+    value_head = layer_init(nn.Linear(d_model, 1), std=1.0)
     return value_head
 
 
