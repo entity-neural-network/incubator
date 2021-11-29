@@ -11,5 +11,5 @@ setup(
     packages=["rogue_net"],
     package_data={"rogue_net": ["py.typed"]},
     dependency_links=["https://data.pyg.org/whl/torch-1.10.0+cu102.html",],
-    install_requires=["torch==1.10.*", "torch-scatter==2.0.9",],
+    install_requires=["torch==1.10.*", "torch-scatter==2.0.9", "ragged-buffer==0.2.0"],
 )

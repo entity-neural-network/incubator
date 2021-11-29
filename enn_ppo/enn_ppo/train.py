@@ -1,20 +1,29 @@
 # adapted from https://github.com/vwxyzjn/cleanrl
 import argparse
+from dataclasses import dataclass, field
 import os
 import random
 import time
 from distutils.util import strtobool
-from typing import Any, Dict, List, Optional, Tuple
+from typing import (
+    Any,
+    Dict,
+    Generic,
+    List,
+    Mapping,
+    Optional,
+    Type,
+    TypeVar,
+)
 
 import numpy as np
+import numpy.typing as npt
 from entity_gym.environment import (
-    Action,
     ActionSpace,
     CategoricalAction,
     CategoricalActionSpace,
     EnvList,
     ObsSpace,
-    Observation,
 )
 from entity_gym.envs import ENV_REGISTRY
 from enn_ppo.sample_recorder import SampleRecorder, Sample
@@ -24,9 +33,8 @@ from rogue_net import backbone_creator, head_creator
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.distributions.categorical import Categorical
 from torch.utils.tensorboard import SummaryWriter
-import torch_scatter
+from ragged_buffer import RaggedBufferF32, RaggedBufferI64, RaggedBuffer
 
 
 def parse_args(override_args: Optional[List[str]] = None) -> argparse.Namespace:
@@ -105,6 +113,39 @@ def layer_init(layer: Any, std: float = np.sqrt(2), bias_const: float = 0.0) -> 
     return layer
 
 
+ScalarType = TypeVar("ScalarType", bound=np.generic, covariant=True)
+
+
+@dataclass
+class RaggedBatchDict(Generic[ScalarType]):
+    rb_cls: Type[RaggedBuffer[ScalarType]]
+    buffers: Dict[str, RaggedBuffer[ScalarType]] = field(default_factory=dict)
+
+    def extend(self, batch: Mapping[str, RaggedBuffer[ScalarType]]) -> None:
+        for k, v in batch.items():
+            if k not in self.buffers:
+                self.buffers[k] = v
+            else:
+                self.buffers[k].extend(v)
+
+    def clear(self) -> None:
+        for buffer in self.buffers.values():
+            buffer.clear()
+
+    def __getitem__(
+        self, index: npt.NDArray[np.int64]
+    ) -> Dict[str, RaggedBuffer[ScalarType]]:
+        return {k: v[index] for k, v in self.buffers.items()}
+
+
+def tensor_dict_to_ragged(
+    rb_cls: Type[RaggedBuffer[ScalarType]],
+    d: Dict[str, torch.Tensor],
+    lengths: Dict[str, np.ndarray],
+) -> Dict[str, RaggedBuffer[ScalarType]]:
+    return {k: rb_cls.from_flattened(v.cpu().numpy(), lengths[k]) for k, v in d.items()}
+
+
 class PPOActor(AutoActor):
     def __init__(
         self,
@@ -123,24 +164,8 @@ class PPOActor(AutoActor):
             auxiliary_heads,
         )
 
-    def get_value(self, x: List[Observation]) -> torch.Tensor:
-        return self.get_auxiliary_head(x, "value")
-
-    def get_action_and_value(
-        self,
-        obs: List[Observation],
-        prev_actions: Optional[List[Dict[str, torch.Tensor]]] = None,
-        tracer: Optional[Tracer] = None,
-    ) -> Tuple[
-        List[Dict[str, torch.Tensor]],
-        List[Dict[str, torch.Tensor]],
-        List[Dict[str, torch.Tensor]],
-        torch.Tensor,
-    ]:
-        actions, probs, entropies, aux = self.get_action_and_auxiliary(
-            obs, prev_actions, tracer
-        )
-        return (actions, probs, entropies, aux["value"])
+    def get_value(self, entities: Dict[str, RaggedBufferF32]) -> torch.Tensor:
+        return self.get_auxiliary_head(entities, "value")
 
 
 def train(args: argparse.Namespace) -> float:
@@ -199,11 +224,13 @@ def train(args: argparse.Namespace) -> float:
     next_done = torch.zeros(args.num_envs).to(device)
     num_updates = args.total_timesteps // args.batch_size
 
+    entities: RaggedBatchDict[np.float32] = RaggedBatchDict(RaggedBufferF32)
+    action_masks = RaggedBatchDict(RaggedBufferI64)
+    actions = RaggedBatchDict(RaggedBufferI64)
+    logprobs = RaggedBatchDict(RaggedBufferF32)
+
     for update in range(1, num_updates + 1):
         tracer.start("update")
-        obs = []
-        actions = []
-        logprobs = []
 
         # Annealing the rate if instructed to do so.
         if args.anneal_lr:
@@ -212,21 +239,38 @@ def train(args: argparse.Namespace) -> float:
             optimizer.param_groups[0]["lr"] = lrnow
 
         tracer.start("rollout")
+        entities.clear()
+        action_masks.clear()
+        actions.clear()
+        logprobs.clear()
         for step in range(0, args.num_steps):
             global_step += 1 * args.num_envs
-            obs.append(next_obs)
+
+            entities.extend(next_obs.entities)
+            action_masks.extend(next_obs.action_masks)
             dones[step] = next_done
 
             # ALGO LOGIC: action logic
             with torch.no_grad(), tracer.span("forward"):
-                action, logprob, _, value = agent.get_action_and_value(
-                    next_obs, tracer=tracer
+                (
+                    action,
+                    probs_tensor,
+                    _,
+                    actor_counts,
+                    aux,
+                ) = agent.get_action_and_auxiliary(
+                    next_obs.entities, next_obs.action_masks, tracer=tracer
                 )
-                values[step] = value.flatten()
-            actions.append(action)
-            logprobs.append(logprob)
+                logprob = tensor_dict_to_ragged(
+                    RaggedBufferF32, probs_tensor, actor_counts
+                )
+                values[step] = aux["value"].flatten()
+            actions.extend(action)
+            logprobs.extend(logprob)
             if args.capture_samples:
                 with tracer.span("record_samples"):
+                    # TODO: fix
+                    """
                     for i, o in enumerate(next_obs):
                         sample_recorder.record(
                             Sample(
@@ -244,18 +288,21 @@ def train(args: argparse.Namespace) -> float:
                                 episode=episodes[i],
                             )
                         )
+                    """
 
             # Join all actions with corresponding `EntityID`s
             with tracer.span("join_actions"):
                 _actions = []
-                for _obs, action_dict in zip(next_obs, action):
+                for i, ids in enumerate(next_obs.ids):
                     _action_dict = {}
-                    for action_name, action_tensor in action_dict.items():
-                        mask = _obs.action_masks[action_name]
+                    for action_name, ragged_action_buffer in action.items():
+                        mask = next_obs.action_masks[action_name][i]
+                        _acts = ragged_action_buffer[i]
                         actor_action = [
-                            (_obs.ids[actor_idx], _act)
+                            (ids[actor_idx], _act)
                             for actor_idx, _act in zip(
-                                mask.actors, action_tensor.cpu().numpy()
+                                mask.as_array().reshape(-1),
+                                _acts.as_array().reshape(-1),
                             )
                         ]
                         _action_dict[action_name] = CategoricalAction(actor_action)
@@ -265,27 +312,20 @@ def train(args: argparse.Namespace) -> float:
             with tracer.span("step"):
                 next_obs = envs.act(_actions, obs_space)
             with tracer.span("reward_done_to_device"):
-                rewards[step] = (
-                    torch.tensor([o.reward for o in next_obs]).to(device).view(-1)
-                )
-                next_done = torch.tensor([o.done for o in next_obs]).to(device).view(-1)
+                rewards[step] = torch.tensor(next_obs.reward).to(device).view(-1)
+                next_done = torch.tensor(next_obs.done).to(device).view(-1)
 
-            for i, o in enumerate(next_obs):
-                if o.end_of_episode_info is not None:
-                    print(
-                        f"global_step={global_step}, episodic_return={o.end_of_episode_info.total_reward}"
-                    )
-                    writer.add_scalar(
-                        "charts/episodic_return",
-                        o.end_of_episode_info.total_reward,
-                        global_step,
-                    )
-                    writer.add_scalar(
-                        "charts/episodic_length",
-                        o.end_of_episode_info.length,
-                        global_step,
-                    )
-                    break
+            for eoei in next_obs.end_of_episode_info.values():
+                print(f"global_step={global_step}, episodic_return={eoei.total_reward}")
+                writer.add_scalar(
+                    "charts/episodic_return", eoei.total_reward, global_step,
+                )
+                writer.add_scalar(
+                    "charts/episodic_length", eoei.length, global_step,
+                )
+                break
+            # TODO: reenable
+            """
             if args.capture_samples:
                 for i, o in enumerate(next_obs):
                     if o.done:
@@ -294,10 +334,11 @@ def train(args: argparse.Namespace) -> float:
                         curr_step[i] = 0
                     else:
                         curr_step[i] += 1
+            """
 
         # bootstrap value if not done
         with torch.no_grad(), tracer.span("advantages"):
-            next_value = agent.get_value(next_obs).reshape(1, -1)
+            next_value = agent.get_value(next_obs.entities).reshape(1, -1)
             if args.gae:
                 advantages = torch.zeros_like(rewards).to(device)
                 lastgaelam = 0
@@ -332,9 +373,6 @@ def train(args: argparse.Namespace) -> float:
 
         # flatten the batch
         with tracer.span("flatten"):
-            b_obs = [o for _obs in obs for o in _obs]
-            b_logprobs = [l for _logprobs in logprobs for l in _logprobs]
-            b_actions = [a for _actions in actions for a in _actions]
             b_advantages = advantages.reshape(-1)
             b_returns = returns.reshape(-1)
             b_values = values.reshape(-1)
@@ -354,28 +392,35 @@ def train(args: argparse.Namespace) -> float:
                 end = start + args.minibatch_size
                 mb_inds = b_inds[start:end]
 
+                b_entities = entities[mb_inds]
+                b_action_masks = action_masks[mb_inds]
+                b_logprobs = logprobs[mb_inds]
+                b_actions = actions[mb_inds]
+
                 with tracer.span("forward"):
-                    _, newlogprob, entropy, newvalue = agent.get_action_and_value(
-                        [b_obs[i] for i in mb_inds],
-                        [b_actions[i] for i in mb_inds],
-                        tracer=tracer,
+                    _, newlogprob, entropy, _, aux = agent.get_action_and_auxiliary(
+                        b_entities, b_action_masks, b_actions, tracer=tracer,
                     )
+                    newvalue = aux["value"]
 
                 with tracer.span("ratio"):
-                    logratio = [
-                        dictcat(newlogprob[i]) - dictcat(b_logprobs[mb_inds[i]])
-                        for i in range(len(mb_inds))
-                    ]
-                    ratio = [l.exp() for l in logratio]
+                    logratio = {
+                        k: newlogprob[k]
+                        - torch.tensor(b_logprobs[k].as_array()).to(device)
+                        for k in newlogprob.keys()
+                    }
+                    ratio = {k: l.exp() for k, l in logratio.items()}
 
                 with torch.no_grad(), tracer.span("kl"):
                     # calculate approx_kl http://joschu.net/blog/kl-approx.html
                     # old_approx_kl = (-logratio).mean()
-                    # TODO: mean across everything rather than nested mean?
+                    # TODO: mean across everything rather than nested mean? or do summation over different actions?
                     approx_kl = torch.tensor(
                         [
                             ((_ratio - 1) - _logratio).mean()
-                            for (_ratio, _logratio) in zip(ratio, logratio)
+                            for (_ratio, _logratio) in zip(
+                                ratio.values(), logratio.values()
+                            )
                         ]
                     ).mean()
                     clipfracs += [
@@ -385,7 +430,7 @@ def train(args: argparse.Namespace) -> float:
                                 .float()
                                 .mean()
                                 .item()
-                                for _ratio in ratio
+                                for _ratio in ratio.values()
                             ]
                         ).mean()
                     ]
@@ -401,19 +446,18 @@ def train(args: argparse.Namespace) -> float:
 
                 # Policy loss
                 with tracer.span("policy_loss"):
+                    # TODO: when there is more than one actor, we need to broadcast the advantages to all actors (ragged dimension)
+                    # TODO: what's the correct way of combining loss from multiple actions/actors on the same timestep?
                     pg_loss1 = torch.cat(
-                        [
-                            -_mb_advantages * _ratio
-                            for (_mb_advantages, _ratio) in zip(mb_advantages, ratio)
-                        ]
+                        [-mb_advantages * _ratio.flatten() for _ratio in ratio.values()]
                     )
                     pg_loss2 = torch.cat(
                         [
-                            -_mb_advantages
+                            -mb_advantages
                             * torch.clamp(
-                                _ratio, 1 - args.clip_coef, 1 + args.clip_coef
+                                _ratio.flatten(), 1 - args.clip_coef, 1 + args.clip_coef
                             )
-                            for (_mb_advantages, _ratio) in zip(mb_advantages, ratio)
+                            for _ratio in ratio.values()
                         ]
                     )
                     pg_loss = torch.max(pg_loss1, pg_loss2).mean()
@@ -434,7 +478,8 @@ def train(args: argparse.Namespace) -> float:
                     else:
                         v_loss = 0.5 * ((newvalue - b_returns[mb_inds]) ** 2).mean()
 
-                entropy_loss = torch.cat([dictcat(e) for e in entropy]).mean()
+                # TODO: what's correct way of combining entropy loss from multiple actions/actors on the same timestep?
+                entropy_loss = torch.cat([e for e in entropy.values()]).mean()
                 loss = pg_loss - args.ent_coef * entropy_loss + v_loss * args.vf_coef
 
                 optimizer.zero_grad()
@@ -470,7 +515,7 @@ def train(args: argparse.Namespace) -> float:
         writer.add_scalar("meanrew", rewards.mean().item(), global_step)
         for action_name, space in action_space.items():
             assert isinstance(space, CategoricalActionSpace)
-            choices = torch.cat([a[action_name] for a in b_actions]).cpu().numpy()
+            choices = actions.buffers[action_name].as_array().flatten()
             for i, label in enumerate(space.choices):
                 writer.add_scalar(
                     "actions/{}/{}".format(action_name, label),
