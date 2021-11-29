@@ -26,9 +26,12 @@ class ENNWrapper(Environment):
         variable_names = self._env.game.get_variable_names()
 
         # TODO: currently we flatten out all possible variables regardless of entity.
-        space = {}
+        # Each entity contains x, y, z positions, plus the values of all variables
+        # TODO: need a Griddly API which tells us which variables are for each entity
+
+        space = {'__global__': Entity([])}
         for name in self._entity_names:
-            space[name] = Entity(['x', 'y', 'z', *variable_names])
+            space[name] = Entity(['x', 'y', 'z', 'player_id', *variable_names])
 
         return ObsSpace(space)
 
