@@ -3,7 +3,6 @@ from typing import Dict, List, Mapping, Optional, Tuple, Type, TypeVar
 from entity_gym.environment import (
     ActionSpace,
     ObsSpace,
-    Observation,
 )
 from enn_ppo.simple_trace import Tracer
 import numpy as np

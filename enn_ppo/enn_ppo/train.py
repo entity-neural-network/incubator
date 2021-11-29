@@ -12,8 +12,6 @@ from typing import (
     List,
     Mapping,
     Optional,
-    Sequence,
-    Tuple,
     Type,
     TypeVar,
 )
@@ -21,14 +19,11 @@ from typing import (
 import numpy as np
 import numpy.typing as npt
 from entity_gym.environment import (
-    Action,
     ActionSpace,
     CategoricalAction,
     CategoricalActionSpace,
     EnvList,
-    ObsBatch,
     ObsSpace,
-    Observation,
 )
 from entity_gym.envs import ENV_REGISTRY
 from enn_ppo.sample_recorder import SampleRecorder, Sample
@@ -38,9 +33,7 @@ from rogue_net import backbone_creator, head_creator
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.distributions.categorical import Categorical
 from torch.utils.tensorboard import SummaryWriter
-import torch_scatter
 from ragged_buffer import RaggedBufferF32, RaggedBufferI64, RaggedBuffer
 
 
