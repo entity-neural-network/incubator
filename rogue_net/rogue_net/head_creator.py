@@ -7,7 +7,9 @@ from typing import Dict, Union
 
 
 def layer_init(
-    layer: Union[torch.Tensor, nn.Module], std: float = np.sqrt(2), bias_const: float = 0.0
+    layer: Union[torch.Tensor, nn.Module],
+    std: float = np.sqrt(2),
+    bias_const: float = 0.0,
 ) -> Union[torch.Tensor, nn.Module]:
     torch.nn.init.orthogonal_(layer.weight, std)
     torch.nn.init.constant_(layer.bias, bias_const)
