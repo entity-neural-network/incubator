@@ -19,5 +19,6 @@ setup(
         "msgpack-numpy~=0.4.7",
         "tqdm~=4.62",
         "torch-scatter==2.0.9",
+        "ragged-buffer==0.2.0",
     ],
 )

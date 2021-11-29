@@ -174,62 +174,6 @@ class PPOActor(AutoActor):
     def get_value(self, entities: Dict[str, RaggedBufferF32]) -> torch.Tensor:
         return self.get_auxiliary_head(entities, "value")
 
-    def _get_action_and_value(
-        self,
-        entities: Mapping[str, RaggedBufferF32],
-        action_masks: Mapping[str, RaggedBufferI64],
-        prev_actions: Optional[Dict[str, RaggedBufferI64]] = None,
-        tracer: Optional[Tracer] = None,
-    ) -> Tuple[
-        Dict[str, RaggedBufferI64],
-        Dict[str, torch.Tensor],
-        Dict[str, torch.Tensor],
-        Dict[str, npt.NDArray[np.int64]],
-        torch.Tensor,
-    ]:
-        actions, probs, entropies, actors, aux = self.get_action_and_auxiliary(
-            entities, action_masks, prev_actions, tracer
-        )
-        return (actions, probs, entropies, actors, aux["value"])
-
-    def get_probs_entropy_values(
-        self,
-        entities: Dict[str, RaggedBufferF32],
-        action_masks: Dict[str, RaggedBufferI64],
-        prev_actions: Dict[str, RaggedBufferI64],
-        tracer: Optional[Tracer] = None,
-    ) -> Tuple[
-        Dict[str, torch.Tensor], Dict[str, torch.Tensor], torch.Tensor,
-    ]:
-        _, probs, entropies, _, values = self._get_action_and_value(
-            entities, action_masks, prev_actions, tracer
-        )
-        return probs, entropies, values
-
-    def get_actions_and_values_nograd(
-        self,
-        entities: Mapping[str, RaggedBufferF32],
-        action_masks: Mapping[str, RaggedBufferI64],
-        tracer: Optional[Tracer] = None,
-    ) -> Tuple[
-        Dict[str, RaggedBufferI64],
-        Dict[str, RaggedBufferF32],
-        Dict[str, RaggedBufferF32],
-        Dict[str, np.ndarray],
-        torch.Tensor,
-    ]:
-        actions, probs, entropies, actor_counts, values = self._get_action_and_value(
-            entities, action_masks, tracer=tracer
-        )
-
-        return (
-            actions,
-            tensor_dict_to_ragged(RaggedBufferF32, probs, actor_counts),
-            tensor_dict_to_ragged(RaggedBufferF32, entropies, actor_counts),
-            actor_counts,
-            values,
-        )
-
 
 def train(args: argparse.Namespace) -> float:
     run_name = f"{args.gym_id}__{args.exp_name}__{args.seed}__{int(time.time())}"
@@ -317,14 +261,17 @@ def train(args: argparse.Namespace) -> float:
             with torch.no_grad(), tracer.span("forward"):
                 (
                     action,
-                    logprob,
+                    probs_tensor,
                     _,
                     actor_counts,
-                    value,
-                ) = agent.get_actions_and_values_nograd(
+                    aux,
+                ) = agent.get_action_and_auxiliary(
                     next_obs.entities, next_obs.action_masks, tracer=tracer
                 )
-                values[step] = value.flatten()
+                logprob = tensor_dict_to_ragged(
+                    RaggedBufferF32, probs_tensor, actor_counts
+                )
+                values[step] = aux["value"].flatten()
             actions.extend(action)
             logprobs.extend(logprob)
             if args.capture_samples:
@@ -458,9 +405,10 @@ def train(args: argparse.Namespace) -> float:
                 b_actions = actions[mb_inds]
 
                 with tracer.span("forward"):
-                    newlogprob, entropy, newvalue = agent.get_probs_entropy_values(
+                    _, newlogprob, entropy, _, aux = agent.get_action_and_auxiliary(
                         b_entities, b_action_masks, b_actions, tracer=tracer,
                     )
+                    newvalue = aux["value"]
 
                 with tracer.span("ratio"):
                     logratio = {
