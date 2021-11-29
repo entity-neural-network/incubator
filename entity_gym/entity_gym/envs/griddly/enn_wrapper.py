@@ -1,8 +1,17 @@
+from collections import defaultdict
 from typing import Mapping, Dict
 
 import numpy as np
-from entity_gym.environment import Environment, Action, Observation, ActionSpace, ObsSpace
-
+from entity_gym.environment import (
+    Environment,
+    Action,
+    Entity,
+    Observation,
+    ActionSpace,
+    CategoricalActionSpace,
+    ObsSpace,
+    ActionMask
+)
 from griddly import GymWrapper
 
 
@@ -17,55 +26,134 @@ class ENNWrapper(Environment):
     def __init__(self, yaml_file: str):
         self._env = GymWrapper(yaml_file=yaml_file)
 
-        self._obs_space = _generate_obs_space()
-        self._action_space = _generate_action_space()
+        # We reset here so we can calculate the obs space and action space
+        self._env.reset()
+        self._current_g_state = self._env.get_state()
+        self._entity_names = self._env.object_names
 
-        self._entity_names = eng.game.get_object_names()
+        self._obs_space = self._generate_obs_space()
+        self._action_space = self._generate_action_space()
 
     def _generate_obs_space(self) -> ObsSpace:
-        variable_names = self._env.game.get_variable_names()
 
         # TODO: currently we flatten out all possible variables regardless of entity.
         # Each entity contains x, y, z positions, plus the values of all variables
         # TODO: need a Griddly API which tells us which variables are for each entity
+        # TODO: need a Griddly API to get the names of global variables
+        global_variables = self._current_g_state['GlobalVariables'].keys()
 
-        space = {'__global__': Entity([])}
+        # Global entity for global variables and global actions (these dont really exist in Griddly)
+        space = {'__global__': Entity(global_variables)}
         for name in self._entity_names:
-            space[name] = Entity(['x', 'y', 'z', 'player_id', *variable_names])
+            space[name] = Entity(['x', 'y', 'z', 'orientation', 'player_id', *self._env.variable_names])
 
         return ObsSpace(space)
 
+    def _to_griddly_action(self, action: Mapping[str, Action]) -> np.ndarray:
+
+        for action_name, a in action:
+            action_type = self._env.action_names.index(action_name)
+            # TODO: this only works if we have a single entity, otherwise we have to map the entityID to an x,y coordinate
+            action_id = a[0][1] + 1
+
+        return [action_type, action_id]
+
     def _generate_action_space(self) -> Dict[str, ActionSpace]:
-        # TODO: currently we flatten out all possible actions regardless of entity.
+        # TODO: currently we add all possible actions regardless of entity.
         # This circumvents https://github.com/entity-neural-network/incubator/issues/19
-        return self._action_space
+
+        all_action_space = {}
+        for action_name, action_mapping in self._env.action_input_mappings.items():
+            # Ignore internal actions for the action space
+            if action_mapping['Internal'] == True:
+                continue
+
+            input_mappings = action_mapping['InputMappings']
+
+            actions = []
+            for action_id in range(1, len(input_mappings)):
+                mapping = input_mappings[str(action_id)]
+                description = mapping['Description']
+                actions.append(description)
+
+            all_action_space[action_name] = CategoricalActionSpace(actions)
+
+        action_space = {}
+        for name in self._entity_names:
+            action_space[name] = all_action_space
+
+        return action_space
 
     def _get_entity_observation(self) -> Dict[str, np.ndarray]:
-        g_state = env.get_state()
+        self._current_g_state = self._env.get_state()
+
+        def orientation_feature(orientation_string):
+            if orientation_string == 'NONE':
+                return 0
+            elif orientation_string == 'UP':
+                return 0
+            elif orientation_string == 'RIGHT':
+                return 1
+            elif orientation_string == 'DOWN':
+                return 2
+            elif orientation_string == 'LEFT':
+                return 3
+            else:
+                raise 'Unknown Orientation'
+
+        # TODO: Push this down into a c++ helper to make it speedy
+        entity_observation = defaultdict(list)
+        for object in self._current_g_state['Objects']:
+            name = object['Name']
+            location = object['Location']
+            variables = object['Variables']
+
+            feature_vec = np.zeros(len(self._obs_space.entities[name].features))
+            feature_vec[0] = location[0]
+            feature_vec[1] = location[1]
+            feature_vec[2] = 0
+            feature_vec[3] = orientation_feature(object['Orientation'])
+            feature_vec[4] = object['PlayerId']
+            for i, variable_name in enumerate(self._env.variable_names):
+                feature_vec[5 + i] = variables[variable_name]
+
+            entity_observation[name].append(feature_vec)
+
+        return {name: np.stack(features) for name, features in entity_observation.items()}
 
     def _get_action_masks(self) -> Mapping[str, ActionMask]:
 
-    @classmethod
-    def obs_space(cls) -> ObsSpace:
+        # TODO: Push this down into c++ helper (or maybe use CATS formulation)
+        for action in self._env.action_names:
+
+
+    def _make_observation(self, reward=0, done=False) -> Observation:
+        entities = self._get_entity_observation()
+        action_masks = self._get_action_masks()
+
+        # TODO: currently only supporting a single actor entity (some avatar), so we will just use 0 as it's ID
+        # In future we can use the x,y coordaintes of an actor entity so we can map actions to those entitites
+        return Observation(
+            entities=entities,
+            ids=[0],
+            action_masks=action_masks,
+            reward=reward,
+            done=done
+        )
+
+    def obs_space(self) -> ObsSpace:
         return self._obs_space
 
-    @classmethod
-    def action_space(cls) -> Dict[str, ActionSpace]:
+    def action_space(self) -> Dict[str, ActionSpace]:
         return self._action_space
 
     def _reset(self) -> Observation:
         self._env.reset()
 
-        entities = self._get_entity_observation()
-        action_masks = self._get_action_masks()
-
-        return Observation(
-            entities=entities,
-            ids=ids,
-            action_masks=action_masks,
-            reward=0,
-            done=False
-        )
+        return self._make_observation()
 
     def _act(self, action: Mapping[str, Action]) -> Observation:
-        pass
+        g_action = self._to_griddly_action(action)
+        _, reward, done, info = env.step(g_action)
+
+        return self._make_observation(reward, done)

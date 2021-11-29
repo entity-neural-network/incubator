@@ -171,7 +171,6 @@ class Environment(ABC):
     This should be replaced by a more general multi-agent environment interface in the future.
     """
 
-    @classmethod
     @abstractmethod
     def obs_space(cls) -> ObsSpace:
         """
@@ -179,7 +178,6 @@ class Environment(ABC):
         """
         raise NotImplementedError
 
-    @classmethod
     @abstractmethod
     def action_space(cls) -> Dict[str, ActionSpace]:
         """
