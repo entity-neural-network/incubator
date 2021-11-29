@@ -15,4 +15,6 @@ ENV_REGISTRY: Dict[str, Type[Environment]] = {
     "Minefield": Minefield,
     "MultiSnake": MultiSnake,
     "MultiArmedBandit": MultiArmedBandit,
+
+    **GRIDDLY_ENVS
 }

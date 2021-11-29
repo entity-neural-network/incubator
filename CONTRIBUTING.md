@@ -14,6 +14,11 @@ pip install -e entity_gym
 pip install -e enn_ppo  # If you didn't have torch installed already, the torch-scatter install will fail. Just run the install command again.
 ```
 
+### Rust
+
+ENN uses optimized libraries, (such as ragged-buffer) written using rust. 
+To use this library you will need to [install rust](https://www.rust-lang.org/tools/install): 
+
 ## Code Formatting
 
 We use [Black](https://black.readthedocs.io/en/stable/) for code formatting.

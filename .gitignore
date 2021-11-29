@@ -4,3 +4,7 @@
 wandb/
 runs/
 .dmypy.json
+
+
+# Pycharm
+.idea/

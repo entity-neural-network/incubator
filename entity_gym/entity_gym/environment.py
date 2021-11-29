@@ -71,7 +71,7 @@ class EpisodeStats:
 
 @dataclass
 class Observation:
-    entities: Dict[str, np.ndarray]
+    entities: List[Tuple[str, np.ndarray]]
     """Maps each entity type to an array with the features for each observed entity of that type."""
     ids: Sequence[EntityID]
     """
