@@ -1,0 +1,24 @@
+[tool.poetry]
+name = "enn_ppo"
+version = "0.1.0"
+description = "PPO training loop compatible with EntityGym"
+authors = ["Clemens Winter <clemenswinter1@gmail.com>"]
+
+[tool.poetry.dependencies]
+python = ">=3.7.1,<3.10"
+numpy = "^1.21.4"
+torch = "^1.10.0"
+tensorboard = "^2.7.0"
+msgpack = "^1.0.3"
+msgpack-numpy = "^0.4.7"
+tqdm = "^4.62.3"
+torch-scatter = "^2.0.9"
+ragged-buffer = "^0.2.0"
+
+[tool.poetry.dev-dependencies]
+entity_gym = {path = "../entity_gym", develop = true}
+rogue_net = {path = "../rogue_net", develop = true}
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
