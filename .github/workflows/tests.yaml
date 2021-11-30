@@ -34,12 +34,12 @@ jobs:
         run: poetry install
       - name: Black code formatting
         run: |
-          black --check --diff .
+          poetry run black --check --diff .
       - name: MyPy
         run: |
-          mypy entity_gym
-          mypy rogue_net
-          mypy enn_ppo
+          poetry run mypy entity_gym
+          poetry run mypy rogue_net
+          poetry run mypy enn_ppo
       - name: Run tests
         run: |
-          pytest
+          poetry run pytest
