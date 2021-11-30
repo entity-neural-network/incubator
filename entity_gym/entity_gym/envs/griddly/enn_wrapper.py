@@ -136,12 +136,11 @@ class ENNWrapper(Environment):
                 mask_for_action[action_name][action_ids] = 1
                 entity_id_for_action[action_name] = location
 
-        # Only care about actor entity '0'
         action_mask_mapping = {}
         for action_name in mask_for_action.keys():
             mask = mask_for_action[action_name]
             entity_id = entity_id_for_action[action_name]
-            action_mask_mapping[action_name] = DenseCategoricalActionMask(actors=np.array(entity_id), mask=mask.reshape(1,-1))
+            action_mask_mapping[action_name] = DenseCategoricalActionMask(actors=np.array([entity_id]), mask=mask.reshape(1,-1))
 
         return action_mask_mapping
 
@@ -172,6 +171,6 @@ class ENNWrapper(Environment):
 
     def _act(self, action: Mapping[str, Action]) -> Observation:
         g_action = self._to_griddly_action(action)
-        _, reward, done, info = env.step(g_action)
+        _, reward, done, info = self._env.step(g_action)
 
         return self._make_observation(reward, done)

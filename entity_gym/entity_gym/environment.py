@@ -206,7 +206,7 @@ class Environment(ABC):
         return self.filter_obs(self._reset(), obs_filter)
 
     def act(self, action: Mapping[str, Action], obs_filter: ObsSpace) -> Observation:
-        return self.__class__.filter_obs(self._act(action), obs_filter)
+        return self.filter_obs(self._act(action), obs_filter)
 
     def filter_obs(self, obs: Observation, obs_filter: ObsSpace) -> Observation:
         selectors = self._compile_feature_filter(obs_filter)
