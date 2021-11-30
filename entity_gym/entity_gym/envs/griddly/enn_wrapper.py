@@ -52,18 +52,16 @@ class ENNWrapper(Environment):
 
     def _to_griddly_action(self, action: Mapping[str, Action]) -> np.ndarray:
 
-        for action_name, a in action:
+        for action_name, a in action.items():
             action_type = self._env.action_names.index(action_name)
             # TODO: this only works if we have a single entity, otherwise we have to map the entityID to an x,y coordinate
-            action_id = a[0][1]
+            action_id = a.actions[0][1]
 
         return [action_type, action_id]
 
     def _generate_action_space(self) -> Dict[str, ActionSpace]:
-        # TODO: currently we add all possible actions regardless of entity.
-        # This circumvents https://github.com/entity-neural-network/incubator/issues/19
 
-        all_action_space = {}
+        action_space = {}
         for action_name, action_mapping in self._env.action_input_mappings.items():
             # Ignore internal actions for the action space
             if action_mapping['Internal'] == True:
@@ -78,11 +76,7 @@ class ENNWrapper(Environment):
                 description = mapping['Description']
                 actions.append(description)
 
-            all_action_space[action_name] = CategoricalActionSpace(actions)
-
-        action_space = {}
-        for name in self._entity_names:
-            action_space[name] = all_action_space
+            action_space[action_name] = CategoricalActionSpace(actions)
 
         return action_space
 
@@ -105,10 +99,13 @@ class ENNWrapper(Environment):
 
         # TODO: Push this down into a c++ helper to make it speedy
         entity_observation = defaultdict(list)
+        entity_ids = set()
         for object in self._current_g_state['Objects']:
             name = object['Name']
             location = object['Location']
             variables = object['Variables']
+
+            entity_ids.add(tuple(location))
 
             feature_vec = np.zeros(len(self._obs_space.entities[name].features))
             feature_vec[0] = location[0]
@@ -121,7 +118,7 @@ class ENNWrapper(Environment):
 
             entity_observation[name].append(feature_vec)
 
-        return {name: np.stack(features) for name, features in entity_observation.items()}
+        return entity_ids, {name: np.stack(features) for name, features in entity_observation.items()}
 
     def _get_action_masks(self) -> Mapping[str, ActionMask]:
 
@@ -129,32 +126,34 @@ class ENNWrapper(Environment):
         # TODO: currently hard coded to only get action masks for player 1
         # TODO: assuming we only have a single actor entity 'avatar'
         mask_for_action = {}
+        entity_id_for_action = {}
         for action_name in self._env.action_names:
-            mask_for_action[action_name] = np.zeros(len(self._action_space['avatar'][action_name].choices))
+            mask_for_action[action_name] = np.zeros(len(self._action_space[action_name].choices))
 
         for location, available_action_types in self._env.game.get_available_actions(1).items():
             available_action_ids = self._env.game.get_available_action_ids(location, list(available_action_types))
             for action_name, action_ids in available_action_ids.items():
                 mask_for_action[action_name][action_ids] = 1
+                entity_id_for_action[action_name] = location
 
         # Only care about actor entity '0'
         action_mask_mapping = {}
-        for action_name, mask in mask_for_action.items():
-            action_mask_mapping[action_name] = DenseCategoricalActionMask(actors=np.array([0]), mask=mask.reshape(1,-1))
+        for action_name in mask_for_action.keys():
+            mask = mask_for_action[action_name]
+            entity_id = entity_id_for_action[action_name]
+            action_mask_mapping[action_name] = DenseCategoricalActionMask(actors=np.array(entity_id), mask=mask.reshape(1,-1))
 
         return action_mask_mapping
 
 
 
     def _make_observation(self, reward=0, done=False) -> Observation:
-        entities = self._get_entity_observation()
+        entity_ids, entities = self._get_entity_observation()
         action_masks = self._get_action_masks()
 
-        # TODO: currently only supporting a single actor entity (some avatar), so we will just use 0 as it's ID
-        # In future we can use the x,y coordaintes of an actor entity so we can map actions to those entitites
         return Observation(
             entities=entities,
-            ids=[0],
+            ids=list(entity_ids),
             action_masks=action_masks,
             reward=reward,
             done=done
