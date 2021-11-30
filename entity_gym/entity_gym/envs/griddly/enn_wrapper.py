@@ -63,7 +63,7 @@ class ENNWrapper(Environment):
 
     def _generate_action_space(self) -> Dict[str, ActionSpace]:
 
-        action_space: Dict[str, ActionSpace]
+        action_space: Dict[str, ActionSpace] = {}
         for action_name, action_mapping in self._env.action_input_mappings.items():
             # Ignore internal actions for the action space
             if action_mapping["Internal"] == True:

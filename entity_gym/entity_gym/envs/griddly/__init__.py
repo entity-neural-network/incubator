@@ -8,8 +8,10 @@ from entity_gym.environment import Environment
 init_path = os.path.dirname(os.path.realpath(__file__))
 
 
-def create_clusters():
+def create_clusters() -> Environment:
     return ENNWrapper(os.path.join(init_path, "env_descriptions/clusters.yaml"))
 
 
-GRIDDLY_ENVS: Dict[str, Type[Environment]] = {"GDY-Clusters": create_clusters}
+GRIDDLY_ENVS: Dict[str, Type[Environment]] = {
+    "GDY-Clusters": create_clusters
+}
