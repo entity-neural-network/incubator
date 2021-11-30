@@ -52,7 +52,8 @@ class Actor(nn.Module):
         return next(self.parameters()).device
 
     def batch_and_embed(
-        self, entities: Mapping[str, RaggedBufferF32],
+        self,
+        entities: Mapping[str, RaggedBufferF32],
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         """
         Example:
