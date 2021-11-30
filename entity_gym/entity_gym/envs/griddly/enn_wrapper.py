@@ -13,7 +13,7 @@ from entity_gym.environment import (
     ObsSpace,
     ActionMask,
 )
-from griddly import GymWrapper # type: ignore
+from griddly import GymWrapper  # type: ignore
 
 
 class ENNWrapper(Environment):
@@ -141,7 +141,7 @@ class ENNWrapper(Environment):
                 len(self._action_space[action_name].choices)  # type: ignore
             )
         for location, available_action_types in self._env.game.get_available_actions(
-                1
+            1
         ).items():
             available_action_ids = self._env.game.get_available_action_ids(
                 location, list(available_action_types)
