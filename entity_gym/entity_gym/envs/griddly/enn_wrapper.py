@@ -1,5 +1,5 @@
 from collections import defaultdict
-from typing import Mapping, Dict
+from typing import Mapping, Dict, Tuple
 
 import numpy as np
 from entity_gym.environment import (
@@ -13,7 +13,7 @@ from entity_gym.environment import (
     ObsSpace,
     ActionMask,
 )
-from griddly import GymWrapper
+from griddly import GymWrapper # type: ignore
 
 
 class ENNWrapper(Environment):
@@ -59,11 +59,11 @@ class ENNWrapper(Environment):
             # TODO: this only works if we have a single entity, otherwise we have to map the entityID to an x,y coordinate
             action_id = a.actions[0][1]
 
-        return [action_type, action_id]
+        return np.array([action_type, action_id])
 
     def _generate_action_space(self) -> Dict[str, ActionSpace]:
 
-        action_space = {}
+        action_space: Dict[str, ActionSpace]
         for action_name, action_mapping in self._env.action_input_mappings.items():
             # Ignore internal actions for the action space
             if action_mapping["Internal"] == True:
@@ -82,10 +82,10 @@ class ENNWrapper(Environment):
 
         return action_space
 
-    def _get_entity_observation(self) -> Dict[str, np.ndarray]:
+    def _get_entity_observation(self) -> Tuple[set[int], Dict[str, np.ndarray]]:
         self._current_g_state = self._env.get_state()
 
-        def orientation_feature(orientation_string):
+        def orientation_feature(orientation_string: str) -> int:
             if orientation_string == "NONE":
                 return 0
             elif orientation_string == "UP":
@@ -97,7 +97,7 @@ class ENNWrapper(Environment):
             elif orientation_string == "LEFT":
                 return 3
             else:
-                raise "Unknown Orientation"
+                raise RuntimeError("Unknown Orientation")
 
         # TODO: Push this down into a c++ helper to make it speedy
         entity_observation = defaultdict(list)
@@ -138,11 +138,10 @@ class ENNWrapper(Environment):
         entity_id_for_action = {}
         for action_name in self._env.action_names:
             mask_for_action[action_name] = np.zeros(
-                len(self._action_space[action_name].choices)
+                len(self._action_space[action_name].choices)  # type: ignore
             )
-
         for location, available_action_types in self._env.game.get_available_actions(
-            1
+                1
         ).items():
             available_action_ids = self._env.game.get_available_action_ids(
                 location, list(available_action_types)
@@ -164,9 +163,9 @@ class ENNWrapper(Environment):
 
         return action_mask_mapping
 
-    def _make_observation(self, reward=0, done=False) -> Observation:
+    def _make_observation(self, reward: int = 0, done: bool = False) -> Observation:
         entity_ids, entities = self._get_entity_observation()
-        action_masks = self._get_action_masks() if not done else None
+        action_masks = self._get_action_masks() if not done else {}
 
         return Observation(
             entities=entities,
