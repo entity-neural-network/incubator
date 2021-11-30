@@ -9,6 +9,7 @@ from entity_gym.environment import (
     Observation,
     ActionSpace,
     CategoricalActionSpace,
+    DenseCategoricalActionMask,
     ObsSpace,
     ActionMask
 )
@@ -40,7 +41,7 @@ class ENNWrapper(Environment):
         # Each entity contains x, y, z positions, plus the values of all variables
         # TODO: need a Griddly API which tells us which variables are for each entity
         # TODO: need a Griddly API to get the names of global variables
-        global_variables = self._current_g_state['GlobalVariables'].keys()
+        global_variables = list(self._current_g_state['GlobalVariables'].keys())
 
         # Global entity for global variables and global actions (these dont really exist in Griddly)
         space = {'__global__': Entity(global_variables)}
@@ -54,7 +55,7 @@ class ENNWrapper(Environment):
         for action_name, a in action:
             action_type = self._env.action_names.index(action_name)
             # TODO: this only works if we have a single entity, otherwise we have to map the entityID to an x,y coordinate
-            action_id = a[0][1] + 1
+            action_id = a[0][1]
 
         return [action_type, action_id]
 
@@ -71,7 +72,8 @@ class ENNWrapper(Environment):
             input_mappings = action_mapping['InputMappings']
 
             actions = []
-            for action_id in range(1, len(input_mappings)):
+            actions.append('NOP') # In Griddly, Action ID 0 is always NOP
+            for action_id in range(1, len(input_mappings)+1):
                 mapping = input_mappings[str(action_id)]
                 description = mapping['Description']
                 actions.append(description)
@@ -123,8 +125,25 @@ class ENNWrapper(Environment):
 
     def _get_action_masks(self) -> Mapping[str, ActionMask]:
 
-        # TODO: Push this down into c++ helper (or maybe use CATS formulation)
-        for action in self._env.action_names:
+        # TODO: Push this down into c++ helper?
+        # TODO: currently hard coded to only get action masks for player 1
+        # TODO: assuming we only have a single actor entity 'avatar'
+        mask_for_action = {}
+        for action_name in self._env.action_names:
+            mask_for_action[action_name] = np.zeros(len(self._action_space['avatar'][action_name].choices))
+
+        for location, available_action_types in self._env.game.get_available_actions(1).items():
+            available_action_ids = self._env.game.get_available_action_ids(location, list(available_action_types))
+            for action_name, action_ids in available_action_ids.items():
+                mask_for_action[action_name][action_ids] = 1
+
+        # Only care about actor entity '0'
+        action_mask_mapping = {}
+        for action_name, mask in mask_for_action.items():
+            action_mask_mapping[action_name] = DenseCategoricalActionMask(actors=np.array([0]), mask=mask.reshape(1,-1))
+
+        return action_mask_mapping
+
 
 
     def _make_observation(self, reward=0, done=False) -> Observation:
