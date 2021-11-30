@@ -201,8 +201,8 @@ def train(args: argparse.Namespace) -> float:
     env_cls = ENV_REGISTRY[args.gym_id]
     # env setup
     envs = EnvList([env_cls() for _ in range(args.num_envs)])
-    obs_space = env_cls.obs_space()
-    action_space = env_cls.action_space()
+    obs_space = envs.envs[0].obs_space()
+    action_space = envs.envs[0].action_space()
     if args.capture_samples:
         sample_recorder = SampleRecorder(args.capture_samples, action_space, obs_space)
 

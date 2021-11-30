@@ -11,7 +11,7 @@ from entity_gym.environment import (
     CategoricalActionSpace,
     DenseCategoricalActionMask,
     ObsSpace,
-    ActionMask
+    ActionMask,
 )
 from griddly import GymWrapper
 
@@ -41,12 +41,14 @@ class ENNWrapper(Environment):
         # Each entity contains x, y, z positions, plus the values of all variables
         # TODO: need a Griddly API which tells us which variables are for each entity
         # TODO: need a Griddly API to get the names of global variables
-        global_variables = list(self._current_g_state['GlobalVariables'].keys())
+        global_variables = list(self._current_g_state["GlobalVariables"].keys())
 
         # Global entity for global variables and global actions (these dont really exist in Griddly)
-        space = {'__global__': Entity(global_variables)}
+        space = {"__global__": Entity(global_variables)}
         for name in self._entity_names:
-            space[name] = Entity(['x', 'y', 'z', 'orientation', 'player_id', *self._env.variable_names])
+            space[name] = Entity(
+                ["x", "y", "z", "orientation", "player_id", *self._env.variable_names]
+            )
 
         return ObsSpace(space)
 
@@ -64,16 +66,16 @@ class ENNWrapper(Environment):
         action_space = {}
         for action_name, action_mapping in self._env.action_input_mappings.items():
             # Ignore internal actions for the action space
-            if action_mapping['Internal'] == True:
+            if action_mapping["Internal"] == True:
                 continue
 
-            input_mappings = action_mapping['InputMappings']
+            input_mappings = action_mapping["InputMappings"]
 
             actions = []
-            actions.append('NOP') # In Griddly, Action ID 0 is always NOP
-            for action_id in range(1, len(input_mappings)+1):
+            actions.append("NOP")  # In Griddly, Action ID 0 is always NOP
+            for action_id in range(1, len(input_mappings) + 1):
                 mapping = input_mappings[str(action_id)]
-                description = mapping['Description']
+                description = mapping["Description"]
                 actions.append(description)
 
             action_space[action_name] = CategoricalActionSpace(actions)
@@ -84,41 +86,44 @@ class ENNWrapper(Environment):
         self._current_g_state = self._env.get_state()
 
         def orientation_feature(orientation_string):
-            if orientation_string == 'NONE':
+            if orientation_string == "NONE":
                 return 0
-            elif orientation_string == 'UP':
+            elif orientation_string == "UP":
                 return 0
-            elif orientation_string == 'RIGHT':
+            elif orientation_string == "RIGHT":
                 return 1
-            elif orientation_string == 'DOWN':
+            elif orientation_string == "DOWN":
                 return 2
-            elif orientation_string == 'LEFT':
+            elif orientation_string == "LEFT":
                 return 3
             else:
-                raise 'Unknown Orientation'
+                raise "Unknown Orientation"
 
         # TODO: Push this down into a c++ helper to make it speedy
         entity_observation = defaultdict(list)
         entity_ids = set()
-        for object in self._current_g_state['Objects']:
-            name = object['Name']
-            location = object['Location']
-            variables = object['Variables']
+        for object in self._current_g_state["Objects"]:
+            name = object["Name"]
+            location = object["Location"]
+            variables = object["Variables"]
 
             entity_ids.add(tuple(location))
 
-            feature_vec = np.zeros(len(self._obs_space.entities[name].features))
+            feature_vec = np.zeros(len(self._obs_space.entities[name].features), dtype=np.float32)
             feature_vec[0] = location[0]
             feature_vec[1] = location[1]
             feature_vec[2] = 0
-            feature_vec[3] = orientation_feature(object['Orientation'])
-            feature_vec[4] = object['PlayerId']
+            feature_vec[3] = orientation_feature(object["Orientation"])
+            feature_vec[4] = object["PlayerId"]
             for i, variable_name in enumerate(self._env.variable_names):
                 feature_vec[5 + i] = variables[variable_name]
 
             entity_observation[name].append(feature_vec)
 
-        return entity_ids, {name: np.stack(features) for name, features in entity_observation.items()}
+        return (
+            entity_ids,
+            {name: np.stack(features) for name, features in entity_observation.items()},
+        )
 
     def _get_action_masks(self) -> Mapping[str, ActionMask]:
 
@@ -128,10 +133,16 @@ class ENNWrapper(Environment):
         mask_for_action = {}
         entity_id_for_action = {}
         for action_name in self._env.action_names:
-            mask_for_action[action_name] = np.zeros(len(self._action_space[action_name].choices))
+            mask_for_action[action_name] = np.zeros(
+                len(self._action_space[action_name].choices)
+            )
 
-        for location, available_action_types in self._env.game.get_available_actions(1).items():
-            available_action_ids = self._env.game.get_available_action_ids(location, list(available_action_types))
+        for location, available_action_types in self._env.game.get_available_actions(
+            1
+        ).items():
+            available_action_ids = self._env.game.get_available_action_ids(
+                location, list(available_action_types)
+            )
             for action_name, action_ids in available_action_ids.items():
                 mask_for_action[action_name][action_ids] = 1
                 entity_id_for_action[action_name] = location
@@ -140,11 +151,11 @@ class ENNWrapper(Environment):
         for action_name in mask_for_action.keys():
             mask = mask_for_action[action_name]
             entity_id = entity_id_for_action[action_name]
-            action_mask_mapping[action_name] = DenseCategoricalActionMask(actors=np.array([entity_id]), mask=mask.reshape(1,-1))
+            action_mask_mapping[action_name] = DenseCategoricalActionMask(
+                actors=np.array([entity_id]), mask=mask.reshape(1, -1)
+            )
 
         return action_mask_mapping
-
-
 
     def _make_observation(self, reward=0, done=False) -> Observation:
         entity_ids, entities = self._get_entity_observation()
@@ -155,7 +166,7 @@ class ENNWrapper(Environment):
             ids=list(entity_ids),
             action_masks=action_masks,
             reward=reward,
-            done=done
+            done=done,
         )
 
     def obs_space(self) -> ObsSpace:
