@@ -10,3 +10,7 @@ Collection of in-progress libraries for entity neural networks: [Neural Network 
 - [RogueNet](rogue_net): Ragged batch transformer implementation that accepts variable length lists of structured objects as inputs.
 - [ENN-Zoo](enn_bench): Collection of entity gym bindings for different environments.
 - [ENN-BC](enn_bc): Supervised training loop on behavioral cloning datasets collected from entity-gym policies.
+
+## License
+
+All ENN Incubator projects are dual-licensed under Apache-2.0 and MIT.
