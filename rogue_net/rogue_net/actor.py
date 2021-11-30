@@ -76,10 +76,12 @@ class Actor(nn.Module):
         index_offsets = {}
         index_offset = 0
         for entity, embedding in self.embedding.items():
-            batch = torch.tensor(entities[entity].as_array()).to(self.device())
-            entity_embeds.append(embedding(batch))
-            index_offsets[entity] = index_offset
-            index_offset += batch.size(0)
+            # We may have environment states that do not contain every possible entity
+            if entity in entities:
+                batch = torch.tensor(entities[entity].as_array()).to(self.device())
+                entity_embeds.append(embedding(batch))
+                index_offsets[entity] = index_offset
+                index_offset += batch.size(0)
         x = torch.cat(entity_embeds)
         index_map = []
         batch_index = []
@@ -87,13 +89,16 @@ class Actor(nn.Module):
         for i in range(next(iter(entities.values())).size0()):
             lengths.append(0)
             for entity in self.obs_space.entities.keys():
-                count = entities[entity].size1(i)
-                index_map.append(
-                    torch.arange(index_offsets[entity], index_offsets[entity] + count)
-                )
-                batch_index.append(torch.full((count,), i, dtype=torch.int64))
-                index_offsets[entity] += count
-                lengths[-1] += count
+                if entity in entities:
+                    count = entities[entity].size1(i)
+                    index_map.append(
+                        torch.arange(
+                            index_offsets[entity], index_offsets[entity] + count
+                        )
+                    )
+                    batch_index.append(torch.full((count,), i, dtype=torch.int64))
+                    index_offsets[entity] += count
+                    lengths[-1] += count
         x = self.backbone(x)
 
         return (

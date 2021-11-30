@@ -102,14 +102,18 @@ class ENNWrapper(Environment):
         # TODO: Push this down into a c++ helper to make it speedy
         entity_observation = defaultdict(list)
         entity_ids = set()
-        for object in self._current_g_state["Objects"]:
+        for i, object in enumerate(self._current_g_state["Objects"]):
             name = object["Name"]
             location = object["Location"]
             variables = object["Variables"]
 
-            entity_ids.add(tuple(location))
+            # entity_ids.add(f'{location[0]},{location[1]}')
+            # TODO: currently entity ids are a bit meaningless, but they have to be int or things break deeper down
+            entity_ids.add(i)
 
-            feature_vec = np.zeros(len(self._obs_space.entities[name].features), dtype=np.float32)
+            feature_vec = np.zeros(
+                len(self._obs_space.entities[name].features), dtype=np.float32
+            )
             feature_vec[0] = location[0]
             feature_vec[1] = location[1]
             feature_vec[2] = 0
@@ -145,7 +149,10 @@ class ENNWrapper(Environment):
             )
             for action_name, action_ids in available_action_ids.items():
                 mask_for_action[action_name][action_ids] = 1
-                entity_id_for_action[action_name] = location
+                # entity_id_for_action[action_name] = f'{location[0]},{location[1]}'
+
+                # TODO: EntityID only supports a single entity at the moment which is 0
+                entity_id_for_action[action_name] = 0
 
         action_mask_mapping = {}
         for action_name in mask_for_action.keys():
@@ -159,7 +166,7 @@ class ENNWrapper(Environment):
 
     def _make_observation(self, reward=0, done=False) -> Observation:
         entity_ids, entities = self._get_entity_observation()
-        action_masks = self._get_action_masks()
+        action_masks = self._get_action_masks() if not done else None
 
         return Observation(
             entities=entities,
