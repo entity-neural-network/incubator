@@ -82,7 +82,7 @@ class ENNWrapper(Environment):
 
         return action_space
 
-    def _get_entity_observation(self) -> Tuple[set[int], Dict[str, np.ndarray]]:
+    def _get_entity_observation(self) -> Dict[str, np.ndarray]:
         self._current_g_state = self._env.get_state()
 
         def orientation_feature(orientation_string: str) -> int:
