@@ -1,14 +1,13 @@
+from abc import abstractmethod
 from collections import defaultdict
-from typing import Mapping, Dict, Tuple
+from typing import Mapping, Dict
 
 import numpy as np
 from entity_gym.environment import (
     Environment,
     Action,
-    Entity,
     Observation,
     ActionSpace,
-    CategoricalActionSpace,
     DenseCategoricalActionMask,
     ObsSpace,
     ActionMask,
@@ -16,41 +15,29 @@ from entity_gym.environment import (
 from griddly import GymWrapper  # type: ignore
 
 
-class ENNWrapper(Environment):
-    """
-    Griddly Environments are defined in yaml files.
+class GriddlyEnv(Environment):
 
-    This wrapper loads the environment and extracts what it needs from the environment description to make any
-    Griddly Environment compatible with the Entity Neural Network API
-    """
+    def __init__(self):
+        self._env = self.__class__._griddly_env()
+        self._obs_space = self.__class__.obs_space()
+        self._action_space = self.__class__.action_space()
 
-    def __init__(self, yaml_file: str):
-        self._env = GymWrapper(yaml_file=yaml_file)
-
-        # We reset here so we can calculate the obs space and action space
-        self._env.reset()
         self._current_g_state = self._env.get_state()
-        self._entity_names = self._env.object_names
 
-        self._obs_space = self._generate_obs_space()
-        self._action_space = self._generate_action_space()
+    @classmethod
+    @abstractmethod
+    def _griddly_env(cls) -> GymWrapper:
+        pass
 
-    def _generate_obs_space(self) -> ObsSpace:
+    @classmethod
+    @abstractmethod
+    def obs_space(cls) -> ObsSpace:
+        pass
 
-        # TODO: currently we flatten out all possible variables regardless of entity.
-        # Each entity contains x, y, z positions, plus the values of all variables
-        # TODO: need a Griddly API which tells us which variables are for each entity
-        # TODO: need a Griddly API to get the names of global variables
-        global_variables = list(self._current_g_state["GlobalVariables"].keys())
-
-        # Global entity for global variables and global actions (these dont really exist in Griddly)
-        space = {"__global__": Entity(global_variables)}
-        for name in self._entity_names:
-            space[name] = Entity(
-                ["x", "y", "z", "orientation", "player_id", *self._env.variable_names]
-            )
-
-        return ObsSpace(space)
+    @classmethod
+    @abstractmethod
+    def action_space(cls) -> Dict[str, ActionSpace]:
+        pass
 
     def _to_griddly_action(self, action: Mapping[str, Action]) -> np.ndarray:
 
@@ -60,27 +47,6 @@ class ENNWrapper(Environment):
             action_id = a.actions[0][1]
 
         return np.array([action_type, action_id])
-
-    def _generate_action_space(self) -> Dict[str, ActionSpace]:
-
-        action_space: Dict[str, ActionSpace] = {}
-        for action_name, action_mapping in self._env.action_input_mappings.items():
-            # Ignore internal actions for the action space
-            if action_mapping["Internal"] == True:
-                continue
-
-            input_mappings = action_mapping["InputMappings"]
-
-            actions = []
-            actions.append("NOP")  # In Griddly, Action ID 0 is always NOP
-            for action_id in range(1, len(input_mappings) + 1):
-                mapping = input_mappings[str(action_id)]
-                description = mapping["Description"]
-                actions.append(description)
-
-            action_space[action_name] = CategoricalActionSpace(actions)
-
-        return action_space
 
     def _get_entity_observation(self) -> Dict[str, np.ndarray]:
         self._current_g_state = self._env.get_state()
@@ -141,7 +107,7 @@ class ENNWrapper(Environment):
                 len(self._action_space[action_name].choices)  # type: ignore
             )
         for location, available_action_types in self._env.game.get_available_actions(
-            1
+                1
         ).items():
             available_action_ids = self._env.game.get_available_action_ids(
                 location, list(available_action_types)
@@ -174,12 +140,6 @@ class ENNWrapper(Environment):
             reward=reward,
             done=done,
         )
-
-    def obs_space(self) -> ObsSpace:
-        return self._obs_space
-
-    def action_space(self) -> Dict[str, ActionSpace]:
-        return self._action_space
 
     def _reset(self) -> Observation:
         self._env.reset()

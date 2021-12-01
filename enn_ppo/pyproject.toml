@@ -17,6 +17,7 @@ ragged-buffer = "^0.2.0"
 wandb = "^0.12.7"
 
 [tool.poetry.dev-dependencies]
+enn_zoo = {path = "../enn_zoo", develop=true}
 entity_gym = {path = "../entity_gym", develop = true}
 rogue_net = {path = "../rogue_net", develop = true}
 

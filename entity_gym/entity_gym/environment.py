@@ -171,7 +171,7 @@ class Environment(ABC):
     methods may return lists of observations and accept lists of actions.
     This should be replaced by a more general multi-agent environment interface in the future.
     """
-
+    @classmethod
     @abstractmethod
     def obs_space(cls) -> ObsSpace:
         """
@@ -179,6 +179,7 @@ class Environment(ABC):
         """
         raise NotImplementedError
 
+    @classmethod
     @abstractmethod
     def action_space(cls) -> Dict[str, ActionSpace]:
         """
@@ -204,13 +205,14 @@ class Environment(ABC):
         raise NotImplementedError
 
     def reset(self, obs_filter: ObsSpace) -> Observation:
-        return self.filter_obs(self._reset(), obs_filter)
+        return self.__class__.filter_obs(self._reset(), obs_filter)
 
     def act(self, action: Mapping[str, Action], obs_filter: ObsSpace) -> Observation:
-        return self.filter_obs(self._act(action), obs_filter)
+        return self.__class__.filter_obs(self._act(action), obs_filter)
 
-    def filter_obs(self, obs: Observation, obs_filter: ObsSpace) -> Observation:
-        selectors = self._compile_feature_filter(obs_filter)
+    @classmethod
+    def filter_obs(cls, obs: Observation, obs_filter: ObsSpace) -> Observation:
+        selectors = cls._compile_feature_filter(obs_filter)
         entities = {
             entity_name: entity_features[:, selectors[entity_name]]
             for entity_name, entity_features in obs.entities.items()
@@ -224,8 +226,9 @@ class Environment(ABC):
             obs.end_of_episode_info,
         )
 
-    def _compile_feature_filter(self, obs_space: ObsSpace) -> Dict[str, np.ndarray]:
-        obs_space = self.obs_space()
+    @classmethod
+    def _compile_feature_filter(cls, obs_space: ObsSpace) -> Dict[str, np.ndarray]:
+        obs_space = cls.obs_space()
         feature_selection = {}
         for entity_name, entity in obs_space.entities.items():
             feature_selection[entity_name] = np.array(

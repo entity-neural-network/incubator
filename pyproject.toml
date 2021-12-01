@@ -6,8 +6,6 @@ authors = ["Clemens Winter <clemenswinter1@gmail.com>"]
 
 [tool.poetry.dependencies]
 python = ">=3.7.1,<3.10"
-# TODO: when griddly APIs support everything thats needed, can change this from a local dependency to whats on pypi
-griddly = {path = "../Griddly/python", develop=true, optional = true}
 
 [tool.poetry.dev-dependencies]
 black = "^21.11b1"
@@ -16,6 +14,8 @@ mypy = "^0.910"
 entity_gym = {path = "entity_gym", develop = true}
 rogue_net = {path = "rogue_net", develop = true}
 enn_ppo = {path = "enn_ppo", develop = true}
+enn_zoo = {path = "enn_zoo", develop = true}
+griddly = {path = "../Griddly/python", optional=true}
 
 [tool.poetry.extras]
 griddly = ["griddly"]

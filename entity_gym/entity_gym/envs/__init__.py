@@ -8,7 +8,7 @@ from entity_gym.envs.minefield import Minefield
 from entity_gym.envs.multi_snake import MultiSnake
 from entity_gym.envs.multi_armed_bandit import MultiArmedBandit
 
-from entity_gym.envs.griddly import GRIDDLY_ENVS
+from enn_zoo.griddly import GRIDDLY_ENVS
 
 ENV_REGISTRY: Dict[str, Type[Environment]] = {
     "MoveToOrigin": MoveToOrigin,
