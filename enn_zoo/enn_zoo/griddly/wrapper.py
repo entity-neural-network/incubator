@@ -1,6 +1,6 @@
 from abc import abstractmethod
 from collections import defaultdict
-from typing import Mapping, Dict
+from typing import Mapping, Dict, Set, Tuple, Any
 
 import numpy as np
 from entity_gym.environment import (
@@ -12,11 +12,11 @@ from entity_gym.environment import (
     ObsSpace,
     ActionMask,
 )
-from griddly import GymWrapper  # type: ignore
+from griddly import GymWrapper
 
 
 class GriddlyEnv(Environment):
-    def __init__(self):
+    def __init__(self) -> None:
         self._env = self.__class__._griddly_env()
         self._obs_space = self.__class__.obs_space()
         self._action_space = self.__class__.action_space()
@@ -25,7 +25,7 @@ class GriddlyEnv(Environment):
 
     @classmethod
     @abstractmethod
-    def _griddly_env(cls) -> GymWrapper:
+    def _griddly_env(cls) -> Any:
         pass
 
     @classmethod
@@ -47,7 +47,7 @@ class GriddlyEnv(Environment):
 
         return np.array([action_type, action_id])
 
-    def _get_entity_observation(self) -> Dict[str, np.ndarray]:
+    def _get_entity_observation(self) -> Tuple[Set[Any], Dict[str, np.ndarray]]:
         self._current_g_state = self._env.get_state()
 
         def orientation_feature(orientation_string: str) -> int:
@@ -96,7 +96,7 @@ class GriddlyEnv(Environment):
             {name: np.stack(features) for name, features in entity_observation.items()},
         )
 
-    def _get_action_masks(self) -> Mapping[str, ActionMask]:
+    def _get_action_masks(self) -> Mapping[str, DenseCategoricalActionMask]:
 
         # TODO: Push this down into c++ helper?
         # TODO: currently hard coded to only get action masks for player 1

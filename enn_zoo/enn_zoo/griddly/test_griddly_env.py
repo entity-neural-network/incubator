@@ -1,6 +1,8 @@
 import os
+
 import numpy as np
 from enn_zoo.griddly import create_env
+from entity_gym.environment import CategoricalActionSpace, DenseCategoricalActionMask
 
 init_path = os.path.dirname(os.path.realpath(__file__))
 
@@ -38,6 +40,7 @@ def test_griddly_wrapper() -> None:
 
     # Check the action space is being created correctly fro the test environment
     action_space = env_class.action_space()
+    assert isinstance(action_space["move_one"], CategoricalActionSpace)
     assert set(action_space["move_one"].choices) == {
         "NOP",
         "Left",
@@ -45,6 +48,7 @@ def test_griddly_wrapper() -> None:
         "Right",
         "Down",
     }
+    assert isinstance(action_space["move_two"], CategoricalActionSpace)
     assert set(action_space["move_two"].choices) == {
         "NOP",
         "Do a little dance",
@@ -66,8 +70,10 @@ def test_griddly_wrapper() -> None:
     # Check the masks in the observation
     # TODO: actually make this test have non-0 masks...
     assert observation.action_masks["move_one"].actors[0] == 0
+    assert isinstance(observation.action_masks["move_one"], DenseCategoricalActionMask)
     assert np.all(
         observation.action_masks["move_one"].mask == np.array([[0, 0, 0, 0, 0]])
     )
     assert observation.action_masks["move_two"].actors[0] == 0
+    assert isinstance(observation.action_masks["move_two"], DenseCategoricalActionMask)
     assert np.all(observation.action_masks["move_two"].mask == np.array([[0, 0, 0, 0]]))

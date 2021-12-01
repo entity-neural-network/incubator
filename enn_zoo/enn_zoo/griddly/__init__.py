@@ -1,6 +1,6 @@
 import os
 from abc import abstractmethod
-from typing import Type, Dict
+from typing import Type, Dict, Optional, Any
 
 from enn_zoo.griddly.wrapper import GriddlyEnv
 from entity_gym.environment import ActionSpace, ObsSpace, Entity, CategoricalActionSpace
@@ -10,7 +10,7 @@ from griddly import GymWrapper
 init_path = os.path.dirname(os.path.realpath(__file__))
 
 
-def generate_obs_space(env: GymWrapper) -> ObsSpace:
+def generate_obs_space(env: Any) -> ObsSpace:
     # TODO: currently we flatten out all possible variables regardless of entity.
     # Each entity contains x, y, z positions, plus the values of all variables
     # TODO: need a Griddly API which tells us which variables are for each entity
@@ -30,7 +30,7 @@ def generate_obs_space(env: GymWrapper) -> ObsSpace:
     return ObsSpace(space)
 
 
-def generate_action_space(env: GymWrapper) -> Dict[str, ActionSpace]:
+def generate_action_space(env: Any) -> Dict[str, ActionSpace]:
     action_space: Dict[str, ActionSpace] = {}
     for action_name, action_mapping in env.action_input_mappings.items():
         # Ignore internal actions for the action space
@@ -51,7 +51,12 @@ def generate_action_space(env: GymWrapper) -> Dict[str, ActionSpace]:
     return action_space
 
 
-def create_env(yaml_file, image_path=None, shader_path=None, level=0) -> Environment:
+def create_env(
+    yaml_file: str,
+    image_path: Optional[str] = None,
+    shader_path: Optional[str] = None,
+    level: int = 0,
+) -> Type[GriddlyEnv]:
     """
     In order to fit the API for the Environment, we need to pre-load the environment from the yaml and then pass in
     observation space, action space and the instantiated GymWrapper
@@ -66,7 +71,7 @@ def create_env(yaml_file, image_path=None, shader_path=None, level=0) -> Environ
 
     class InstantiatedGriddlyEnv(GriddlyEnv):
         @classmethod
-        def _griddly_env(cls) -> GymWrapper:
+        def _griddly_env(cls) -> Any:
             return env
 
         @classmethod
