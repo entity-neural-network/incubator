@@ -3,12 +3,7 @@ from abc import abstractmethod
 from typing import Type, Dict
 
 from enn_zoo.griddly.wrapper import GriddlyEnv
-from entity_gym.environment import (
-    ActionSpace,
-    ObsSpace,
-    Entity,
-    CategoricalActionSpace
-)
+from entity_gym.environment import ActionSpace, ObsSpace, Entity, CategoricalActionSpace
 from entity_gym.environment import Environment
 from griddly import GymWrapper
 
@@ -62,13 +57,12 @@ def create_env(yaml_file, level=0) -> Environment:
     observation space, action space and the instantiated GymWrapper
     """
 
-    env = GymWrapper(yaml_file=os.path.join(init_path, yaml_file), level=level)
+    env = GymWrapper(yaml_file=yaml_file, level=level)
     env.reset()
     action_space = generate_action_space(env)
     observation_space = generate_obs_space(env)
 
     class InstantiatedGriddlyEnv(GriddlyEnv):
-
         @classmethod
         def _griddly_env(cls) -> GymWrapper:
             return env
@@ -84,4 +78,20 @@ def create_env(yaml_file, level=0) -> Environment:
     return InstantiatedGriddlyEnv
 
 
-GRIDDLY_ENVS: Dict[str, Type[Environment]] = {"GDY-Clusters": create_env("env_descriptions/clusters.yaml")}
+GRIDDLY_ENVS: Dict[str, Type[Environment]] = {
+    "GDY-Clusters-0": create_env(
+        os.path.join(init_path, "env_descriptions/clusters.yaml"), level=0
+    ),
+    "GDY-Clusters-1": create_env(
+        os.path.join(init_path, "env_descriptions/clusters.yaml"), level=1
+    ),
+    "GDY-Clusters-2": create_env(
+        os.path.join(init_path, "env_descriptions/clusters.yaml"), level=2
+    ),
+    "GDY-Clusters-3": create_env(
+        os.path.join(init_path, "env_descriptions/clusters.yaml"), level=3
+    ),
+    "GDY-Clusters-4": create_env(
+        os.path.join(init_path, "env_descriptions/clusters.yaml"), level=4
+    ),
+}

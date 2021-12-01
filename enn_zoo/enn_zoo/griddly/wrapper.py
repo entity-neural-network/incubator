@@ -16,7 +16,6 @@ from griddly import GymWrapper  # type: ignore
 
 
 class GriddlyEnv(Environment):
-
     def __init__(self):
         self._env = self.__class__._griddly_env()
         self._obs_space = self.__class__.obs_space()
@@ -107,7 +106,7 @@ class GriddlyEnv(Environment):
                 len(self._action_space[action_name].choices)  # type: ignore
             )
         for location, available_action_types in self._env.game.get_available_actions(
-                1
+            1
         ).items():
             available_action_ids = self._env.game.get_available_action_ids(
                 location, list(available_action_types)

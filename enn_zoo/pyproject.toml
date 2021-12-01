@@ -6,12 +6,9 @@ authors = ["Clemens Winter <clemenswinter1@gmail.com>"]
 
 [tool.poetry.dev-dependencies]
 # TODO: can use griddly-dev if you are using a development version of griddly
-griddly = {path = "../../Griddly/python", optional=true}
+griddly = {path = "../../Griddly/python"}
 entity_gym = {path = "../entity_gym", develop = true}
 rogue_net = {path = "../rogue_net", develop = true}
-
-[tool.poetry.extras]
-griddly = ["griddly"]
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

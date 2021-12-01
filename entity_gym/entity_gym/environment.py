@@ -171,6 +171,7 @@ class Environment(ABC):
     methods may return lists of observations and accept lists of actions.
     This should be replaced by a more general multi-agent environment interface in the future.
     """
+
     @classmethod
     @abstractmethod
     def obs_space(cls) -> ObsSpace:
