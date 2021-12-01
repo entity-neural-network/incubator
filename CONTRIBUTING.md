@@ -17,7 +17,7 @@ pip install -e enn_ppo  # If you didn't have torch installed already, the torch-
 ### Rust
 
 ENN uses optimized libraries, (such as ragged-buffer) written using rust. 
-To use this library you will need to [install rust](https://www.rust-lang.org/tools/install): 
+To use this library you will need to [install rust](https://rustup.rs/.): 
 
 ## Code Formatting
 
