@@ -47,8 +47,8 @@ python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*"
 [[package]]
 name = "entity-gym"
 version = "0.1.0"
-description = ""
-category = "dev"
+description = "Entity Gym"
+category = "main"
 optional = false
 python-versions = ">=3.7.1,<3.10"
 develop = true
@@ -262,8 +262,8 @@ rsa = ["oauthlib[signedtoken] (>=3.0.0)"]
 [[package]]
 name = "rogue-net"
 version = "0.1.0"
-description = ""
-category = "dev"
+description = "Entity Networks compatible with EntityGym"
+category = "main"
 optional = false
 python-versions = ">=3.7.1,<3.10"
 develop = true
@@ -373,7 +373,7 @@ telegram = ["requests"]
 
 [[package]]
 name = "typing-extensions"
-version = "4.0.0"
+version = "4.0.1"
 description = "Backported and Experimental Type Hints for Python 3.6+"
 category = "main"
 optional = false
@@ -418,7 +418,7 @@ testing = ["pytest (>=4.6)", "pytest-checkdocs (>=2.4)", "pytest-flake8", "pytes
 [metadata]
 lock-version = "1.1"
 python-versions = ">=3.7.1,<3.10"
-content-hash = "5d26d3dcfe6e6a2b014239236b7e64b6907f2bf24cf831053789564197b84a35"
+content-hash = "ccf199c9d8402769dabf54e6c8469bd2336a54ed8d7cce923b9c3f1064662ae9"
 
 [metadata.files]
 absl-py = [
@@ -709,8 +709,8 @@ tqdm = [
     {file = "tqdm-4.62.3.tar.gz", hash = "sha256:d359de7217506c9851b7869f3708d8ee53ed70a1b8edbba4dbcb47442592920d"},
 ]
 typing-extensions = [
-    {file = "typing_extensions-4.0.0-py3-none-any.whl", hash = "sha256:829704698b22e13ec9eaf959122315eabb370b0884400e9818334d8b677023d9"},
-    {file = "typing_extensions-4.0.0.tar.gz", hash = "sha256:2cdf80e4e04866a9b3689a51869016d36db0814d84b8d8a568d22781d45d27ed"},
+    {file = "typing_extensions-4.0.1-py3-none-any.whl", hash = "sha256:7f001e5ac290a0c0401508864c7ec868be4e701886d5b573a9528ed3973d9d3b"},
+    {file = "typing_extensions-4.0.1.tar.gz", hash = "sha256:4ca091dea149f945ec56afb48dae714f21e8692ef22a395223bcd328961b6a0e"},
 ]
 urllib3 = [
     {file = "urllib3-1.26.7-py2.py3-none-any.whl", hash = "sha256:c4fdf4019605b6e5423637e01bc9fe4daef873709a7973e195ceba0a62bbc844"},
