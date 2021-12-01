@@ -5,7 +5,7 @@ description = "A collections of environments which can be used with entity-neura
 authors = ["Clemens Winter <clemenswinter1@gmail.com>"]
 
 [tool.poetry.dependencies]
-griddly = {version = "^1.2.15", optional=true}
+griddly = {version = "^1.2.16", optional=true}
 
 [tool.poetry.extras]
 griddly = ["griddly"]
