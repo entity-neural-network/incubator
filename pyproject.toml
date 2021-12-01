@@ -15,10 +15,10 @@ entity_gym = {path = "entity_gym", develop = true}
 rogue_net = {path = "rogue_net", develop = true}
 enn_ppo = {path = "enn_ppo", develop = true}
 enn_zoo = {path = "enn_zoo", develop = true}
-griddly = {path = "../Griddly/python"}
+griddly = {path = "../Griddly/python", optional=true}
 
-#[tool.poetry.extras]
-#griddly = ["griddly"]
+[tool.poetry.extras]
+griddly = ["griddly"]
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
