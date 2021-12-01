@@ -85,7 +85,9 @@ class GriddlyEnv(Environment):
             feature_vec[3] = orientation_feature(object["Orientation"])
             feature_vec[4] = object["PlayerId"]
             for i, variable_name in enumerate(self._env.variable_names):
-                feature_vec[5 + i] = variables[variable_name]
+                feature_vec[5 + i] = (
+                    variables[variable_name] if variable_name in variables else 0
+                )
 
             entity_observation[name].append(feature_vec)
 
@@ -105,6 +107,11 @@ class GriddlyEnv(Environment):
             mask_for_action[action_name] = np.zeros(
                 len(self._action_space[action_name].choices)  # type: ignore
             )
+
+            # TODO: single actor identity is hard coded to 0, when this is fixed,
+            #  we assign the actions to their possible actors
+            entity_id_for_action[action_name] = 0
+
         for location, available_action_types in self._env.game.get_available_actions(
             1
         ).items():
@@ -113,10 +120,6 @@ class GriddlyEnv(Environment):
             )
             for action_name, action_ids in available_action_ids.items():
                 mask_for_action[action_name][action_ids] = 1
-                # entity_id_for_action[action_name] = f'{location[0]},{location[1]}'
-
-                # TODO: EntityID only supports a single entity at the moment which is 0
-                entity_id_for_action[action_name] = 0
 
         action_mask_mapping = {}
         for action_name in mask_for_action.keys():

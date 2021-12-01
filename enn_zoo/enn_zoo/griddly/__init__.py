@@ -51,13 +51,15 @@ def generate_action_space(env: GymWrapper) -> Dict[str, ActionSpace]:
     return action_space
 
 
-def create_env(yaml_file, level=0) -> Environment:
+def create_env(yaml_file, image_path=None, shader_path=None, level=0) -> Environment:
     """
     In order to fit the API for the Environment, we need to pre-load the environment from the yaml and then pass in
     observation space, action space and the instantiated GymWrapper
     """
 
-    env = GymWrapper(yaml_file=yaml_file, level=level)
+    env = GymWrapper(
+        yaml_file=yaml_file, image_path=image_path, shader_path=shader_path, level=level
+    )
     env.reset()
     action_space = generate_action_space(env)
     observation_space = generate_obs_space(env)
