@@ -68,11 +68,17 @@ def create_env(
     env.reset()
     action_space = generate_action_space(env)
     observation_space = generate_obs_space(env)
+    env.close()
 
     class InstantiatedGriddlyEnv(GriddlyEnv):
         @classmethod
         def _griddly_env(cls) -> Any:
-            return env
+            return GymWrapper(
+                yaml_file=yaml_file,
+                image_path=image_path,
+                shader_path=shader_path,
+                level=level,
+            )
 
         @classmethod
         def obs_space(cls) -> ObsSpace:

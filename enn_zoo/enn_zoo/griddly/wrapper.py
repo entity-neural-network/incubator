@@ -17,7 +17,10 @@ from griddly import GymWrapper
 
 class GriddlyEnv(Environment):
     def __init__(self) -> None:
+
+        # Create an instantiation of the griddly envs
         self._env = self.__class__._griddly_env()
+
         self._obs_space = self.__class__.obs_space()
         self._action_space = self.__class__.action_space()
 
