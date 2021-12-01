@@ -4,10 +4,8 @@ version = "0.1.0"
 description = "A collections of environments which can be used with entity-neural-networks"
 authors = ["Clemens Winter <clemenswinter1@gmail.com>"]
 
-[tool.poetry.dev-dependencies]
+[tool.poetry.dependencies]
 griddly = {version = "^1.2.15", optional=true}
-entity_gym = {path = "../entity_gym", develop = true}
-rogue_net = {path = "../rogue_net", develop = true}
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
