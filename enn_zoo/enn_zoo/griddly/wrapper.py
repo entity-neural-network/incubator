@@ -21,6 +21,8 @@ class GriddlyEnv(Environment):
         # Create an instantiation of the griddly envs
         self._env = self.__class__._griddly_env()
 
+        self._env.reset()
+
         self._obs_space = self.__class__.obs_space()
         self._action_space = self.__class__.action_space()
 
