@@ -1,0 +1,15 @@
+[tool.poetry]
+name = "enn_zoo"
+version = "0.1.0"
+description = "A collections of environments which can be used with entity-neural-networks"
+authors = ["Clemens Winter <clemenswinter1@gmail.com>"]
+
+[tool.poetry.dependencies]
+griddly = {version = "^1.2.16", optional=true}
+
+[tool.poetry.extras]
+griddly = ["griddly"]
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

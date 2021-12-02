@@ -78,10 +78,12 @@ class Actor(nn.Module):
         index_offset = 0
 
         for entity, embedding in self.embedding.items():
-            batch = torch.tensor(entities[entity].as_array()).to(self.device())
-            entity_embeds.append(embedding(batch))
-            index_offsets[entity] = index_offset
-            index_offset += batch.size(0)
+            # We may have environment states that do not contain every possible entity
+            if entity in entities:
+                batch = torch.tensor(entities[entity].as_array()).to(self.device())
+                entity_embeds.append(embedding(batch))
+                index_offsets[entity] = index_offset
+                index_offset += batch.size(0)
         x = torch.cat(entity_embeds)
         with tracer.span("ragged_metadata"):
             lengths = sum([entity.size1() for entity in entities.values()])
