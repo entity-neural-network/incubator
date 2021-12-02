@@ -72,7 +72,6 @@ def test_griddly_wrapper() -> None:
     )
 
     # Check the masks in the observation
-    # TODO: actually make this test have non-0 masks...
     assert isinstance(observation.action_masks["move_one"], DenseCategoricalActionMask)
     assert np.all(
         observation.action_masks["move_one"].mask
