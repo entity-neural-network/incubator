@@ -164,8 +164,10 @@ class PPOActor(AutoActor):
             auxiliary_heads,
         )
 
-    def get_value(self, entities: Dict[str, RaggedBufferF32]) -> torch.Tensor:
-        return self.get_auxiliary_head(entities, "value")
+    def get_value(
+        self, entities: Dict[str, RaggedBufferF32], tracer: Tracer
+    ) -> torch.Tensor:
+        return self.get_auxiliary_head(entities, "value", tracer)
 
 
 def train(args: argparse.Namespace) -> float:
@@ -318,14 +320,10 @@ def train(args: argparse.Namespace) -> float:
             for eoei in next_obs.end_of_episode_info.values():
                 print(f"global_step={global_step}, episodic_return={eoei.total_reward}")
                 writer.add_scalar(
-                    "charts/episodic_return",
-                    eoei.total_reward,
-                    global_step,
+                    "charts/episodic_return", eoei.total_reward, global_step,
                 )
                 writer.add_scalar(
-                    "charts/episodic_length",
-                    eoei.length,
-                    global_step,
+                    "charts/episodic_length", eoei.length, global_step,
                 )
                 break
             # TODO: reenable
@@ -342,7 +340,7 @@ def train(args: argparse.Namespace) -> float:
 
         # bootstrap value if not done
         with torch.no_grad(), tracer.span("advantages"):
-            next_value = agent.get_value(next_obs.entities).reshape(1, -1)
+            next_value = agent.get_value(next_obs.entities, tracer).reshape(1, -1)
             if args.gae:
                 advantages = torch.zeros_like(rewards).to(device)
                 lastgaelam = 0
@@ -403,10 +401,7 @@ def train(args: argparse.Namespace) -> float:
 
                 with tracer.span("forward"):
                     _, newlogprob, entropy, _, aux = agent.get_action_and_auxiliary(
-                        b_entities,
-                        b_action_masks,
-                        b_actions,
-                        tracer=tracer,
+                        b_entities, b_action_masks, b_actions, tracer=tracer,
                     )
                     newvalue = aux["value"]
 

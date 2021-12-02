@@ -6,6 +6,7 @@ from entity_gym.environment import (
 )
 from enn_ppo.simple_trace import Tracer
 import numpy as np
+import ragged_buffer
 import torch
 import torch.nn as nn
 from torch.distributions.categorical import Categorical
@@ -52,8 +53,7 @@ class Actor(nn.Module):
         return next(self.parameters()).device
 
     def batch_and_embed(
-        self,
-        entities: Mapping[str, RaggedBufferF32],
+        self, entities: Mapping[str, RaggedBufferF32], tracer: Tracer
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         """
         Example:
@@ -76,38 +76,41 @@ class Actor(nn.Module):
         entity_embeds = []
         index_offsets = {}
         index_offset = 0
+
         for entity, embedding in self.embedding.items():
             batch = torch.tensor(entities[entity].as_array()).to(self.device())
             entity_embeds.append(embedding(batch))
             index_offsets[entity] = index_offset
             index_offset += batch.size(0)
         x = torch.cat(entity_embeds)
-        index_map = []
-        batch_index = []
-        lengths = []
-        for i in range(next(iter(entities.values())).size0()):
-            lengths.append(0)
-            for entity in self.obs_space.entities.keys():
-                count = entities[entity].size1(i)
-                index_map.append(
-                    torch.arange(index_offsets[entity], index_offsets[entity] + count)
+        with tracer.span("ragged_metadata"):
+            lengths = np.concatenate([entity.size1() for entity in entities.values()])
+            batch_index = np.concatenate(
+                [entity.indices(0).as_array().flatten() for entity in entities.values()]
+            )
+            index_map = (
+                ragged_buffer.cat(
+                    [
+                        entity.flat_indices() + index_offsets[name]
+                        for name, entity in entities.items()
+                    ]
                 )
-                batch_index.append(torch.full((count,), i, dtype=torch.int64))
-                index_offsets[entity] += count
-                lengths[-1] += count
+                .as_array()
+                .flatten()
+            )
         x = self.backbone(x)
 
         return (
             x,
-            torch.cat(index_map).to(self.device()),
-            torch.cat(batch_index).to(self.device()),
+            torch.tensor(index_map).to(self.device()),
+            torch.tensor(batch_index).to(self.device()),
             torch.tensor(lengths).to(self.device()),
         )
 
     def get_auxiliary_head(
-        self, entities: Mapping[str, RaggedBufferF32], head_name: str
+        self, entities: Mapping[str, RaggedBufferF32], head_name: str, tracer: Tracer
     ) -> torch.Tensor:
-        embeddings, _, batch_index, _ = self.batch_and_embed(entities)
+        embeddings, _, batch_index, _ = self.batch_and_embed(entities, tracer)
         pooled = torch_scatter.scatter(
             src=embeddings, dim=0, index=batch_index, reduce="mean"
         )
@@ -117,8 +120,8 @@ class Actor(nn.Module):
         self,
         entities: Mapping[str, RaggedBufferF32],
         action_masks: Mapping[str, RaggedBufferI64],
+        tracer: Tracer,
         prev_actions: Optional[Dict[str, RaggedBufferI64]] = None,
-        tracer: Optional[Tracer] = None,
     ) -> Tuple[
         Dict[str, RaggedBufferI64],
         Dict[str, torch.Tensor],
@@ -131,7 +134,7 @@ class Actor(nn.Module):
         entropies: Dict[str, torch.Tensor] = {}
         if tracer:
             tracer.start("batch_and_embed")
-        x, index_map, batch_index, lengths = self.batch_and_embed(entities)
+        x, index_map, batch_index, lengths = self.batch_and_embed(entities, tracer)
         if tracer:
             tracer.end("batch_and_embed")
             tracer.start("action_heads")
