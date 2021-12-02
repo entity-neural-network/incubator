@@ -26,7 +26,7 @@ def test_griddly_wrapper() -> None:
         "orientation",
         "player_id",
         "entity_1_variable",
-        "entity_2_variable"
+        "entity_2_variable",
     ]
     assert observation_space.entities["entity_2"].features == [
         "x",
