@@ -16,6 +16,7 @@ griddly = {version = "^1.2.16", optional=true}
 black = "^21.11b1"
 pytest = "^6.2.5"
 mypy = "^0.910"
+ipdb = "^0.13.9"
 
 [tool.poetry.extras]
 griddly = ["griddly"]

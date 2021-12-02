@@ -164,8 +164,10 @@ class PPOActor(AutoActor):
             auxiliary_heads,
         )
 
-    def get_value(self, entities: Dict[str, RaggedBufferF32]) -> torch.Tensor:
-        return self.get_auxiliary_head(entities, "value")
+    def get_value(
+        self, entities: Dict[str, RaggedBufferF32], tracer: Tracer
+    ) -> torch.Tensor:
+        return self.get_auxiliary_head(entities, "value", tracer)
 
 
 def train(args: argparse.Namespace) -> float:
@@ -342,7 +344,7 @@ def train(args: argparse.Namespace) -> float:
 
         # bootstrap value if not done
         with torch.no_grad(), tracer.span("advantages"):
-            next_value = agent.get_value(next_obs.entities).reshape(1, -1)
+            next_value = agent.get_value(next_obs.entities, tracer).reshape(1, -1)
             if args.gae:
                 advantages = torch.zeros_like(rewards).to(device)
                 lastgaelam = 0
@@ -405,7 +407,7 @@ def train(args: argparse.Namespace) -> float:
                     _, newlogprob, entropy, _, aux = agent.get_action_and_auxiliary(
                         b_entities,
                         b_action_masks,
-                        b_actions,
+                        prev_actions=b_actions,
                         tracer=tracer,
                     )
                     newvalue = aux["value"]

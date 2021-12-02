@@ -8,3 +8,6 @@ runs/
 
 # Pycharm
 .idea/
+
+# Meld
+*.orig
