@@ -15,11 +15,11 @@ tqdm = "^4.62.3"
 torch-scatter = "^2.0.9"
 ragged-buffer = "^0.2.5"
 wandb = "^0.12.7"
-
-[tool.poetry.dev-dependencies]
 enn_zoo = {path = "../enn_zoo", develop=true}
 entity_gym = {path = "../entity_gym", develop = true}
 rogue_net = {path = "../rogue_net", develop = true}
+
+[tool.poetry.dev-dependencies]
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
