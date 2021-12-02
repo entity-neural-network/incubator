@@ -6,11 +6,13 @@ authors = ["Clemens Winter <clemenswinter1@gmail.com>"]
 
 [tool.poetry.dependencies]
 python = ">=3.7.1,<3.10"
+wandb = "^0.12.7"
 
 [tool.poetry.dev-dependencies]
 black = "^21.11b1"
 pytest = "^6.2.5"
 mypy = "^0.910"
+ipdb = "^0.13.9"
 entity_gym = {path = "entity_gym", develop = true}
 rogue_net = {path = "rogue_net", develop = true}
 enn_ppo = {path = "enn_ppo", develop = true}
