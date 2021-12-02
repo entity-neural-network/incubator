@@ -28,6 +28,8 @@ class GriddlyEnv(Environment):
 
         self._current_g_state = self._env.get_state()
 
+        self._entity_observer = self._env.game.get_entity_observer()
+
     @classmethod
     @abstractmethod
     def _griddly_env(cls) -> Any:
@@ -137,12 +139,24 @@ class GriddlyEnv(Environment):
         return action_mask_mapping
 
     def _make_observation(self, reward: int = 0, done: bool = False) -> Observation:
-        entity_ids, entities = self._get_entity_observation()
-        action_masks = self._get_action_masks() if not done else {}
+        griddly_entity_observation = self._entity_observer.observe(1)
+        entities = griddly_entity_observation["Entities"]
+        entity_ids = griddly_entity_observation["EntityIds"]
+        entity_masks = griddly_entity_observation["EntityMasks"]
+
+        entities = {
+            name: np.array(obs, dtype=np.float32) for name, obs in entities.items()
+        }
+        action_masks = {}
+        for action_name, entity_mask in entity_masks.items():
+            action_masks[action_name] = DenseCategoricalActionMask(
+                actors=np.array([0]),
+                mask=np.array(entity_mask["Masks"], dtype=np.float32),
+            )
 
         return Observation(
             entities=entities,
-            ids=list(entity_ids),
+            ids=entity_ids,
             action_masks=action_masks,
             reward=reward,
             done=done,

@@ -116,7 +116,7 @@ name = "cloudpickle"
 version = "2.0.0"
 description = "Extended pickling support for Python objects"
 category = "main"
-optional = true
+optional = false
 python-versions = ">=3.6"
 
 [[package]]
@@ -191,8 +191,8 @@ optional = false
 python-versions = "*"
 develop = true
 
-[package.extras]
-griddly = ["griddly (>=1.2.16,<2.0.0)"]
+[package.dependencies]
+griddly = "^1.2.17"
 
 [package.source]
 type = "directory"
@@ -273,10 +273,10 @@ tool = ["click (>=6.0.0)"]
 
 [[package]]
 name = "griddly"
-version = "1.2.16"
+version = "1.2.17"
 description = "Griddly Python Libraries"
 category = "main"
-optional = true
+optional = false
 python-versions = "*"
 
 [package.dependencies]
@@ -304,7 +304,7 @@ name = "gym"
 version = "0.21.0"
 description = "Gym: A universal API for reinforcement learning environments."
 category = "main"
-optional = true
+optional = false
 python-versions = ">=3.6"
 
 [package.dependencies]
@@ -337,7 +337,7 @@ name = "imageio"
 version = "2.13.1"
 description = "Library for reading and writing a wide range of image, video, scientific, and volumetric data formats."
 category = "main"
-optional = true
+optional = false
 python-versions = ">=3.5"
 
 [package.dependencies]
@@ -397,7 +397,7 @@ toml = {version = ">=0.10.2", markers = "python_version > \"3.6\""}
 
 [[package]]
 name = "ipython"
-version = "7.30.0"
+version = "7.30.1"
 description = "IPython: Productive Interactive Computing"
 category = "dev"
 optional = false
@@ -491,7 +491,7 @@ numpy = ">=1.9.0"
 name = "mypy"
 version = "0.910"
 description = "Optional static typing for Python"
-category = "dev"
+category = "main"
 optional = false
 python-versions = ">=3.5"
 
@@ -509,7 +509,7 @@ python2 = ["typed-ast (>=1.4.0,<1.5.0)"]
 name = "mypy-extensions"
 version = "0.4.3"
 description = "Experimental type system extensions for programs checked with the mypy typechecker."
-category = "dev"
+category = "main"
 optional = false
 python-versions = "*"
 
@@ -597,7 +597,7 @@ name = "pillow"
 version = "8.4.0"
 description = "Python Imaging Library (Fork)"
 category = "main"
-optional = true
+optional = false
 python-versions = ">=3.6"
 
 [[package]]
@@ -957,7 +957,7 @@ python-versions = "*"
 name = "toml"
 version = "0.10.2"
 description = "Python Library for Tom's Obvious, Minimal Language"
-category = "dev"
+category = "main"
 optional = false
 python-versions = ">=2.6, !=3.0.*, !=3.1.*, !=3.2.*"
 
@@ -1022,7 +1022,7 @@ test = ["pytest"]
 name = "typed-ast"
 version = "1.4.3"
 description = "a fork of Python 2 and 3 ast modules with type comment support"
-category = "dev"
+category = "main"
 optional = false
 python-versions = "*"
 
@@ -1124,13 +1124,10 @@ python-versions = ">=3.6"
 docs = ["sphinx", "jaraco.packaging (>=8.2)", "rst.linker (>=1.9)"]
 testing = ["pytest (>=4.6)", "pytest-checkdocs (>=2.4)", "pytest-flake8", "pytest-cov", "pytest-enabler (>=1.0.1)", "jaraco.itertools", "func-timeout", "pytest-black (>=0.3.7)", "pytest-mypy"]
 
-[extras]
-griddly = ["griddly"]
-
 [metadata]
 lock-version = "1.1"
 python-versions = ">=3.7.1,<3.10"
-content-hash = "5679d3b7fe6b65acf9432f029efd4378494f57b698b30f498154595a0ed04ce4"
+content-hash = "9bc24687bf4e2bfd14bc3cbbb0fa8f67cfd56b37ab718ededc550d28e47c0717"
 
 [metadata.files]
 absl-py = [
@@ -1213,16 +1210,17 @@ google-auth-oauthlib = [
     {file = "google_auth_oauthlib-0.4.6-py2.py3-none-any.whl", hash = "sha256:3f2a6e802eebbb6fb736a370fbf3b055edcb6b52878bf2f26330b5e041316c73"},
 ]
 griddly = [
-    {file = "griddly-1.2.16-cp36-cp36m-macosx_10_15_x86_64.whl", hash = "sha256:484e8ec9f00663bc431a80eb88cbc5023a856836294f138570febebe6760ad8f"},
-    {file = "griddly-1.2.16-cp36-cp36m-manylinux2014_x86_64.whl", hash = "sha256:1807143a50190d454c01d6d411682b69436c9dc3900ee06f8b29f5349ed6b7be"},
-    {file = "griddly-1.2.16-cp36-cp36m-win_amd64.whl", hash = "sha256:9e4a350f50e8b63a75b3ff3b2810a8b9f9fd5be0552f32012adf0ad575fa8339"},
-    {file = "griddly-1.2.16-cp37-cp37m-macosx_10_15_x86_64.whl", hash = "sha256:e3adb68fc9b06fdde2acb700e6dca78b4790783943c58162d058af071db21070"},
-    {file = "griddly-1.2.16-cp37-cp37m-manylinux2014_x86_64.whl", hash = "sha256:052b6613e15f827544c6eb37b44409d54618b7621d66895f6301678fbc9baf18"},
-    {file = "griddly-1.2.16-cp37-cp37m-win_amd64.whl", hash = "sha256:4eee8cd85e7e2f3ce56f2818d904eb9f6d1d6af8741d073a4802bd2b6b5ff804"},
-    {file = "griddly-1.2.16-cp38-cp38-manylinux2014_x86_64.whl", hash = "sha256:0f67ea041d883afdb7944bf6de9f5978f6741c23c2f8fb29da4382c9d6fe0e69"},
-    {file = "griddly-1.2.16-cp38-cp38-win_amd64.whl", hash = "sha256:4a48b0ba26902c5c48bc56b9a69e87ceb4a06e9354a9820c0ee46feb82d3fe8c"},
-    {file = "griddly-1.2.16-cp39-cp39-manylinux2014_x86_64.whl", hash = "sha256:e85cb906417d489d5b614939be59283de0a2cf6c255f5529eb97c5c3c0b332c5"},
-    {file = "griddly-1.2.16-cp39-cp39-win_amd64.whl", hash = "sha256:b47e3a91344549d7ba0450eccba2a5fb1827ea6b98c821a77825438da831de39"},
+    {file = "griddly-1.2.17-cp36-cp36m-macosx_10_15_x86_64.whl", hash = "sha256:799a3264073eba04801672e988c77bd4b3ae39e2144760628263212e290750c6"},
+    {file = "griddly-1.2.17-cp36-cp36m-manylinux2014_x86_64.whl", hash = "sha256:5248c0b206902a9af3128bb536d1f9638fa8d075c3887db2d0208c0b64efd6e7"},
+    {file = "griddly-1.2.17-cp36-cp36m-win_amd64.whl", hash = "sha256:020674e46e26f61b01cb6015276b3c1afa093a0d168fbe08d05c287b76a7ff5f"},
+    {file = "griddly-1.2.17-cp37-cp37m-manylinux2014_x86_64.whl", hash = "sha256:e173e683c0e69a10ad8dbd98e223f1bdb9102ad5c9c2da69213dcecf7927ffc8"},
+    {file = "griddly-1.2.17-cp37-cp37m-win_amd64.whl", hash = "sha256:c53b589e2707ea5ab62d3b2281890f1406fa84e142ba652d588830432b35d8cd"},
+    {file = "griddly-1.2.17-cp38-cp38-macosx_10_15_x86_64.whl", hash = "sha256:42eda54cbbe68858c73b81b30715aaade3f756ecaf50802dad17d0d3c6678121"},
+    {file = "griddly-1.2.17-cp38-cp38-manylinux2014_x86_64.whl", hash = "sha256:70928b40ab93f639dac8349b7b29105c9203f9890b7f0cc1e87b2bdeb55b49b7"},
+    {file = "griddly-1.2.17-cp38-cp38-win_amd64.whl", hash = "sha256:8198769a4eeba082557bc0539680afdafd052daedf3b73b24e9f7b9ec64c5a0b"},
+    {file = "griddly-1.2.17-cp39-cp39-macosx_10_15_x86_64.whl", hash = "sha256:2c1005f36a0c2965366625aaae365fed8ab364c76054cacb9937e8adf074e920"},
+    {file = "griddly-1.2.17-cp39-cp39-manylinux2014_x86_64.whl", hash = "sha256:24218cf55b243e1490fb8834e58e7872e4a619c13b76182c41f544a7a33b2ef0"},
+    {file = "griddly-1.2.17-cp39-cp39-win_amd64.whl", hash = "sha256:e3e6aedab50c4e461bb44cf80ec9e8767a5c4f558d8c1cecc9dd770e48747e44"},
 ]
 grpcio = [
     {file = "grpcio-1.42.0-cp310-cp310-linux_armv7l.whl", hash = "sha256:6e5eec67909795f7b1ff2bd941bd6c2661ca5217ea9c35003d73314100786f60"},
@@ -1293,8 +1291,8 @@ ipdb = [
     {file = "ipdb-0.13.9.tar.gz", hash = "sha256:951bd9a64731c444fd907a5ce268543020086a697f6be08f7cc2c9a752a278c5"},
 ]
 ipython = [
-    {file = "ipython-7.30.0-py3-none-any.whl", hash = "sha256:c8f3e07aefb9cf9e067f39686f035ce09b27a1ee602116a3030b91b6fc138ee4"},
-    {file = "ipython-7.30.0.tar.gz", hash = "sha256:d41f8e80b99690122400f9b2069b12f670246a1b4cc5d332bd6c4e2500e6d6fb"},
+    {file = "ipython-7.30.1-py3-none-any.whl", hash = "sha256:fc60ef843e0863dd4e24ab2bb5698f071031332801ecf8d1aeb4fb622056545c"},
+    {file = "ipython-7.30.1.tar.gz", hash = "sha256:cb6aef731bf708a7727ab6cde8df87f0281b1427d41e65d62d4b68934fa54e97"},
 ]
 jedi = [
     {file = "jedi-0.18.1-py2.py3-none-any.whl", hash = "sha256:637c9635fcf47945ceb91cd7f320234a7be540ded6f3e99a50cb6febdfd1ba8d"},
