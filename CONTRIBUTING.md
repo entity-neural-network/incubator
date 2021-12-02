@@ -11,6 +11,7 @@ If you plan to work on an issue, let us know in the issue thread so we can avoid
 ```bash
 poetry install # torch-scatter installation will fail, simply run again
 poetry install # fix torch-scatter installation
+poetry install -E griddly
 ```
 
 Then you can run the scripts under the poetry environment in two ways: `poetry run` or `poetry shell`. 
