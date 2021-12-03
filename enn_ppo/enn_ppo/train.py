@@ -26,6 +26,7 @@ from entity_gym.environment import (
     ObsSpace,
 )
 from entity_gym.envs import ENV_REGISTRY
+from enn_zoo.griddly import GRIDDLY_ENVS, create_env
 from enn_ppo.sample_recorder import SampleRecorder, Sample
 from enn_ppo.simple_trace import Tracer
 from rogue_net.actor import AutoActor
@@ -200,7 +201,16 @@ def train(args: argparse.Namespace) -> float:
 
     device = torch.device("cuda" if torch.cuda.is_available() and args.cuda else "cpu")
 
-    env_cls = ENV_REGISTRY[args.gym_id]
+    if args.gym_id in ENV_REGISTRY:
+        env_cls = ENV_REGISTRY[args.gym_id]
+    elif args.gym_id in GRIDDLY_ENVS:
+        path, level = GRIDDLY_ENVS[args.gym_id]
+        env_cls = create_env(yaml_file=path, level=level)
+    else:
+        raise KeyError(
+            f"Unknown gym_id: {args.gym_id}\nAvailable environments: {list(ENV_REGISTRY.keys()) + list(GRIDDLY_ENVS.keys())}"
+        )
+
     # env setup
     envs = EnvList([env_cls() for _ in range(args.num_envs)])
     obs_space = env_cls.obs_space()

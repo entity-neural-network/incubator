@@ -1,6 +1,6 @@
 import os
 from abc import abstractmethod
-from typing import Type, Dict, Optional, Any
+from typing import Tuple, Type, Dict, Optional, Any
 
 from enn_zoo.griddly.wrapper import GriddlyEnv
 from entity_gym.environment import ActionSpace, ObsSpace, Entity, CategoricalActionSpace
@@ -86,20 +86,10 @@ def create_env(
     return InstantiatedGriddlyEnv
 
 
-GRIDDLY_ENVS: Dict[str, Type[Environment]] = {
-    "GDY-Clusters-0": create_env(
-        os.path.join(init_path, "env_descriptions/clusters.yaml"), level=0
-    ),
-    "GDY-Clusters-1": create_env(
-        os.path.join(init_path, "env_descriptions/clusters.yaml"), level=1
-    ),
-    "GDY-Clusters-2": create_env(
-        os.path.join(init_path, "env_descriptions/clusters.yaml"), level=2
-    ),
-    "GDY-Clusters-3": create_env(
-        os.path.join(init_path, "env_descriptions/clusters.yaml"), level=3
-    ),
-    "GDY-Clusters-4": create_env(
-        os.path.join(init_path, "env_descriptions/clusters.yaml"), level=4
-    ),
+GRIDDLY_ENVS: Dict[str, Tuple[str, int]] = {
+    "GDY-Clusters-0": (os.path.join(init_path, "env_descriptions/clusters.yaml"), 0),
+    "GDY-Clusters-1": (os.path.join(init_path, "env_descriptions/clusters.yaml"), 1),
+    "GDY-Clusters-2": (os.path.join(init_path, "env_descriptions/clusters.yaml"), 2),
+    "GDY-Clusters-3": (os.path.join(init_path, "env_descriptions/clusters.yaml"), 3),
+    "GDY-Clusters-4": (os.path.join(init_path, "env_descriptions/clusters.yaml"), 4),
 }
