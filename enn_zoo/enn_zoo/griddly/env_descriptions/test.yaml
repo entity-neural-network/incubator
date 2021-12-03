@@ -26,6 +26,11 @@ Actions:
 
   # Two move actions that will be in the action space
   - Name: move_one
+    Behaviours:
+      - Src:
+          Object: entity_1
+        Dst:
+          Object: _empty
   - Name: move_two
     InputMapping:
       Inputs:
@@ -35,6 +40,11 @@ Actions:
           Description: Make a little love
         3:
           Description: Get down tonight
+    Behaviours:
+      - Src:
+          Object: entity_1
+        Dst:
+          Object: entity_1
 
 Objects:
   - Name: entity_1

@@ -26,7 +26,6 @@ def test_griddly_wrapper() -> None:
         "orientation",
         "player_id",
         "entity_1_variable",
-        "entity_2_variable",
     ]
     assert observation_space.entities["entity_2"].features == [
         "x",
@@ -34,7 +33,6 @@ def test_griddly_wrapper() -> None:
         "z",
         "orientation",
         "player_id",
-        "entity_1_variable",
         "entity_2_variable",
     ]
 
@@ -61,27 +59,23 @@ def test_griddly_wrapper() -> None:
     observation = env._make_observation()
 
     # Check the entities in the observation
-    print(observation.entities["entity_1"])
-    print(np.array([[2, 2, 0, 0, 1, 5, 0]], dtype=np.float32))
     assert np.all(
         observation.entities["entity_1"]
-        == np.array([[2, 2, 0, 0, 1, 5, 0]], dtype=np.float32)
+        == np.array([[2, 2, 0, 0, 1, 5]], dtype=np.float32)
     )
 
     print(np.sort(observation.entities["entity_2"], axis=0))
-    print(np.array([[2, 3, 0, 0, 0, 0, 10], [4, 4, 0, 0, 0, 0, 10]], dtype=np.float32))
+    print(np.array([[2, 3, 0, 0, 0, 10], [4, 4, 0, 0, 0, 10]], dtype=np.float32))
     assert np.all(
         np.sort(observation.entities["entity_2"], axis=0)
-        == np.array([[2, 3, 0, 0, 0, 0, 10], [4, 4, 0, 0, 0, 0, 10]], dtype=np.float32)
+        == np.array([[2, 3, 0, 0, 0, 10], [4, 4, 0, 0, 0, 10]], dtype=np.float32)
     )
 
     # Check the masks in the observation
-    # TODO: actually make this test have non-0 masks...
-    assert observation.action_masks["move_one"].actors[0] == 0
     assert isinstance(observation.action_masks["move_one"], DenseCategoricalActionMask)
     assert np.all(
-        observation.action_masks["move_one"].mask == np.array([[0, 0, 0, 0, 0]])
+        observation.action_masks["move_one"].mask
+        == np.array([[1, 1, 1, 1, 0]])  # can do everything but move down
     )
-    assert observation.action_masks["move_two"].actors[0] == 0
     assert isinstance(observation.action_masks["move_two"], DenseCategoricalActionMask)
-    assert np.all(observation.action_masks["move_two"].mask == np.array([[0, 0, 0, 0]]))
+    assert np.all(observation.action_masks["move_two"].mask == np.array([[1, 1, 1, 1]]))
