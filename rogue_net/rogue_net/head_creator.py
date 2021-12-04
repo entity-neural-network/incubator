@@ -23,7 +23,9 @@ def create_head_for(space: ActionSpace, d_model: int) -> nn.Module:
 
 
 def create_value_head(d_model: int) -> nn.Module:
-    value_head = layer_init(nn.Linear(d_model, 1), std=1.0)
+    value_head = nn.Linear(d_model, 1)
+    value_head.weight.data.fill_(0.0)
+    value_head.bias.data.fill_(0.0)
     return value_head
 
 
