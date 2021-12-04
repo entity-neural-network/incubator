@@ -39,9 +39,7 @@ class InputNorm(nn.Module):
 
     def update(self, input: torch.Tensor) -> None:
         self._dirty = True
-        dbatch, dfeat = input.size()
-
-        count = input.numel() / dfeat
+        count, _ = input.size()
         if count == 0:
             return
         mean = input.mean(dim=0)

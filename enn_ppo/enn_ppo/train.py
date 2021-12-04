@@ -27,10 +27,10 @@ from entity_gym.environment import (
 )
 from entity_gym.envs import ENV_REGISTRY
 from enn_zoo.griddly import GRIDDLY_ENVS, create_env
-from enn_ppo.sample_recorder import SampleRecorder, Sample
+from enn_ppo.sample_recorder import SampleRecorder
 from enn_ppo.simple_trace import Tracer
 from rogue_net.actor import AutoActor
-from rogue_net import backbone_creator, head_creator
+from rogue_net import head_creator
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -71,6 +71,8 @@ def parse_args(override_args: Optional[List[str]] = None) -> argparse.Namespace:
     # Network architecture
     parser.add_argument('--hidden-size', type=int, default=64,
         help='the hidden size of the network layers')
+    parser.add_argument('--n-layer', type=int, default=1,
+        help='the number of layers of the network')
 
     # Algorithm specific arguments
     parser.add_argument('--num-envs', type=int, default=4,
@@ -155,16 +157,13 @@ class PPOActor(AutoActor):
         obs_space: ObsSpace,
         action_space: Dict[str, ActionSpace],
         d_model: int = 64,
+        n_layer: int = 1,
     ):
         auxiliary_heads = nn.ModuleDict(
             {"value": head_creator.create_value_head(d_model)}
         )
         super().__init__(
-            obs_space,
-            action_space,
-            d_model,
-            backbone_creator.mlp_backbone(d_model, 1),
-            auxiliary_heads,
+            obs_space, action_space, d_model, auxiliary_heads, n_layer=n_layer
         )
 
     def get_value(
@@ -220,7 +219,9 @@ def train(args: argparse.Namespace) -> float:
     if args.capture_samples:
         sample_recorder = SampleRecorder(args.capture_samples, action_space, obs_space)
 
-    agent = PPOActor(obs_space, action_space, d_model=args.hidden_size).to(device)
+    agent = PPOActor(
+        obs_space, action_space, d_model=args.hidden_size, n_layer=args.n_layer
+    ).to(device)
     optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5)
 
     # ALGO Logic: Storage setup
@@ -473,19 +474,17 @@ def train(args: argparse.Namespace) -> float:
                         mb_advantages.std() + 1e-8
                     )
 
-                # TODO: we can elide the gather and get better performance when there is exactly one actor per action
+                # TODO: we can elide the index op and get better performance when there is exactly one actor per action
                 # TODO: we can reuse the mb_advantages across all actions that have the same number of actors
                 # TODO: what's the correct way of combining loss from multiple actions/actors on the same timestep? should we split the advantages across actions/actors?
                 with tracer.span("broadcast_advantages"):
                     # Brodcast the advantage value from each timestep to all actors/actions on that timestep
                     bc_mb_advantages = {
-                        action_name: torch.gather(
-                            mb_advantages,
-                            dim=0,
-                            index=torch.tensor(
+                        action_name: mb_advantages[
+                            torch.tensor(
                                 _b_logprobs.indices(dim=0).as_array().flatten()
                             ).to(device),
-                        )
+                        ]
                         for action_name, _b_logprobs in b_logprobs.items()
                     }
 

@@ -16,6 +16,7 @@ import numpy.typing as npt
 from ragged_buffer import RaggedBufferF32, RaggedBufferI64, RaggedBuffer
 import rogue_net.head_creator as head_creator
 import rogue_net.embedding_creator as embedding_creator
+from rogue_net.transformer import Transformer, TransformerConfig
 
 
 ScalarType = TypeVar("ScalarType", bound=np.generic, covariant=True)
@@ -95,18 +96,24 @@ class Actor(nn.Module):
                     [
                         entity.flat_indices() + index_offsets[name]
                         for name, entity in entities.items()
-                    ]
+                    ],
+                    dim=1,
                 )
                 .as_array()
                 .flatten()
             )
-        x = self.backbone(x)
+            tindex_map = torch.tensor(index_map).to(self.device())
+            tbatch_index = torch.tensor(batch_index).to(self.device())
+            tlengths = torch.tensor(lengths).to(self.device())
+
+        with tracer.span("backbone"):
+            x = self.backbone(x, tbatch_index)
 
         return (
             x,
-            torch.tensor(index_map).to(self.device()),
-            torch.tensor(batch_index).to(self.device()),
-            torch.tensor(lengths).to(self.device()),
+            tindex_map,
+            tbatch_index,
+            tlengths,
         )
 
     def get_auxiliary_head(
@@ -134,12 +141,10 @@ class Actor(nn.Module):
         actions = {}
         probs: Dict[str, torch.Tensor] = {}
         entropies: Dict[str, torch.Tensor] = {}
-        if tracer:
-            tracer.start("batch_and_embed")
-        x, index_map, batch_index, lengths = self.batch_and_embed(entities, tracer)
-        if tracer:
-            tracer.end("batch_and_embed")
-            tracer.start("action_heads")
+        with tracer.span("batch_and_embed"):
+            x, index_map, batch_index, lengths = self.batch_and_embed(entities, tracer)
+
+        tracer.start("action_heads")
         index_offsets = RaggedBufferI64.from_array(
             (lengths.cumsum(0) - lengths[0]).cpu().numpy().reshape(-1, 1, 1)
         )
@@ -166,11 +171,9 @@ class Actor(nn.Module):
             actions[action_name] = action
             probs[action_name] = dist.log_prob(action)
             entropies[action_name] = dist.entropy()
-        if tracer:
-            tracer.end("action_heads")
+        tracer.end("action_heads")
 
-        if tracer:
-            tracer.start("auxiliary_heads")
+        tracer.start("auxiliary_heads")
         if self.auxiliary_heads:
             pooled = torch_scatter.scatter(
                 src=x, dim=0, index=batch_index, reduce="mean"
@@ -180,8 +183,7 @@ class Actor(nn.Module):
             }
         else:
             auxiliary_values = {}
-        if tracer:
-            tracer.end("auxiliary_heads")
+        tracer.end("auxiliary_heads")
 
         return (
             prev_actions
@@ -199,15 +201,15 @@ class AutoActor(Actor):
         obs_space: ObsSpace,
         action_space: Dict[str, ActionSpace],
         d_model: int,
-        backbone: nn.Module,
         auxiliary_heads: Optional[nn.ModuleDict] = None,
+        n_layer: int = 1,
     ):
         self.d_model = d_model
         super().__init__(
             obs_space,
             embedding_creator.create_embeddings(obs_space, d_model),
             action_space,
-            backbone,
+            Transformer(TransformerConfig(d_model=d_model, n_layer=n_layer)),
             head_creator.create_action_heads(action_space, d_model),
             auxiliary_heads=auxiliary_heads,
         )
