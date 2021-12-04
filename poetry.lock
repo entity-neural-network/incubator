@@ -994,9 +994,6 @@ python-versions = ">=3.6"
 [package.extras]
 test = ["pytest", "pytest-runner", "pytest-cov"]
 
-[package.source]
-type = "url"
-url = "https://data.pyg.org/whl/torch-1.10.0%2Bcu102/torch_scatter-2.0.9-cp38-cp38-linux_x86_64.whl"
 [[package]]
 name = "tqdm"
 version = "4.62.3"
@@ -1133,7 +1130,7 @@ testing = ["pytest (>=4.6)", "pytest-checkdocs (>=2.4)", "pytest-flake8", "pytes
 [metadata]
 lock-version = "1.1"
 python-versions = ">=3.7.1,<3.10"
-content-hash = "969cd28c9cf31991d1ea7f972b540921223e793d83e8dbe4a7255c238d5a9e2f"
+content-hash = "aad1a97031a2348c51b7cd1db75efd665de8c382e0fd1c8f826a760f600e9af6"
 
 [metadata.files]
 absl-py = [
@@ -1801,7 +1798,9 @@ torch = [
     {file = "torch-1.10.0-cp39-none-macosx_10_9_x86_64.whl", hash = "sha256:d6ef87470b44df9970e84542547d5ba7720bb89616602441df555a39b124e2bc"},
     {file = "torch-1.10.0-cp39-none-macosx_11_0_arm64.whl", hash = "sha256:eea675ec01ec4b4a0655fd2984f166a5ca3b933dae6ad4eb4e52eba7026dc176"},
 ]
-torch-scatter = []
+torch-scatter = [
+    {file = "torch_scatter-2.0.9.tar.gz", hash = "sha256:08f5511d64473badf0a71d156b36dc2b09b9c2f00a7cd373b935b490c477a7f1"},
+]
 tqdm = [
     {file = "tqdm-4.62.3-py2.py3-none-any.whl", hash = "sha256:8dd278a422499cd6b727e6ae4061c40b48fce8b76d1ccbf5d34fca9b7f925b0c"},
     {file = "tqdm-4.62.3.tar.gz", hash = "sha256:d359de7217506c9851b7869f3708d8ee53ed70a1b8edbba4dbcb47442592920d"},
