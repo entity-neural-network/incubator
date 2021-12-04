@@ -65,6 +65,8 @@ def parse_args(override_args: Optional[List[str]] = None) -> argparse.Namespace:
         help='weather to capture videos of the agent performances (check out `videos` folder)')
     parser.add_argument('--capture-samples', type=str, default=None,
         help='if set, write the samples to this file')
+    parser.add_argument('--max-log-frequency', type=int, default=None,
+        help='if set, print episods stats at most every `max-log-frequency` timsteps')
     
     # Network architecture
     parser.add_argument('--hidden-size', type=int, default=64,
@@ -228,6 +230,7 @@ def train(args: argparse.Namespace) -> float:
     episodes = list(range(args.num_envs))
     curr_step = [0] * args.num_envs
     next_episode = args.num_envs
+    last_log_step = 0
 
     # TRY NOT TO MODIFY: start the game
     global_step = 0
@@ -328,7 +331,14 @@ def train(args: argparse.Namespace) -> float:
                 next_done = torch.tensor(next_obs.done).to(device).view(-1)
 
             for eoei in next_obs.end_of_episode_info.values():
-                print(f"global_step={global_step}, episodic_return={eoei.total_reward}")
+                if (
+                    args.max_log_frequency is None
+                    or args.max_log_frequency < global_step - last_log_step
+                ):
+                    print(
+                        f"global_step={global_step}, episodic_return={eoei.total_reward}"
+                    )
+                    last_log_step = global_step
                 writer.add_scalar(
                     "charts/episodic_return",
                     eoei.total_reward,
@@ -463,20 +473,41 @@ def train(args: argparse.Namespace) -> float:
                         mb_advantages.std() + 1e-8
                     )
 
+                # TODO: we can elide the gather and get better performance when there is exactly one actor per action
+                # TODO: we can reuse the mb_advantages across all actions that have the same number of actors
+                # TODO: what's the correct way of combining loss from multiple actions/actors on the same timestep? should we split the advantages across actions/actors?
+                with tracer.span("broadcast_advantages"):
+                    # Brodcast the advantage value from each timestep to all actors/actions on that timestep
+                    bc_mb_advantages = {
+                        action_name: torch.gather(
+                            mb_advantages,
+                            dim=0,
+                            index=torch.tensor(
+                                _b_logprobs.indices(dim=0).as_array().flatten()
+                            ).to(device),
+                        )
+                        for action_name, _b_logprobs in b_logprobs.items()
+                    }
+
                 # Policy loss
                 with tracer.span("policy_loss"):
-                    # TODO: when there is more than one actor, we need to broadcast the advantages to all actors (ragged dimension)
-                    # TODO: what's the correct way of combining loss from multiple actions/actors on the same timestep?
                     pg_loss1 = torch.cat(
-                        [-mb_advantages * _ratio.flatten() for _ratio in ratio.values()]
+                        [
+                            -_advantages * _ratio.flatten()
+                            for _advantages, _ratio in zip(
+                                bc_mb_advantages.values(), ratio.values()
+                            )
+                        ]
                     )
                     pg_loss2 = torch.cat(
                         [
-                            -mb_advantages
+                            -_advantages
                             * torch.clamp(
                                 _ratio.flatten(), 1 - args.clip_coef, 1 + args.clip_coef
                             )
-                            for _ratio in ratio.values()
+                            for _advantages, _ratio in zip(
+                                bc_mb_advantages.values(), ratio.values()
+                            )
                         ]
                     )
                     pg_loss = torch.max(pg_loss1, pg_loss2).mean()

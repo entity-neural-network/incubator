@@ -32,3 +32,18 @@ def test_minefield() -> None:
     meanrew = train.train(args)
     print(f"Final mean reward: {meanrew}")
     assert meanrew >= 0.0
+
+
+def test_multi_snake() -> None:
+    args = train.parse_args(
+        [
+            "--gym-id=MultiSnake",
+            "--total-timesteps=256",
+            "--num-steps=16",
+            "--cuda=False",
+            "--hidden-size=16",
+        ]
+    )
+    meanrew = train.train(args)
+    print(f"Final mean reward: {meanrew}")
+    assert meanrew >= 0.0
