@@ -15,6 +15,7 @@ from typing import (
     Type,
     TypeVar,
 )
+import json
 
 import numpy as np
 import numpy.typing as npt
@@ -45,6 +46,8 @@ def parse_args(override_args: Optional[List[str]] = None) -> argparse.Namespace:
         help='the name of this experiment')
     parser.add_argument('--gym-id', type=str, default="MoveToOrigin",
         help='the id of the gym environment')
+    parser.add_argument('--env-kwargs', type=str, default="{}",
+        help='JSON dictionary with keyword arguments for the environment')
     parser.add_argument('--learning-rate', type=float, default=2.5e-4,
         help='the learning rate of the optimizer')
     parser.add_argument('--seed', type=int, default=1,
@@ -213,7 +216,8 @@ def train(args: argparse.Namespace) -> float:
         )
 
     # env setup
-    envs = EnvList([env_cls() for _ in range(args.num_envs)])
+    env_kwargs = json.loads(args.env_kwargs)
+    envs = EnvList([env_cls(**env_kwargs) for _ in range(args.num_envs)])  # type: ignore
     obs_space = env_cls.obs_space()
     action_space = env_cls.action_space()
     if args.capture_samples:
