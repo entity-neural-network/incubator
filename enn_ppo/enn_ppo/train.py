@@ -68,8 +68,6 @@ def parse_args(override_args: Optional[List[str]] = None) -> argparse.Namespace:
         help='weather to capture videos of the agent performances (check out `videos` folder)')
     parser.add_argument('--capture-samples', type=str, default=None,
         help='if set, write the samples to this file')
-    parser.add_argument('--max-log-frequency', type=int, default=None,
-        help='if set, print episods stats at most every `max-log-frequency` timsteps')
     
     # Network architecture
     parser.add_argument('--hidden-size', type=int, default=64,
@@ -249,9 +247,6 @@ def train(args: argparse.Namespace) -> float:
     actions = RaggedBatchDict(RaggedBufferI64)
     logprobs = RaggedBatchDict(RaggedBufferF32)
 
-    total_episodic_reward = 0.0
-    total_episodic_length = 0
-    total_episodes = 0
     for update in range(1, num_updates + 1):
         tracer.start("update")
 
@@ -266,6 +261,9 @@ def train(args: argparse.Namespace) -> float:
         action_masks.clear()
         actions.clear()
         logprobs.clear()
+        total_episodic_return = 0.0
+        total_episodic_length = 0
+        total_episodes = 0
         for step in range(0, args.num_steps):
             global_step += 1 * args.num_envs
 
@@ -338,17 +336,8 @@ def train(args: argparse.Namespace) -> float:
                 rewards[step] = torch.tensor(next_obs.reward).to(device).view(-1)
                 next_done = torch.tensor(next_obs.done).to(device).view(-1)
 
-            for env_idx, eoei in enumerate(next_obs.end_of_episode_info.values()):
-                if (
-                    args.max_log_frequency is None
-                    or args.max_log_frequency < global_step - last_log_step
-                ):
-                    print(
-                        f"global_step={global_step + env_idx}, episodic_return={eoei.total_reward}"
-                    )
-                    last_log_step = global_step + env_idx
-
-                total_episodic_reward += eoei.total_reward
+            for eoei in next_obs.end_of_episode_info.values():
+                total_episodic_return += eoei.total_reward
                 total_episodic_length += eoei.length
                 total_episodes += 1
 
@@ -365,15 +354,25 @@ def train(args: argparse.Namespace) -> float:
             """
 
         if total_episodes > 0:
+            avg_return = total_episodic_return / total_episodes
+            avg_length = total_episodic_length / total_episodes
             writer.add_scalar(
                 "charts/episodic_return",
-                total_episodic_reward / total_episodes,
+                avg_return,
                 global_step,
             )
             writer.add_scalar(
                 "charts/episodic_length",
-                total_episodic_length / total_episodes,
+                avg_length,
                 global_step,
+            )
+            writer.add_scalar(
+                "charts/episodes",
+                total_episodes,
+                global_step,
+            )
+            print(
+                f"global_step={global_step}, episodic_return={avg_return}, episodic_length={avg_length}, episodes={total_episodes}"
             )
 
         # bootstrap value if not done
