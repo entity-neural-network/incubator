@@ -77,7 +77,6 @@ def test_count() -> None:
             "--total-timesteps=2000",
             "--gym-id=Count",
             "--num-envs=16",
-            "--max-log-frequency=1000",
             "--n-layer=1",
             "--num-steps=1",
             "--hidden-size=16",
