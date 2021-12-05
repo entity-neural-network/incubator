@@ -331,26 +331,33 @@ def train(args: argparse.Namespace) -> float:
                 rewards[step] = torch.tensor(next_obs.reward).to(device).view(-1)
                 next_done = torch.tensor(next_obs.done).to(device).view(-1)
 
+            episodic_return = 0.0
+            episodic_length = 0.0
+            already_printed = False
             for eoei in next_obs.end_of_episode_info.values():
                 if (
                     args.max_log_frequency is None
                     or args.max_log_frequency < global_step - last_log_step
-                ):
+                ) and not already_printed:
                     print(
                         f"global_step={global_step}, episodic_return={eoei.total_reward}"
                     )
                     last_log_step = global_step
+                    already_printed = True
+                episodic_return += eoei.total_reward
+                episodic_length += eoei.length
+            if len(next_obs.end_of_episode_info) > 0:
                 writer.add_scalar(
                     "charts/episodic_return",
-                    eoei.total_reward,
+                    episodic_return / len(next_obs.end_of_episode_info),
                     global_step,
                 )
                 writer.add_scalar(
                     "charts/episodic_length",
-                    eoei.length,
+                    episodic_length / len(next_obs.end_of_episode_info),
                     global_step,
                 )
-                break
+
             # TODO: reenable
             """
             if args.capture_samples:
