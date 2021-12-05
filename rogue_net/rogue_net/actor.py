@@ -146,7 +146,11 @@ class Actor(nn.Module):
 
         tracer.start("action_heads")
         index_offsets = RaggedBufferI64.from_array(
-            (lengths.cumsum(0) - lengths[0]).cpu().numpy().reshape(-1, 1, 1)
+            torch.cat([torch.tensor([0]).to(self.device()), lengths[:-1]])
+            .cumsum(0)
+            .cpu()
+            .numpy()
+            .reshape(-1, 1, 1)
         )
         actor_counts: Dict[str, np.ndarray] = {}
         for action_name, action_head in self.action_heads.items():
