@@ -337,18 +337,18 @@ def train(args: argparse.Namespace) -> float:
                     or args.max_log_frequency < global_step - last_log_step
                 ):
                     print(
-                        f"global_step={global_step+env_idx}, episodic_return={eoei.total_reward}"
+                        f"global_step={global_step + env_idx}, episodic_return={eoei.total_reward}"
                     )
-                    last_log_step = global_step+env_idx
+                    last_log_step = global_step + env_idx
                 writer.add_scalar(
                     "charts/episodic_return",
                     eoei.total_reward,
-                    global_step+env_idx,
+                    global_step + env_idx,
                 )
                 writer.add_scalar(
                     "charts/episodic_length",
                     eoei.length,
-                    global_step+env_idx,
+                    global_step + env_idx,
                 )
 
             # TODO: reenable
