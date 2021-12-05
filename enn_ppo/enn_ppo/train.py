@@ -249,6 +249,9 @@ def train(args: argparse.Namespace) -> float:
     actions = RaggedBatchDict(RaggedBufferI64)
     logprobs = RaggedBatchDict(RaggedBufferF32)
 
+    total_episodic_reward = 0.0
+    total_episodic_length = 0
+    total_episodes = 0
     for update in range(1, num_updates + 1):
         tracer.start("update")
 
@@ -344,17 +347,10 @@ def train(args: argparse.Namespace) -> float:
                         f"global_step={global_step + env_idx}, episodic_return={eoei.total_reward}"
                     )
                     last_log_step = global_step + env_idx
-                if random.randint(0, 1000) == 0:
-                    writer.add_scalar(
-                        "charts/episodic_return",
-                        eoei.total_reward,
-                        global_step + env_idx,
-                    )
-                    writer.add_scalar(
-                        "charts/episodic_length",
-                        eoei.length,
-                        global_step + env_idx,
-                    )
+
+                total_episodic_reward += eoei.total_reward
+                total_episodic_length += eoei.length
+                total_episodes += 1
 
             # TODO: reenable
             """
@@ -367,6 +363,18 @@ def train(args: argparse.Namespace) -> float:
                     else:
                         curr_step[i] += 1
             """
+
+        if total_episodes > 0:
+            writer.add_scalar(
+                "charts/episodic_return",
+                total_episodic_reward / total_episodes,
+                global_step,
+            )
+            writer.add_scalar(
+                "charts/episodic_length",
+                total_episodic_length / total_episodes,
+                global_step,
+            )
 
         # bootstrap value if not done
         with torch.no_grad(), tracer.span("advantages"):
