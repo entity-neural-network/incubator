@@ -65,7 +65,7 @@ class DenseSelectEntityActionMask(ActionMask):
     """
 
     actees: npt.NDArray[np.int64]
-    mask: Optional[np.ndarray]
+    mask: Optional[np.ndarray] = None
     """
     An boolean array of shape (len(actors), len(entities)). If mask[i, j] is True, then
     agent i can select entity j.

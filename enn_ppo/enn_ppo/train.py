@@ -25,9 +25,11 @@ from entity_gym.environment import (
     ActionSpace,
     CategoricalAction,
     CategoricalActionSpace,
+    DenseSelectEntityActionMask,
     EnvList,
     ObsSpace,
     SelectEntityAction,
+    SelectEntityActionMaskBatch,
     SelectEntityActionSpace,
 )
 from entity_gym.envs import ENV_REGISTRY
@@ -74,8 +76,10 @@ def parse_args(override_args: Optional[List[str]] = None) -> argparse.Namespace:
         help='if set, write the samples to this file')
     
     # Network architecture
-    parser.add_argument('--hidden-size', type=int, default=64,
+    parser.add_argument('--d-model', type=int, default=64,
         help='the hidden size of the network layers')
+    parser.add_argument('--d-qk', type=int, default=64,
+        help='the size queries and keys in action heads')
     parser.add_argument('--n-layer', type=int, default=1,
         help='the number of layers of the network')
 
@@ -181,13 +185,14 @@ class PPOActor(AutoActor):
         obs_space: ObsSpace,
         action_space: Dict[str, ActionSpace],
         d_model: int = 64,
+        d_qk: int = 16,
         n_layer: int = 1,
     ):
         auxiliary_heads = nn.ModuleDict(
             {"value": head_creator.create_value_head(d_model)}
         )
         super().__init__(
-            obs_space, action_space, d_model, auxiliary_heads, n_layer=n_layer
+            obs_space, action_space, d_model, d_qk, auxiliary_heads, n_layer=n_layer
         )
 
     def get_value(
@@ -245,7 +250,7 @@ def train(args: argparse.Namespace) -> float:
         sample_recorder = SampleRecorder(args.capture_samples, action_space, obs_space)
 
     agent = PPOActor(
-        obs_space, action_space, d_model=args.hidden_size, n_layer=args.n_layer
+        obs_space, action_space, d_model=args.d_model, n_layer=args.n_layer
     ).to(device)
     optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5)
 
@@ -342,26 +347,27 @@ def train(args: argparse.Namespace) -> float:
                         str, Union[CategoricalAction, SelectEntityAction]
                     ] = {}
                     for action_name, ragged_action_buffer in action.items():
-                        mask = next_obs.action_masks[action_name][i]
+                        mask = next_obs.action_masks[action_name]
                         _acts = ragged_action_buffer[i]
-                        if isinstance(
-                            action_space[action_name], CategoricalActionSpace
-                        ):
+                        _as = action_space[action_name]
+                        if isinstance(_as, CategoricalActionSpace):
                             actor_action = [
                                 (ids[actor_idx], _act)
                                 for actor_idx, _act in zip(
-                                    mask.as_array().reshape(-1),
+                                    mask.actors[i].as_array().reshape(-1),
                                     _acts.as_array().reshape(-1),
                                 )
                             ]
                             _action_dict[action_name] = CategoricalAction(actor_action)
-                        elif isinstance(
-                            action_space[action_name], SelectEntityActionSpace
-                        ):
+                        elif isinstance(_as, SelectEntityActionSpace):
+                            assert isinstance(
+                                mask, SelectEntityActionMaskBatch
+                            ), f"Expected SelectEntityActionMaskBatch, got {type(mask)}"
+                            actees = mask.actees[i].as_array().flatten()
                             actor_action = [
-                                (ids[actor_idx], ids[actee_idx])
+                                (ids[actor_idx], ids[actees[actee_idx]])
                                 for actor_idx, actee_idx in zip(
-                                    mask.as_array().reshape(-1),
+                                    mask.actors[i].as_array().reshape(-1),
                                     _acts.as_array().reshape(-1),
                                 )
                             ]

@@ -177,6 +177,7 @@ class AutoActor(Actor):
         obs_space: ObsSpace,
         action_space: Dict[str, ActionSpace],
         d_model: int,
+        d_qk: int = 16,
         auxiliary_heads: Optional[nn.ModuleDict] = None,
         n_layer: int = 1,
     ):
@@ -186,6 +187,6 @@ class AutoActor(Actor):
             embedding_creator.create_embeddings(obs_space, d_model),
             action_space,
             Transformer(TransformerConfig(d_model=d_model, n_layer=n_layer)),
-            head_creator.create_action_heads(action_space, d_model),
+            head_creator.create_action_heads(action_space, d_model, d_qk),
             auxiliary_heads=auxiliary_heads,
         )
