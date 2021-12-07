@@ -68,6 +68,7 @@ class PaddedSelectEntityActionHead(nn.Module):
     Action head for selecting entities.
     See https://github.com/entity-neural-network/incubator/pull/109 for more details.
     """
+
     def __init__(self, d_model: int, d_qk: int) -> None:
         super().__init__()
         self.d_model = d_model
