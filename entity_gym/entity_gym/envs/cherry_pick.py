@@ -55,13 +55,14 @@ class CherryPick(Environment):
     def observe(self) -> Observation:
         return Observation(
             entities={
-                "Cherry": np.array(self.cherries).reshape(-1, 1),
-                "Player": np.zeros([1, 0]),
+                "Cherry": np.array(self.cherries, dtype=np.float32).reshape(-1, 1),
+                "Player": np.zeros([1, 0], dtype=np.float32),
             },
             ids=np.arange(len(self.cherries) + 1),
             action_masks={
                 "Pick Cherry": DenseSelectEntityActionMask(
                     actors=np.array([len(self.cherries)]),
+                    actees=np.arange(1, len(self.cherries) + 1),
                     mask=(
                         np.arange(len(self.cherries) + 1) < len(self.cherries)
                     ).astype(np.float32),

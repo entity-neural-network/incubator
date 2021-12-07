@@ -20,6 +20,7 @@ import json
 import numpy as np
 import numpy.typing as npt
 from entity_gym.environment import (
+    ActionMaskBatch,
     ActionSpace,
     CategoricalAction,
     CategoricalActionSpace,
@@ -144,6 +145,25 @@ class RaggedBatchDict(Generic[ScalarType]):
         return {k: v[index] for k, v in self.buffers.items()}
 
 
+@dataclass
+class RaggedActionDict:
+    buffers: Dict[str, ActionMaskBatch] = field(default_factory=dict)
+
+    def extend(self, batch: Mapping[str, ActionMaskBatch]) -> None:
+        for k, v in batch.items():
+            if k not in self.buffers:
+                self.buffers[k] = v
+            else:
+                self.buffers[k].extend(v)
+
+    def clear(self) -> None:
+        for buffer in self.buffers.values():
+            buffer.clear()
+
+    def __getitem__(self, index: npt.NDArray[np.int64]) -> Dict[str, ActionMaskBatch]:
+        return {k: v[index] for k, v in self.buffers.items()}
+
+
 def tensor_dict_to_ragged(
     rb_cls: Type[RaggedBuffer[ScalarType]],
     d: Dict[str, torch.Tensor],
@@ -243,7 +263,7 @@ def train(args: argparse.Namespace) -> float:
     num_updates = args.total_timesteps // args.batch_size
 
     entities: RaggedBatchDict[np.float32] = RaggedBatchDict(RaggedBufferF32)
-    action_masks = RaggedBatchDict(RaggedBufferI64)
+    action_masks = RaggedActionDict()
     actions = RaggedBatchDict(RaggedBufferI64)
     logprobs = RaggedBatchDict(RaggedBufferF32)
 
