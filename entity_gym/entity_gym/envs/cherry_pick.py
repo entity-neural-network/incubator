@@ -6,6 +6,7 @@ from entity_gym.environment import (
     DenseSelectEntityActionMask,
     Entity,
     Environment,
+    EpisodeStats,
     ObsSpace,
     SelectEntityAction,
     SelectEntityActionSpace,
@@ -50,6 +51,8 @@ class CherryPick(Environment):
         normalized_cherries = [c / sum_top_16 for c in cherries]
         self.cherries = normalized_cherries
         self.last_reward = 0.0
+        self.step = 0
+        self.total_reward = 0.0
         return self.observe()
 
     def observe(self) -> Observation:
@@ -70,6 +73,7 @@ class CherryPick(Environment):
             },
             reward=self.last_reward,
             done=self.step == 16,
+            end_of_episode_info=EpisodeStats(16, self.total_reward),
         )
 
     def _act(self, action: Mapping[str, Action]) -> Observation:
@@ -77,5 +81,6 @@ class CherryPick(Environment):
             assert isinstance(a, SelectEntityAction)
             assert action_name == "Pick Cherry"
             self.last_reward = self.cherries.pop(a.actions[0][1])
+            self.total_reward += self.last_reward
         self.step += 1
         return self.observe()

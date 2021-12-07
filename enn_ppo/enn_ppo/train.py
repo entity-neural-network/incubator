@@ -14,6 +14,7 @@ from typing import (
     Optional,
     Type,
     TypeVar,
+    Union,
 )
 import json
 
@@ -26,6 +27,8 @@ from entity_gym.environment import (
     CategoricalActionSpace,
     EnvList,
     ObsSpace,
+    SelectEntityAction,
+    SelectEntityActionSpace,
 )
 from entity_gym.envs import ENV_REGISTRY
 from enn_zoo.griddly import GRIDDLY_ENVS, create_env
@@ -335,18 +338,34 @@ def train(args: argparse.Namespace) -> float:
             with tracer.span("join_actions"):
                 _actions = []
                 for i, ids in enumerate(next_obs.ids):
-                    _action_dict = {}
+                    _action_dict: Dict[
+                        str, Union[CategoricalAction, SelectEntityAction]
+                    ] = {}
                     for action_name, ragged_action_buffer in action.items():
                         mask = next_obs.action_masks[action_name][i]
                         _acts = ragged_action_buffer[i]
-                        actor_action = [
-                            (ids[actor_idx], _act)
-                            for actor_idx, _act in zip(
-                                mask.as_array().reshape(-1),
-                                _acts.as_array().reshape(-1),
-                            )
-                        ]
-                        _action_dict[action_name] = CategoricalAction(actor_action)
+                        if isinstance(
+                            action_space[action_name], CategoricalActionSpace
+                        ):
+                            actor_action = [
+                                (ids[actor_idx], _act)
+                                for actor_idx, _act in zip(
+                                    mask.as_array().reshape(-1),
+                                    _acts.as_array().reshape(-1),
+                                )
+                            ]
+                            _action_dict[action_name] = CategoricalAction(actor_action)
+                        elif isinstance(
+                            action_space[action_name], SelectEntityActionSpace
+                        ):
+                            actor_action = [
+                                (ids[actor_idx], ids[actee_idx])
+                                for actor_idx, actee_idx in zip(
+                                    mask.as_array().reshape(-1),
+                                    _acts.as_array().reshape(-1),
+                                )
+                            ]
+                            _action_dict[action_name] = SelectEntityAction(actor_action)
                     _actions.append(_action_dict)
 
             # TRY NOT TO MODIFY: execute the game and log data.
@@ -595,14 +614,14 @@ def train(args: argparse.Namespace) -> float:
         writer.add_scalar("losses/gradnorm", gradnorm, global_step)
         writer.add_scalar("meanrew", rewards.mean().item(), global_step)
         for action_name, space in action_space.items():
-            assert isinstance(space, CategoricalActionSpace)
-            choices = actions.buffers[action_name].as_array().flatten()
-            for i, label in enumerate(space.choices):
-                writer.add_scalar(
-                    "actions/{}/{}".format(action_name, label),
-                    np.sum(choices == i).item() / len(choices),
-                    global_step,
-                )
+            if isinstance(space, CategoricalActionSpace):
+                choices = actions.buffers[action_name].as_array().flatten()
+                for i, label in enumerate(space.choices):
+                    writer.add_scalar(
+                        "actions/{}/{}".format(action_name, label),
+                        np.sum(choices == i).item() / len(choices),
+                        global_step,
+                    )
         print("SPS:", int(global_step / (time.time() - start_time)))
         writer.add_scalar(
             "charts/SPS", int(global_step / (time.time() - start_time)), global_step

@@ -1,3 +1,4 @@
+import math
 from typing import Dict, Optional, Tuple
 from ragged_buffer import RaggedBufferI64
 from rogue_net.ragged_tensor import RaggedTensor
@@ -12,6 +13,7 @@ from entity_gym.environment import (
     CategoricalActionMaskBatch,
     CategoricalActionSpace,
     DenseSelectEntityActionMask,
+    SelectEntityActionMaskBatch,
     SelectEntityActionSpace,
 )
 from typing import Dict
@@ -76,7 +78,77 @@ class PaddedSelectEntityActionHead(nn.Module):
         mask: ActionMaskBatch,
         prev_actions: Optional[RaggedBufferI64],
     ) -> Tuple[torch.Tensor, npt.NDArray[np.int64], torch.Tensor, torch.Tensor]:
-        raise NotImplementedError()
+        assert isinstance(
+            mask, SelectEntityActionMaskBatch
+        ), f"Expected SelectEntityActionMaskBatch, got {type(mask)}"
+        device = x.data.device
+
+        actor_lengths = mask.actors.size1()
+        actors = torch.tensor((mask.actors + index_offsets).as_array(), device=device)
+        actor_embeds = x.data[x.index_map[actors]]
+        queries = self.query_proj(actor_embeds).squeeze(1)
+        max_actors = actor_lengths.max()
+        # TODO: can omit rows that are only padding
+        padded_queries = torch.zeros(
+            len(actor_lengths) * max_actors, self.d_qk, device=device
+        )
+        qindices = torch.tensor(
+            (mask.actors.indices(1) + mask.actors.indices(0) * max_actors)
+            .as_array()
+            .flatten(),
+            device=device,
+        )
+        padded_queries[qindices] = queries
+        padded_queries = padded_queries.view(len(actor_lengths), max_actors, self.d_qk)
+        query_mask = torch.zeros(len(actor_lengths) * max_actors, device=device)
+        query_mask[qindices] = 1
+        query_mask = query_mask.view(len(actor_lengths), max_actors)
+
+        actee_lengths = mask.actees.size1()
+        actees = torch.tensor((mask.actees + index_offsets).as_array(), device=device)
+        actee_embeds = x.data[x.index_map[actees]]
+        keys = self.key_proj(actee_embeds).squeeze(1)
+        max_actees = actee_lengths.max()
+        padded_keys = torch.ones(
+            len(actee_lengths) * max_actees, self.d_qk, device=device
+        )
+        kindices = torch.tensor(
+            (mask.actees.indices(1) + mask.actees.indices(0) * max_actees)
+            .as_array()
+            .flatten(),
+            device=device,
+        )
+        padded_keys[kindices] = keys
+        padded_keys = padded_keys.view(len(actee_lengths), max_actees, self.d_qk)
+        key_mask = torch.zeros(len(actee_lengths) * max_actees, device=device)
+        key_mask[kindices] = 1
+        key_mask = key_mask.view(len(actee_lengths), max_actees)
+
+        logits = torch.bmm(padded_queries, padded_keys.transpose(1, 2)) * (
+            1.0 / math.sqrt(self.d_qk)
+        )
+        logits_mask = torch.bmm(query_mask.unsqueeze(2), key_mask.unsqueeze(1))
+        # TODO: works for fully masked actions?
+        logits = logits.masked_fill(logits_mask == 0, -float("inf"))
+
+        dist = Categorical(logits=logits)
+        if prev_actions is None:
+            action = dist.sample()
+        else:
+            action = torch.tensor(prev_actions.as_array(), device=device).flatten()
+            padded_actions = torch.ones(
+                (logits.size(0) * logits.size(1)), dtype=torch.long, device=device
+            )
+            padded_actions[qindices] = action
+            action = padded_actions.view(len(actor_lengths), max_actors)
+        logprob = dist.log_prob(action)
+        entropy = dist.entropy()
+        return (
+            action.flatten()[qindices].view(-1, 1),
+            actor_lengths,
+            logprob.flatten()[qindices].view(-1, 1),
+            entropy.flatten()[qindices].view(-1, 1),
+        )
 
 
 def layer_init(

@@ -166,8 +166,6 @@ class SelectEntityActionMaskBatch:
         ), f"Expected SelectEntityActionMaskBatch, got {type(other)}"
         self.actors.extend(other.actors)
         self.actees.extend(other.actees)
-        self.actors.extend(other.actors)
-        self.actees.extend(other.actees)
 
     def clear(self) -> None:
         self.actors.clear()
