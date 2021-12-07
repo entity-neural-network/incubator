@@ -87,3 +87,32 @@ def test_count() -> None:
     meanrw = train.train(args)
     print(f"Final mean reward: {meanrw}")
     assert meanrw >= 0.99
+
+
+def test_pick_matching_balls() -> None:
+    args = train.parse_args(
+        [
+            "--gym-id=PickMatchingBalls",
+            "--total-timesteps=256",
+            "--num-steps=16",
+            "--cuda=False",
+            "--hidden-size=16",
+        ]
+    )
+    meanrew = train.train(args)
+    print(f"Final mean reward: {meanrew}")
+    assert meanrew >= 0.0
+
+
+def test_cherry_pick() -> None:
+    args = train.parse_args(
+        [
+            "--gym-id=CherryPick",
+            "--total-timesteps=256",
+            "--num-steps=16",
+            "--cuda=False",
+            "--hidden-size=16",
+        ]
+    )
+    meanrew = train.train(args)
+    print(f"Final mean reward: {meanrew}")
