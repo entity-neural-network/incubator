@@ -14,17 +14,23 @@ from typing import (
     Optional,
     Type,
     TypeVar,
+    Union,
 )
 import json
 
 import numpy as np
 import numpy.typing as npt
 from entity_gym.environment import (
+    ActionMaskBatch,
     ActionSpace,
     CategoricalAction,
     CategoricalActionSpace,
+    DenseSelectEntityActionMask,
     EnvList,
     ObsSpace,
+    SelectEntityAction,
+    SelectEntityActionMaskBatch,
+    SelectEntityActionSpace,
 )
 from entity_gym.envs import ENV_REGISTRY
 from enn_zoo.griddly import GRIDDLY_ENVS, create_env
@@ -70,8 +76,10 @@ def parse_args(override_args: Optional[List[str]] = None) -> argparse.Namespace:
         help='if set, write the samples to this file')
     
     # Network architecture
-    parser.add_argument('--hidden-size', type=int, default=64,
+    parser.add_argument('--d-model', type=int, default=64,
         help='the hidden size of the network layers')
+    parser.add_argument('--d-qk', type=int, default=64,
+        help='the size queries and keys in action heads')
     parser.add_argument('--n-layer', type=int, default=1,
         help='the number of layers of the network')
 
@@ -144,6 +152,25 @@ class RaggedBatchDict(Generic[ScalarType]):
         return {k: v[index] for k, v in self.buffers.items()}
 
 
+@dataclass
+class RaggedActionDict:
+    buffers: Dict[str, ActionMaskBatch] = field(default_factory=dict)
+
+    def extend(self, batch: Mapping[str, ActionMaskBatch]) -> None:
+        for k, v in batch.items():
+            if k not in self.buffers:
+                self.buffers[k] = v
+            else:
+                self.buffers[k].extend(v)
+
+    def clear(self) -> None:
+        for buffer in self.buffers.values():
+            buffer.clear()
+
+    def __getitem__(self, index: npt.NDArray[np.int64]) -> Dict[str, ActionMaskBatch]:
+        return {k: v[index] for k, v in self.buffers.items()}
+
+
 def tensor_dict_to_ragged(
     rb_cls: Type[RaggedBuffer[ScalarType]],
     d: Dict[str, torch.Tensor],
@@ -158,13 +185,14 @@ class PPOActor(AutoActor):
         obs_space: ObsSpace,
         action_space: Dict[str, ActionSpace],
         d_model: int = 64,
+        d_qk: int = 16,
         n_layer: int = 1,
     ):
         auxiliary_heads = nn.ModuleDict(
             {"value": head_creator.create_value_head(d_model)}
         )
         super().__init__(
-            obs_space, action_space, d_model, auxiliary_heads, n_layer=n_layer
+            obs_space, action_space, d_model, d_qk, auxiliary_heads, n_layer=n_layer
         )
 
     def get_value(
@@ -222,7 +250,7 @@ def train(args: argparse.Namespace) -> float:
         sample_recorder = SampleRecorder(args.capture_samples, action_space, obs_space)
 
     agent = PPOActor(
-        obs_space, action_space, d_model=args.hidden_size, n_layer=args.n_layer
+        obs_space, action_space, d_model=args.d_model, n_layer=args.n_layer
     ).to(device)
     optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5)
 
@@ -243,7 +271,7 @@ def train(args: argparse.Namespace) -> float:
     num_updates = args.total_timesteps // args.batch_size
 
     entities: RaggedBatchDict[np.float32] = RaggedBatchDict(RaggedBufferF32)
-    action_masks = RaggedBatchDict(RaggedBufferI64)
+    action_masks = RaggedActionDict()
     actions = RaggedBatchDict(RaggedBufferI64)
     logprobs = RaggedBatchDict(RaggedBufferF32)
 
@@ -315,18 +343,35 @@ def train(args: argparse.Namespace) -> float:
             with tracer.span("join_actions"):
                 _actions = []
                 for i, ids in enumerate(next_obs.ids):
-                    _action_dict = {}
+                    _action_dict: Dict[
+                        str, Union[CategoricalAction, SelectEntityAction]
+                    ] = {}
                     for action_name, ragged_action_buffer in action.items():
-                        mask = next_obs.action_masks[action_name][i]
+                        mask = next_obs.action_masks[action_name]
                         _acts = ragged_action_buffer[i]
-                        actor_action = [
-                            (ids[actor_idx], _act)
-                            for actor_idx, _act in zip(
-                                mask.as_array().reshape(-1),
-                                _acts.as_array().reshape(-1),
-                            )
-                        ]
-                        _action_dict[action_name] = CategoricalAction(actor_action)
+                        _as = action_space[action_name]
+                        if isinstance(_as, CategoricalActionSpace):
+                            actor_action = [
+                                (ids[actor_idx], _act)
+                                for actor_idx, _act in zip(
+                                    mask.actors[i].as_array().reshape(-1),
+                                    _acts.as_array().reshape(-1),
+                                )
+                            ]
+                            _action_dict[action_name] = CategoricalAction(actor_action)
+                        elif isinstance(_as, SelectEntityActionSpace):
+                            assert isinstance(
+                                mask, SelectEntityActionMaskBatch
+                            ), f"Expected SelectEntityActionMaskBatch, got {type(mask)}"
+                            actees = mask.actees[i].as_array().flatten()
+                            actor_action = [
+                                (ids[actor_idx], ids[actees[actee_idx]])
+                                for actor_idx, actee_idx in zip(
+                                    mask.actors[i].as_array().reshape(-1),
+                                    _acts.as_array().reshape(-1),
+                                )
+                            ]
+                            _action_dict[action_name] = SelectEntityAction(actor_action)
                     _actions.append(_action_dict)
 
             # TRY NOT TO MODIFY: execute the game and log data.
@@ -575,14 +620,14 @@ def train(args: argparse.Namespace) -> float:
         writer.add_scalar("losses/gradnorm", gradnorm, global_step)
         writer.add_scalar("meanrew", rewards.mean().item(), global_step)
         for action_name, space in action_space.items():
-            assert isinstance(space, CategoricalActionSpace)
-            choices = actions.buffers[action_name].as_array().flatten()
-            for i, label in enumerate(space.choices):
-                writer.add_scalar(
-                    "actions/{}/{}".format(action_name, label),
-                    np.sum(choices == i).item() / len(choices),
-                    global_step,
-                )
+            if isinstance(space, CategoricalActionSpace):
+                choices = actions.buffers[action_name].as_array().flatten()
+                for i, label in enumerate(space.choices):
+                    writer.add_scalar(
+                        "actions/{}/{}".format(action_name, label),
+                        np.sum(choices == i).item() / len(choices),
+                        global_step,
+                    )
         print("SPS:", int(global_step / (time.time() - start_time)))
         writer.add_scalar(
             "charts/SPS", int(global_step / (time.time() - start_time)), global_step

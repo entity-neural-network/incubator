@@ -1,15 +1,16 @@
 from typing import Dict, List, Mapping, Optional, Tuple, Type, TypeVar
 
 from entity_gym.environment import (
+    ActionMaskBatch,
     ActionSpace,
     ObsSpace,
 )
 from enn_ppo.simple_trace import Tracer
 import numpy as np
 import ragged_buffer
+from rogue_net.ragged_tensor import RaggedTensor
 import torch
 import torch.nn as nn
-from torch.distributions.categorical import Categorical
 import torch_scatter
 import numpy.typing as npt
 
@@ -55,25 +56,7 @@ class Actor(nn.Module):
 
     def batch_and_embed(
         self, entities: Mapping[str, RaggedBufferF32], tracer: Tracer
-    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
-        """
-        Example:
-        entities in obs 0: [A0, A0, A0, B0]
-        entities in obs 1: [A1, B1, B1]
-        entities in obs 2: [A2, A2]
-
-        `x` is a flattened tensor of entity embeddings sorted first by entity type, then by batch index:
-        [A0, A0, A0, A1, A2, A2, B0, B1, B1]
-
-        `index_map` translates the index of entities sorted first by batch index then by entity type to their index in `x`:
-        [0, 1, 2, 6, 3, 7, 8, 4, 5]
-
-        `batch_index` gives the batch index of each entity in `x`:
-        [0, 0, 0, 1, 2, 2, 0, 1, 1]
-
-        `lengths` gives the number of entities in each observation:
-        [4, 3, 2]
-        """
+    ) -> RaggedTensor:
         entity_embeds = []
         index_offsets = {}
         index_offset = 0
@@ -109,7 +92,7 @@ class Actor(nn.Module):
         with tracer.span("backbone"):
             x = self.backbone(x, tbatch_index)
 
-        return (
+        return RaggedTensor(
             x,
             tindex_map,
             tbatch_index,
@@ -119,16 +102,16 @@ class Actor(nn.Module):
     def get_auxiliary_head(
         self, entities: Mapping[str, RaggedBufferF32], head_name: str, tracer: Tracer
     ) -> torch.Tensor:
-        embeddings, _, batch_index, _ = self.batch_and_embed(entities, tracer)
+        x = self.batch_and_embed(entities, tracer)
         pooled = torch_scatter.scatter(
-            src=embeddings, dim=0, index=batch_index, reduce="mean"
+            src=x.data, dim=0, index=x.batch_index, reduce="mean"
         )
         return self.auxiliary_heads[head_name](pooled)  # type: ignore
 
     def get_action_and_auxiliary(
         self,
         entities: Mapping[str, RaggedBufferF32],
-        action_masks: Mapping[str, RaggedBufferI64],
+        action_masks: Mapping[str, ActionMaskBatch],
         tracer: Tracer,
         prev_actions: Optional[Dict[str, RaggedBufferI64]] = None,
     ) -> Tuple[
@@ -142,11 +125,11 @@ class Actor(nn.Module):
         probs: Dict[str, torch.Tensor] = {}
         entropies: Dict[str, torch.Tensor] = {}
         with tracer.span("batch_and_embed"):
-            x, index_map, batch_index, lengths = self.batch_and_embed(entities, tracer)
+            x = self.batch_and_embed(entities, tracer)
 
         tracer.start("action_heads")
         index_offsets = RaggedBufferI64.from_array(
-            torch.cat([torch.tensor([0]).to(self.device()), lengths[:-1]])
+            torch.cat([torch.tensor([0]).to(self.device()), x.lengths[:-1]])
             .cumsum(0)
             .cpu()
             .numpy()
@@ -154,33 +137,22 @@ class Actor(nn.Module):
         )
         actor_counts: Dict[str, np.ndarray] = {}
         for action_name, action_head in self.action_heads.items():
-            actor_counts[action_name] = np.array(
-                [
-                    action_masks[action_name].size1(i)
-                    for i in range(action_masks[action_name].size0())
-                ]
+            action, count, logprob, entropy = action_head(
+                x,
+                index_offsets,
+                action_masks[action_name],
+                prev_actions[action_name] if prev_actions is not None else None,
             )
-            actors = torch.tensor(
-                (action_masks[action_name] + index_offsets).as_array()
-            ).to(self.device())
-            actor_embeds = x[index_map[actors]]
-            logits = action_head(actor_embeds)
-            dist = Categorical(logits=logits)
-            if prev_actions is None:
-                action = dist.sample()
-            else:
-                action = torch.tensor(prev_actions[action_name].as_array()).to(
-                    self.device()
-                )
+            actor_counts[action_name] = count
             actions[action_name] = action
-            probs[action_name] = dist.log_prob(action)
-            entropies[action_name] = dist.entropy()
+            probs[action_name] = logprob
+            entropies[action_name] = entropy
         tracer.end("action_heads")
 
         tracer.start("auxiliary_heads")
         if self.auxiliary_heads:
             pooled = torch_scatter.scatter(
-                src=x, dim=0, index=batch_index, reduce="mean"
+                src=x.data, dim=0, index=x.batch_index, reduce="mean"
             )
             auxiliary_values = {
                 name: module(pooled) for name, module in self.auxiliary_heads.items()
@@ -205,6 +177,7 @@ class AutoActor(Actor):
         obs_space: ObsSpace,
         action_space: Dict[str, ActionSpace],
         d_model: int,
+        d_qk: int = 16,
         auxiliary_heads: Optional[nn.ModuleDict] = None,
         n_layer: int = 1,
     ):
@@ -214,6 +187,6 @@ class AutoActor(Actor):
             embedding_creator.create_embeddings(obs_space, d_model),
             action_space,
             Transformer(TransformerConfig(d_model=d_model, n_layer=n_layer)),
-            head_creator.create_action_heads(action_space, d_model),
+            head_creator.create_action_heads(action_space, d_model, d_qk),
             auxiliary_heads=auxiliary_heads,
         )
