@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from typing import Dict, List, Mapping, Optional, Tuple, Type, TypeVar
 
 from entity_gym.environment import (
@@ -21,6 +22,16 @@ from rogue_net.transformer import Transformer, TransformerConfig
 
 
 ScalarType = TypeVar("ScalarType", bound=np.generic, covariant=True)
+
+
+@dataclass
+class NetworkOpts:
+    d_model: int = 64
+    """the hidden size of the network layers"""
+    d_qk: int = 16
+    """the size queries and keys in action heads"""
+    n_layer: int = 1
+    """the number of layers of the network"""
 
 
 def tensor_dict_to_ragged(
@@ -176,17 +187,15 @@ class AutoActor(Actor):
         self,
         obs_space: ObsSpace,
         action_space: Dict[str, ActionSpace],
-        d_model: int,
-        d_qk: int = 16,
+        opts: NetworkOpts,
         auxiliary_heads: Optional[nn.ModuleDict] = None,
-        n_layer: int = 1,
     ):
-        self.d_model = d_model
+        self.opts = opts
         super().__init__(
             obs_space,
-            embedding_creator.create_embeddings(obs_space, d_model),
+            embedding_creator.create_embeddings(obs_space, opts.d_model),
             action_space,
-            Transformer(TransformerConfig(d_model=d_model, n_layer=n_layer)),
-            head_creator.create_action_heads(action_space, d_model, d_qk),
+            Transformer(TransformerConfig(d_model=opts.d_model, n_layer=opts.n_layer)),
+            head_creator.create_action_heads(action_space, opts.d_model, opts.d_qk),
             auxiliary_heads=auxiliary_heads,
         )

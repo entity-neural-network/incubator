@@ -1,6 +1,6 @@
 # adapted from https://github.com/vwxyzjn/cleanrl
 import argparse
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 import os
 import random
 import time
@@ -17,6 +17,7 @@ from typing import (
     Union,
 )
 import json
+import hyperstate
 
 import numpy as np
 import numpy.typing as npt
@@ -36,7 +37,7 @@ from entity_gym.envs import ENV_REGISTRY
 from enn_zoo.griddly import GRIDDLY_ENVS, create_env
 from enn_ppo.sample_recorder import SampleRecorder
 from enn_ppo.simple_trace import Tracer
-from rogue_net.actor import AutoActor
+from rogue_net.actor import AutoActor, NetworkOpts
 from rogue_net import head_creator
 import torch
 import torch.nn as nn
@@ -45,80 +46,88 @@ from torch.utils.tensorboard import SummaryWriter
 from ragged_buffer import RaggedBufferF32, RaggedBufferI64, RaggedBuffer
 
 
-def parse_args(override_args: Optional[List[str]] = None) -> argparse.Namespace:
-    # fmt: off
+def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
-    parser.add_argument('--exp-name', type=str, default=os.path.basename(__file__).rstrip(".py"),
-        help='the name of this experiment')
-    parser.add_argument('--gym-id', type=str, default="MoveToOrigin",
-        help='the id of the gym environment')
-    parser.add_argument('--env-kwargs', type=str, default="{}",
-        help='JSON dictionary with keyword arguments for the environment')
-    parser.add_argument('--learning-rate', type=float, default=2.5e-4,
-        help='the learning rate of the optimizer')
-    parser.add_argument('--seed', type=int, default=1,
-        help='seed of the experiment')
-    parser.add_argument('--total-timesteps', type=int, default=25000,
-        help='total timesteps of the experiments')
-    parser.add_argument('--torch-deterministic', type=lambda x:bool(strtobool(x)), default=True, nargs='?', const=True,
-        help='if toggled, `torch.backends.cudnn.deterministic=False`')
-    parser.add_argument('--cuda', type=lambda x:bool(strtobool(x)), default=True, nargs='?', const=True,
-        help='if toggled, cuda will be enabled by default')
-    parser.add_argument('--track', type=lambda x:bool(strtobool(x)), default=False, nargs='?', const=True,
-        help='if toggled, this experiment will be tracked with Weights and Biases')
-    parser.add_argument('--wandb-project-name', type=str, default="enn-ppo",
-        help="the wandb's project name")
-    parser.add_argument('--wandb-entity', type=str, default="entity-neural-network",
-        help="the entity (team) of wandb's project")
-    parser.add_argument('--capture-video', type=lambda x:bool(strtobool(x)), default=False, nargs='?', const=True,
-        help='weather to capture videos of the agent performances (check out `videos` folder)')
-    parser.add_argument('--capture-samples', type=str, default=None,
-        help='if set, write the samples to this file')
-    
-    # Network architecture
-    parser.add_argument('--d-model', type=int, default=64,
-        help='the hidden size of the network layers')
-    parser.add_argument('--d-qk', type=int, default=64,
-        help='the size queries and keys in action heads')
-    parser.add_argument('--n-layer', type=int, default=1,
-        help='the number of layers of the network')
+    parser.add_argument("--config", type=str, default=None, help="Path to config file")
+    parser.add_argument("--hps", nargs="+", help="Override hyperparameter value")
+    return parser.parse_args()
 
+
+@dataclass
+class TaskConfig:
+    id: str = "MoveToOrigin"
+    """the id of the gym environment"""
+    kwargs: str = "{}"
+    """JSON dictionary with keyword arguments for the environment"""
+
+
+@dataclass
+class Config:
+    net: NetworkOpts
+    task: TaskConfig
+    exp_name: str = field(
+        default_factory=lambda: os.path.basename(__file__).rstrip(".py")
+    )
+    """the name of this experiment"""
+    learning_rate: float = 2.5e-4
+    """the learning rate of the optimizer"""
+    seed: int = 1
+    """seed of the experiment"""
+    total_timesteps: int = 25000
+    """total timesteps of the experiments"""
+    torch_deterministic: bool = True
+    """if toggled, `torch.backends.cudnn.deterministic=False`"""
+    cuda: bool = True
+    """if toggled, cuda will be enabled by default"""
+    track: bool = False
+    """if toggled, this experiment will be tracked with Weights and Biases"""
+    wandb_project_name: str = "enn-ppo"
+    """the wandb's project name"""
+    wandb_entity: str = "entity-neural-network"
+    """the entity (team) of wandb's project"""
+    capture_video: bool = False
+    """wether to capture videos of the agent performances (check out `videos` folder)"""
+    capture_samples: Optional[str] = None
+    """if set, write the samples to this file"""
     # Algorithm specific arguments
-    parser.add_argument('--num-envs', type=int, default=4,
-        help='the number of parallel game environments')
-    parser.add_argument('--num-steps', type=int, default=128,
-        help='the number of steps to run in each environment per policy rollout')
-    parser.add_argument('--anneal-lr', type=lambda x:bool(strtobool(x)), default=True, nargs='?', const=True,
-        help="Toggle learning rate annealing for policy and value networks")
-    parser.add_argument('--gae', type=lambda x:bool(strtobool(x)), default=True, nargs='?', const=True,
-        help='Use GAE for advantage computation')
-    parser.add_argument('--gamma', type=float, default=0.99,
-        help='the discount factor gamma')
-    parser.add_argument('--gae-lambda', type=float, default=0.95,
-        help='the lambda for the general advantage estimation')
-    parser.add_argument('--num-minibatches', type=int, default=4,
-        help='the number of mini-batches')
-    parser.add_argument('--update-epochs', type=int, default=4,
-        help="the K epochs to update the policy")
-    parser.add_argument('--norm-adv', type=lambda x:bool(strtobool(x)), default=True, nargs='?', const=True,
-        help="Toggles advantages normalization")
-    parser.add_argument('--clip-coef', type=float, default=0.2,
-        help="the surrogate clipping coefficient")
-    parser.add_argument('--clip-vloss', type=lambda x:bool(strtobool(x)), default=True, nargs='?', const=True,
-        help='Toggles wheter or not to use a clipped loss for the value function, as per the paper.')
-    parser.add_argument('--ent-coef', type=float, default=0.01,
-        help="coefficient of the entropy")
-    parser.add_argument('--vf-coef', type=float, default=0.5,
-        help="coefficient of the value function")
-    parser.add_argument('--max-grad-norm', type=float, default=0.5,
-        help='the maximum norm for the gradient clipping')
-    parser.add_argument('--target-kl', type=float, default=None,
-        help='the target KL divergence threshold')
-    args = parser.parse_args(args=override_args)
-    args.batch_size = int(args.num_envs * args.num_steps)
-    args.minibatch_size = int(args.batch_size // args.num_minibatches)
-    # fmt: on
-    return args
+    num_envs: int = 4
+    """the number of parallel game environments"""
+    num_steps: int = 128
+    """the number of steps to run in each environment per policy rollout"""
+    anneal_lr: bool = True
+    """Toggle learning rate annealing for policy and value networks"""
+    gae: bool = True
+    """Use GAE for advantage computation"""
+    gamma: float = 0.99
+    """the discount factor gamma"""
+    gae_lambda: float = 0.95
+    """the lambda for the general advantage estimation"""
+    num_minibatches: int = 4
+    """the number of mini-batches"""
+    update_epochs: int = 4
+    """the K epochs to update the policy"""
+    norm_adv: bool = True
+    """Toggles advantages normalization"""
+    clip_coef: float = 0.2
+    """the surrogate clipping coefficient"""
+    clip_vloss: bool = True
+    """Toggles wheter or not to use a clipped loss for the value function, as per the paper."""
+    ent_coef: float = 0.01
+    """coefficient of the entropy loss"""
+    vf_coef: float = 0.5
+    """coefficient of the value function loss"""
+    max_grad_norm: float = 0.5
+    """the maximum norm for the gradient clipping"""
+    target_kl: Optional[float] = None
+    """the target KL divergence threshold"""
+
+    @property
+    def batch_size(self) -> int:
+        return self.num_envs * self.num_steps
+
+    @property
+    def minibatch_size(self) -> int:
+        return self.batch_size // self.num_minibatches
 
 
 def layer_init(layer: Any, std: float = np.sqrt(2), bias_const: float = 0.0) -> Any:
@@ -184,16 +193,12 @@ class PPOActor(AutoActor):
         self,
         obs_space: ObsSpace,
         action_space: Dict[str, ActionSpace],
-        d_model: int = 64,
-        d_qk: int = 16,
-        n_layer: int = 1,
+        opts: NetworkOpts,
     ):
         auxiliary_heads = nn.ModuleDict(
-            {"value": head_creator.create_value_head(d_model)}
+            {"value": head_creator.create_value_head(opts.d_model)}
         )
-        super().__init__(
-            obs_space, action_space, d_model, d_qk, auxiliary_heads, n_layer=n_layer
-        )
+        super().__init__(obs_space, action_space, opts, auxiliary_heads)
 
     def get_value(
         self, entities: Dict[str, RaggedBufferF32], tracer: Tracer
@@ -202,15 +207,17 @@ class PPOActor(AutoActor):
 
 
 def train(args: argparse.Namespace) -> float:
-    run_name = f"{args.gym_id}__{args.exp_name}__{args.seed}__{int(time.time())}"
-    if args.track:
+    config = hyperstate.load(Config, path=args.config, overrides=args.hps)
+
+    run_name = f"{config.task.id}__{config.exp_name}__{config.seed}__{int(time.time())}"
+    if config.track:
         import wandb
 
         wandb.init(
-            project=args.wandb_project_name,
-            entity=args.wandb_entity,
+            project=config.wandb_project_name,
+            entity=config.wandb_entity,
             sync_tensorboard=True,
-            config=vars(args),
+            config=asdict(config),
             name=run_name,
             save_code=True,
         )
@@ -218,57 +225,63 @@ def train(args: argparse.Namespace) -> float:
     writer.add_text(
         "hyperparameters",
         "|param|value|\n|-|-|\n%s"
-        % ("\n".join([f"|{key}|{value}|" for key, value in vars(args).items()])),
+        % ("\n".join([f"|{key}|{value}|" for key, value in asdict(config).items()])),
     )
 
     tracer = Tracer()
 
     # TRY NOT TO MODIFY: seeding
-    random.seed(args.seed)
-    np.random.seed(args.seed)
-    torch.manual_seed(args.seed)
-    torch.backends.cudnn.deterministic = args.torch_deterministic
+    random.seed(config.seed)
+    np.random.seed(config.seed)
+    torch.manual_seed(config.seed)
+    torch.backends.cudnn.deterministic = config.torch_deterministic
 
-    device = torch.device("cuda" if torch.cuda.is_available() and args.cuda else "cpu")
+    device = torch.device(
+        "cuda" if torch.cuda.is_available() and config.cuda else "cpu"
+    )
 
-    if args.gym_id in ENV_REGISTRY:
-        env_cls = ENV_REGISTRY[args.gym_id]
-    elif args.gym_id in GRIDDLY_ENVS:
-        path, level = GRIDDLY_ENVS[args.gym_id]
+    if config.task.id in ENV_REGISTRY:
+        env_cls = ENV_REGISTRY[config.task.id]
+    elif config.task.id in GRIDDLY_ENVS:
+        path, level = GRIDDLY_ENVS[config.task.id]
         env_cls = create_env(yaml_file=path, level=level)
     else:
         raise KeyError(
-            f"Unknown gym_id: {args.gym_id}\nAvailable environments: {list(ENV_REGISTRY.keys()) + list(GRIDDLY_ENVS.keys())}"
+            f"Unknown gym_id: {config.task.id}\nAvailable environments: {list(ENV_REGISTRY.keys()) + list(GRIDDLY_ENVS.keys())}"
         )
 
     # env setup
-    env_kwargs = json.loads(args.env_kwargs)
-    envs = EnvList([env_cls(**env_kwargs) for _ in range(args.num_envs)])  # type: ignore
+    env_kwargs = json.loads(config.task.kwargs)
+    envs = EnvList([env_cls(**env_kwargs) for _ in range(config.num_envs)])  # type: ignore
     obs_space = env_cls.obs_space()
     action_space = env_cls.action_space()
-    if args.capture_samples:
-        sample_recorder = SampleRecorder(args.capture_samples, action_space, obs_space)
+    if config.capture_samples:
+        sample_recorder = SampleRecorder(
+            config.capture_samples, action_space, obs_space
+        )
 
     agent = PPOActor(
-        obs_space, action_space, d_model=args.d_model, n_layer=args.n_layer
+        obs_space,
+        action_space,
+        config.net,
     ).to(device)
-    optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5)
+    optimizer = optim.Adam(agent.parameters(), lr=config.learning_rate, eps=1e-5)
 
     # ALGO Logic: Storage setup
-    rewards = torch.zeros((args.num_steps, args.num_envs)).to(device)
-    dones = torch.zeros((args.num_steps, args.num_envs)).to(device)
-    values = torch.zeros((args.num_steps, args.num_envs)).to(device)
-    episodes = list(range(args.num_envs))
-    curr_step = [0] * args.num_envs
-    next_episode = args.num_envs
+    rewards = torch.zeros((config.num_steps, config.num_envs)).to(device)
+    dones = torch.zeros((config.num_steps, config.num_envs)).to(device)
+    values = torch.zeros((config.num_steps, config.num_envs)).to(device)
+    episodes = list(range(config.num_envs))
+    curr_step = [0] * config.num_envs
+    next_episode = config.num_envs
     last_log_step = 0
 
     # TRY NOT TO MODIFY: start the game
     global_step = 0
     start_time = time.time()
     next_obs = envs.reset(obs_space)
-    next_done = torch.zeros(args.num_envs).to(device)
-    num_updates = args.total_timesteps // args.batch_size
+    next_done = torch.zeros(config.num_envs).to(device)
+    num_updates = config.total_timesteps // config.batch_size
 
     entities: RaggedBatchDict[np.float32] = RaggedBatchDict(RaggedBufferF32)
     action_masks = RaggedActionDict()
@@ -279,9 +292,9 @@ def train(args: argparse.Namespace) -> float:
         tracer.start("update")
 
         # Annealing the rate if instructed to do so.
-        if args.anneal_lr:
+        if config.anneal_lr:
             frac = 1.0 - (update - 1.0) / num_updates
-            lrnow = frac * args.learning_rate
+            lrnow = frac * config.learning_rate
             optimizer.param_groups[0]["lr"] = lrnow
 
         tracer.start("rollout")
@@ -292,8 +305,8 @@ def train(args: argparse.Namespace) -> float:
         total_episodic_return = 0.0
         total_episodic_length = 0
         total_episodes = 0
-        for step in range(0, args.num_steps):
-            global_step += 1 * args.num_envs
+        for step in range(0, config.num_steps):
+            global_step += 1 * config.num_envs
 
             entities.extend(next_obs.entities)
             action_masks.extend(next_obs.action_masks)
@@ -316,7 +329,7 @@ def train(args: argparse.Namespace) -> float:
                 values[step] = aux["value"].flatten()
             actions.extend(action)
             logprobs.extend(logprob)
-            if args.capture_samples:
+            if config.capture_samples:
                 with tracer.span("record_samples"):
                     # TODO: fix
                     """
@@ -388,7 +401,7 @@ def train(args: argparse.Namespace) -> float:
 
             # TODO: reenable
             """
-            if args.capture_samples:
+            if config.capture_samples:
                 for i, o in enumerate(next_obs):
                     if o.done:
                         episodes[i] = next_episode
@@ -423,11 +436,11 @@ def train(args: argparse.Namespace) -> float:
         # bootstrap value if not done
         with torch.no_grad(), tracer.span("advantages"):
             next_value = agent.get_value(next_obs.entities, tracer).reshape(1, -1)
-            if args.gae:
+            if config.gae:
                 advantages = torch.zeros_like(rewards).to(device)
                 lastgaelam = 0
-                for t in reversed(range(args.num_steps)):
-                    if t == args.num_steps - 1:
+                for t in reversed(range(config.num_steps)):
+                    if t == config.num_steps - 1:
                         nextnonterminal = 1.0 - next_done.float()
                         nextvalues = next_value
                     else:
@@ -435,24 +448,29 @@ def train(args: argparse.Namespace) -> float:
                         nextvalues = values[t + 1]
                     delta = (
                         rewards[t]
-                        + args.gamma * nextvalues * nextnonterminal
+                        + config.gamma * nextvalues * nextnonterminal
                         - values[t]
                     )
                     advantages[t] = lastgaelam = (
                         delta
-                        + args.gamma * args.gae_lambda * nextnonterminal * lastgaelam
+                        + config.gamma
+                        * config.gae_lambda
+                        * nextnonterminal
+                        * lastgaelam
                     )
                 returns = advantages + values
             else:
                 returns = torch.zeros_like(rewards).to(device)
-                for t in reversed(range(args.num_steps)):
-                    if t == args.num_steps - 1:
+                for t in reversed(range(config.num_steps)):
+                    if t == config.num_steps - 1:
                         nextnonterminal = 1.0 - next_done
                         next_return = next_value
                     else:
                         nextnonterminal = 1.0 - dones[t + 1]
                         next_return = returns[t + 1]
-                    returns[t] = rewards[t] + args.gamma * nextnonterminal * next_return
+                    returns[t] = (
+                        rewards[t] + config.gamma * nextnonterminal * next_return
+                    )
                 advantages = returns - values
 
         # flatten the batch
@@ -468,12 +486,12 @@ def train(args: argparse.Namespace) -> float:
 
         # Optimizaing the policy and value network
         tracer.start("optimize")
-        b_inds = np.arange(args.batch_size)
+        b_inds = np.arange(config.batch_size)
         clipfracs = []
-        for epoch in range(args.update_epochs):
+        for epoch in range(config.update_epochs):
             np.random.shuffle(b_inds)
-            for start in range(0, args.batch_size, args.minibatch_size):
-                end = start + args.minibatch_size
+            for start in range(0, config.batch_size, config.minibatch_size):
+                end = start + config.minibatch_size
                 mb_inds = b_inds[start:end]
 
                 b_entities = entities[mb_inds]
@@ -513,7 +531,7 @@ def train(args: argparse.Namespace) -> float:
                     clipfracs += [
                         torch.tensor(
                             [
-                                ((_ratio - 1.0).abs() > args.clip_coef)
+                                ((_ratio - 1.0).abs() > config.clip_coef)
                                 .float()
                                 .mean()
                                 .item()
@@ -523,7 +541,7 @@ def train(args: argparse.Namespace) -> float:
                     ]
 
                 mb_advantages = b_advantages[mb_inds]
-                if args.norm_adv:
+                if config.norm_adv:
                     assert (
                         len(mb_advantages) > 1
                     ), "Can't normalize advantages with minibatch size 1"
@@ -559,7 +577,9 @@ def train(args: argparse.Namespace) -> float:
                         [
                             -_advantages
                             * torch.clamp(
-                                _ratio.flatten(), 1 - args.clip_coef, 1 + args.clip_coef
+                                _ratio.flatten(),
+                                1 - config.clip_coef,
+                                1 + config.clip_coef,
                             )
                             for _advantages, _ratio in zip(
                                 bc_mb_advantages.values(), ratio.values()
@@ -571,12 +591,12 @@ def train(args: argparse.Namespace) -> float:
                 # Value loss
                 with tracer.span("value_loss"):
                     newvalue = newvalue.view(-1)
-                    if args.clip_vloss:
+                    if config.clip_vloss:
                         v_loss_unclipped = (newvalue - b_returns[mb_inds]) ** 2
                         v_clipped = b_values[mb_inds] + torch.clamp(
                             newvalue - b_values[mb_inds],
-                            -args.clip_coef,
-                            args.clip_coef,
+                            -config.clip_coef,
+                            config.clip_coef,
                         )
                         v_loss_clipped = (v_clipped - b_returns[mb_inds]) ** 2
                         v_loss_max = torch.max(v_loss_unclipped, v_loss_clipped)
@@ -586,18 +606,20 @@ def train(args: argparse.Namespace) -> float:
 
                 # TODO: what's correct way of combining entropy loss from multiple actions/actors on the same timestep?
                 entropy_loss = torch.cat([e for e in entropy.values()]).mean()
-                loss = pg_loss - args.ent_coef * entropy_loss + v_loss * args.vf_coef
+                loss = (
+                    pg_loss - config.ent_coef * entropy_loss + v_loss * config.vf_coef
+                )
 
                 optimizer.zero_grad()
                 with tracer.span("backward"):
                     loss.backward()
                 gradnorm = nn.utils.clip_grad_norm_(
-                    agent.parameters(), args.max_grad_norm
+                    agent.parameters(), config.max_grad_norm
                 )
                 optimizer.step()
 
-            if args.target_kl is not None:
-                if approx_kl > args.target_kl:
+            if config.target_kl is not None:
+                if approx_kl > config.target_kl:
                     break
 
         tracer.end("optimize")
@@ -639,7 +661,7 @@ def train(args: argparse.Namespace) -> float:
             writer.add_scalar(f"trace/{callstack}", timing, global_step)
 
     # envs.close()
-    if args.capture_samples:
+    if config.capture_samples:
         sample_recorder.close()
     writer.close()
 

@@ -172,6 +172,7 @@ entity_gym = {path = "../entity_gym", develop = true}
 msgpack = "^1.0.3"
 msgpack-numpy = "^0.4.7"
 numpy = "^1.21.4"
+python-ron = "0.0.2"
 ragged-buffer = "^0.2.10"
 rogue_net = {path = "../rogue_net", develop = true}
 tensorboard = "^2.7.0"
@@ -275,7 +276,7 @@ tool = ["click (>=6.0.0)"]
 
 [[package]]
 name = "griddly"
-version = "1.2.17"
+version = "1.2.18"
 description = "Griddly Python Libraries"
 category = "main"
 optional = false
@@ -761,6 +762,14 @@ python-versions = "!=3.0.*,!=3.1.*,!=3.2.*,>=2.7"
 six = ">=1.5"
 
 [[package]]
+name = "python-ron"
+version = "0.0.2"
+description = ""
+category = "main"
+optional = false
+python-versions = "*"
+
+[[package]]
 name = "pyyaml"
 version = "6.0"
 description = "YAML parser and emitter for Python"
@@ -1204,18 +1213,18 @@ google-auth-oauthlib = [
     {file = "google_auth_oauthlib-0.4.6-py2.py3-none-any.whl", hash = "sha256:3f2a6e802eebbb6fb736a370fbf3b055edcb6b52878bf2f26330b5e041316c73"},
 ]
 griddly = [
-    {file = "griddly-1.2.17-cp36-cp36m-macosx_10_15_x86_64.whl", hash = "sha256:799a3264073eba04801672e988c77bd4b3ae39e2144760628263212e290750c6"},
-    {file = "griddly-1.2.17-cp36-cp36m-manylinux2014_x86_64.whl", hash = "sha256:5248c0b206902a9af3128bb536d1f9638fa8d075c3887db2d0208c0b64efd6e7"},
-    {file = "griddly-1.2.17-cp36-cp36m-win_amd64.whl", hash = "sha256:020674e46e26f61b01cb6015276b3c1afa093a0d168fbe08d05c287b76a7ff5f"},
-    {file = "griddly-1.2.17-cp37-cp37m-macosx_10_15_x86_64.whl", hash = "sha256:962b18de0ae9b6a56fdade0ebc5a59a360bbfc26c5d3dc336cec6ca9dd2fa300"},
-    {file = "griddly-1.2.17-cp37-cp37m-manylinux2014_x86_64.whl", hash = "sha256:e173e683c0e69a10ad8dbd98e223f1bdb9102ad5c9c2da69213dcecf7927ffc8"},
-    {file = "griddly-1.2.17-cp37-cp37m-win_amd64.whl", hash = "sha256:c53b589e2707ea5ab62d3b2281890f1406fa84e142ba652d588830432b35d8cd"},
-    {file = "griddly-1.2.17-cp38-cp38-macosx_10_15_x86_64.whl", hash = "sha256:42eda54cbbe68858c73b81b30715aaade3f756ecaf50802dad17d0d3c6678121"},
-    {file = "griddly-1.2.17-cp38-cp38-manylinux2014_x86_64.whl", hash = "sha256:70928b40ab93f639dac8349b7b29105c9203f9890b7f0cc1e87b2bdeb55b49b7"},
-    {file = "griddly-1.2.17-cp38-cp38-win_amd64.whl", hash = "sha256:8198769a4eeba082557bc0539680afdafd052daedf3b73b24e9f7b9ec64c5a0b"},
-    {file = "griddly-1.2.17-cp39-cp39-macosx_10_15_x86_64.whl", hash = "sha256:2c1005f36a0c2965366625aaae365fed8ab364c76054cacb9937e8adf074e920"},
-    {file = "griddly-1.2.17-cp39-cp39-manylinux2014_x86_64.whl", hash = "sha256:24218cf55b243e1490fb8834e58e7872e4a619c13b76182c41f544a7a33b2ef0"},
-    {file = "griddly-1.2.17-cp39-cp39-win_amd64.whl", hash = "sha256:e3e6aedab50c4e461bb44cf80ec9e8767a5c4f558d8c1cecc9dd770e48747e44"},
+    {file = "griddly-1.2.18-cp36-cp36m-macosx_10_15_x86_64.whl", hash = "sha256:31b3289ed6d6416b44e981651072087515392c413177f53dc137c756eb80ed7e"},
+    {file = "griddly-1.2.18-cp36-cp36m-manylinux2014_x86_64.whl", hash = "sha256:6e78f85330962f7d952601e0756f07c8def41c314df728c47032c12ee4d60ec7"},
+    {file = "griddly-1.2.18-cp36-cp36m-win_amd64.whl", hash = "sha256:81d8da2d1f072f27783dd858c147e9df87ebab923f917dd11b80da442325f2ad"},
+    {file = "griddly-1.2.18-cp37-cp37m-macosx_10_15_x86_64.whl", hash = "sha256:08b6beda5ccc80a09b76feac28b76fb143ef2569a54ecad010999cd7088830bc"},
+    {file = "griddly-1.2.18-cp37-cp37m-manylinux2014_x86_64.whl", hash = "sha256:fa983b7a8368e86e1068dcf3e96ee450b416d3de149d8ad19b7c2d9a9bcb1823"},
+    {file = "griddly-1.2.18-cp37-cp37m-win_amd64.whl", hash = "sha256:9c968a13f90c58a72ad0830071aeb615d9cae189683dd4e4d9f50d4030fa6f40"},
+    {file = "griddly-1.2.18-cp38-cp38-macosx_10_15_x86_64.whl", hash = "sha256:c1516eac5435502301270a5881e87501dbce02da8100afd5371991b4d6f994da"},
+    {file = "griddly-1.2.18-cp38-cp38-manylinux2014_x86_64.whl", hash = "sha256:1a5c5ccff725b9937704c39ef726bdca1de86e6309f44c0e72a4dea83aed043c"},
+    {file = "griddly-1.2.18-cp38-cp38-win_amd64.whl", hash = "sha256:6a375c9a995d3cba0a0e702389da65c74c6ec850cdc2b75df579c93bdf223880"},
+    {file = "griddly-1.2.18-cp39-cp39-macosx_10_15_x86_64.whl", hash = "sha256:d2d97fec76a9a6de07210b3bbd883f8d6de3eee347ab04b29a2786cd9e577dad"},
+    {file = "griddly-1.2.18-cp39-cp39-manylinux2014_x86_64.whl", hash = "sha256:dd776b650a5cfaf539f77fa4338a320ec21060572ca0f3514c48daefc0efa5c4"},
+    {file = "griddly-1.2.18-cp39-cp39-win_amd64.whl", hash = "sha256:0a4f11cbf59eb6f01140485893f76f09ba8c5352d3e08b077ce44b55bd7d5d78"},
 ]
 grpcio = [
     {file = "grpcio-1.42.0-cp310-cp310-linux_armv7l.whl", hash = "sha256:6e5eec67909795f7b1ff2bd941bd6c2661ca5217ea9c35003d73314100786f60"},
@@ -1596,6 +1605,20 @@ pytest = [
 python-dateutil = [
     {file = "python-dateutil-2.8.2.tar.gz", hash = "sha256:0123cacc1627ae19ddf3c27a5de5bd67ee4586fbdd6440d9748f8abb483d3e86"},
     {file = "python_dateutil-2.8.2-py2.py3-none-any.whl", hash = "sha256:961d03dc3453ebbc59dbdea9e4e11c5651520a876d0f4db161e8674aae935da9"},
+]
+python-ron = [
+    {file = "python_ron-0.0.2-cp310-none-win_amd64.whl", hash = "sha256:b7207eeac27c50672ce75695fdf2a3e1cef5397f2d89451918166f8fb9c72ade"},
+    {file = "python_ron-0.0.2-cp36-cp36m-macosx_10_7_x86_64.whl", hash = "sha256:470bb66c679780ee678293c947d275436d9c1b094f49cf1fa8202e13c674f8cc"},
+    {file = "python_ron-0.0.2-cp36-cp36m-manylinux_2_24_x86_64.whl", hash = "sha256:05a197fba9eb2283f55bdc9d7c45604297957e60d2cd0c86fc8e7bb2854e72db"},
+    {file = "python_ron-0.0.2-cp36-none-win_amd64.whl", hash = "sha256:6476784076cb1f7bef29bb77561d6c06fa36221dbdf7e34ca56d6debb48a451c"},
+    {file = "python_ron-0.0.2-cp37-cp37m-macosx_10_7_x86_64.whl", hash = "sha256:942e7b89d36e82e15397141eed8c94c411a6c001cb1eb086c0d8bdf91dc97e17"},
+    {file = "python_ron-0.0.2-cp37-cp37m-manylinux_2_24_x86_64.whl", hash = "sha256:004aab11f46ee4243ebe5aec7e72f98fe2154e8e5b4cbca176f215f8c0018421"},
+    {file = "python_ron-0.0.2-cp37-none-win_amd64.whl", hash = "sha256:bc068d59b2cc35af507c430b31cc8e4c02a76e3d0766f7acb74f095f60f6d363"},
+    {file = "python_ron-0.0.2-cp38-cp38-macosx_10_7_x86_64.whl", hash = "sha256:23e5509e1012eddd6c29245c155fc44113516ae78f09dd2c9c888e6ad1b75e66"},
+    {file = "python_ron-0.0.2-cp38-cp38-manylinux_2_24_x86_64.whl", hash = "sha256:3f0a1f457bc6d6d37f17ef52613bfbc5a926a1151c8462ccff0b3e54d123e2cd"},
+    {file = "python_ron-0.0.2-cp38-none-win_amd64.whl", hash = "sha256:eabf6842dc2c359cf22e4b078fd92840a45e22c985072e650c6096c2e815e3a1"},
+    {file = "python_ron-0.0.2-cp39-cp39-macosx_10_7_x86_64.whl", hash = "sha256:b5db6d0b88e72d36d2149340ee7a41591c05f19ce779fff9802902f3356c436a"},
+    {file = "python_ron-0.0.2-cp39-none-win_amd64.whl", hash = "sha256:69e09055ac00ccc44b760612d0d7d06f08daf50b8cde1eb69a213abfe9ae35b8"},
 ]
 pyyaml = [
     {file = "PyYAML-6.0-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:d4db7c7aef085872ef65a8fd7d6d09a14ae91f691dec3e87ee5ee0539d516f53"},
