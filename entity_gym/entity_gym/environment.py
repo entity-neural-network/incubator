@@ -71,8 +71,6 @@ class DenseSelectEntityActionMask(ActionMask):
     agent i can select entity j.
     """
 
-
-# TODO: This actually cannot be 'any' type it sepcifically needs to be an integer.
 EntityID = Any
 
 
