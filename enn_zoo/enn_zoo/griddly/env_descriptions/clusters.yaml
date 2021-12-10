@@ -17,6 +17,8 @@ Environment:
     Lose:
       - eq: [ broken_box:count, 1 ]
       - eq: [ avatar:count, 0 ]
+      - gte: [ _steps, 500]
+
   Levels:
     - |
       w w w w w w w w w w w w w
