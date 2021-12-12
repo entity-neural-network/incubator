@@ -71,6 +71,7 @@ class DenseSelectEntityActionMask(ActionMask):
     agent i can select entity j.
     """
 
+
 EntityID = Any
 
 

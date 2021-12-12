@@ -55,7 +55,9 @@ class CherryPick(Environment):
         self.last_reward = 0.0
         self.step = 0
         self.total_reward = 0.0
-        self.ids: Sequence[EntityID] = [f'Cherry {a}' for a in range(1, len(self.cherries)+1)]+ ["Player"]
+        self.ids: List[EntityID] = [
+            f"Cherry {a}" for a in range(1, len(self.cherries) + 1)
+        ] + ["Player"]
         return self.observe()
 
     def observe(self) -> Observation:
@@ -82,7 +84,7 @@ class CherryPick(Environment):
             else None,
         )
 
-    def _entityID_to_idx(self, id: EntityID) -> None:
+    def _entityID_to_idx(self, id: EntityID) -> int:
         return self.ids.index(id)
 
     def _act(self, action: Mapping[str, Action]) -> Observation:
