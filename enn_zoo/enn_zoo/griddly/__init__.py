@@ -5,7 +5,7 @@ from typing import Tuple, Type, Dict, Optional, Any
 from enn_zoo.griddly.wrapper import GriddlyEnv
 from entity_gym.environment import ActionSpace, ObsSpace, Entity, CategoricalActionSpace
 from entity_gym.environment import Environment
-from griddly import GymWrapper
+from griddly import GymWrapper, gd
 
 init_path = os.path.dirname(os.path.realpath(__file__))
 
@@ -72,6 +72,8 @@ def create_env(
                 yaml_file=yaml_file,
                 image_path=image_path,
                 shader_path=shader_path,
+                player_observer_type=gd.ObserverType.NONE,
+                global_observer_type=gd.ObserverType.NONE,
                 level=level,
             )
 

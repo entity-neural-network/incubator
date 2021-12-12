@@ -194,7 +194,7 @@ python-versions = ">=3.7.1,<3.10"
 develop = true
 
 [package.dependencies]
-griddly = "^1.2.17"
+griddly = "^1.2.21"
 
 [package.source]
 type = "directory"
@@ -275,7 +275,7 @@ tool = ["click (>=6.0.0)"]
 
 [[package]]
 name = "griddly"
-version = "1.2.17"
+version = "1.2.21"
 description = "Griddly Python Libraries"
 category = "main"
 optional = false
@@ -336,7 +336,7 @@ python-versions = ">=3.5"
 
 [[package]]
 name = "imageio"
-version = "2.13.2"
+version = "2.13.3"
 description = "Library for reading and writing a wide range of image, video, scientific, and volumetric data formats."
 category = "main"
 optional = false
@@ -645,7 +645,7 @@ test = ["pytest (>=2.7.3)", "pytest-cov", "coveralls", "futures", "pytest-benchm
 
 [[package]]
 name = "prompt-toolkit"
-version = "3.0.23"
+version = "3.0.24"
 description = "Library for building powerful interactive command lines in Python"
 category = "dev"
 optional = false
@@ -1121,7 +1121,7 @@ testing = ["pytest (>=4.6)", "pytest-checkdocs (>=2.4)", "pytest-flake8", "pytes
 [metadata]
 lock-version = "1.1"
 python-versions = ">=3.7.1,<3.10"
-content-hash = "aad1a97031a2348c51b7cd1db75efd665de8c382e0fd1c8f826a760f600e9af6"
+content-hash = "a010ba83e4bb676e5bcd94ca9031ed308369d9dcb534f90f4865d2b39abc6e47"
 
 [metadata.files]
 absl-py = [
@@ -1204,18 +1204,15 @@ google-auth-oauthlib = [
     {file = "google_auth_oauthlib-0.4.6-py2.py3-none-any.whl", hash = "sha256:3f2a6e802eebbb6fb736a370fbf3b055edcb6b52878bf2f26330b5e041316c73"},
 ]
 griddly = [
-    {file = "griddly-1.2.17-cp36-cp36m-macosx_10_15_x86_64.whl", hash = "sha256:799a3264073eba04801672e988c77bd4b3ae39e2144760628263212e290750c6"},
-    {file = "griddly-1.2.17-cp36-cp36m-manylinux2014_x86_64.whl", hash = "sha256:5248c0b206902a9af3128bb536d1f9638fa8d075c3887db2d0208c0b64efd6e7"},
-    {file = "griddly-1.2.17-cp36-cp36m-win_amd64.whl", hash = "sha256:020674e46e26f61b01cb6015276b3c1afa093a0d168fbe08d05c287b76a7ff5f"},
-    {file = "griddly-1.2.17-cp37-cp37m-macosx_10_15_x86_64.whl", hash = "sha256:962b18de0ae9b6a56fdade0ebc5a59a360bbfc26c5d3dc336cec6ca9dd2fa300"},
-    {file = "griddly-1.2.17-cp37-cp37m-manylinux2014_x86_64.whl", hash = "sha256:e173e683c0e69a10ad8dbd98e223f1bdb9102ad5c9c2da69213dcecf7927ffc8"},
-    {file = "griddly-1.2.17-cp37-cp37m-win_amd64.whl", hash = "sha256:c53b589e2707ea5ab62d3b2281890f1406fa84e142ba652d588830432b35d8cd"},
-    {file = "griddly-1.2.17-cp38-cp38-macosx_10_15_x86_64.whl", hash = "sha256:42eda54cbbe68858c73b81b30715aaade3f756ecaf50802dad17d0d3c6678121"},
-    {file = "griddly-1.2.17-cp38-cp38-manylinux2014_x86_64.whl", hash = "sha256:70928b40ab93f639dac8349b7b29105c9203f9890b7f0cc1e87b2bdeb55b49b7"},
-    {file = "griddly-1.2.17-cp38-cp38-win_amd64.whl", hash = "sha256:8198769a4eeba082557bc0539680afdafd052daedf3b73b24e9f7b9ec64c5a0b"},
-    {file = "griddly-1.2.17-cp39-cp39-macosx_10_15_x86_64.whl", hash = "sha256:2c1005f36a0c2965366625aaae365fed8ab364c76054cacb9937e8adf074e920"},
-    {file = "griddly-1.2.17-cp39-cp39-manylinux2014_x86_64.whl", hash = "sha256:24218cf55b243e1490fb8834e58e7872e4a619c13b76182c41f544a7a33b2ef0"},
-    {file = "griddly-1.2.17-cp39-cp39-win_amd64.whl", hash = "sha256:e3e6aedab50c4e461bb44cf80ec9e8767a5c4f558d8c1cecc9dd770e48747e44"},
+    {file = "griddly-1.2.21-cp37-cp37m-macosx_11_0_x86_64.whl", hash = "sha256:b655da94ab46e9aacacd2ac8ac8e0c7a489281e310733bc501e2d7bc20341122"},
+    {file = "griddly-1.2.21-cp37-cp37m-manylinux2014_x86_64.whl", hash = "sha256:a8b2bd42e6d973968d6b0560a39facf3f375d11a6c20d113615a63e6642b8b5a"},
+    {file = "griddly-1.2.21-cp37-cp37m-win_amd64.whl", hash = "sha256:e831c6f4f5a73b33dae2d78820c0c13d909f30c029f72b58663e0ed983e70765"},
+    {file = "griddly-1.2.21-cp38-cp38-macosx_11_0_x86_64.whl", hash = "sha256:c998cb1c8f985f9c7de0a25d42311b90e046c857bf47370691bb082295051b0b"},
+    {file = "griddly-1.2.21-cp38-cp38-manylinux2014_x86_64.whl", hash = "sha256:34d33ae01c4737e5fa8400b747a21a76d81f4dfa380d5e90a6ae3b21d63d2a12"},
+    {file = "griddly-1.2.21-cp38-cp38-win_amd64.whl", hash = "sha256:c002ecd05443255ad29c2c14692beff6e596d1a5d44dd54c22dc71084bf613b8"},
+    {file = "griddly-1.2.21-cp39-cp39-macosx_11_0_x86_64.whl", hash = "sha256:b17621fb3803918466fd13189f79a44cdb9d674357fbf54b7a554ea0843776db"},
+    {file = "griddly-1.2.21-cp39-cp39-manylinux2014_x86_64.whl", hash = "sha256:600f441279bec91af16cbcfec8e1ab52b0195d7f24235281e8dab095a6bfe4e3"},
+    {file = "griddly-1.2.21-cp39-cp39-win_amd64.whl", hash = "sha256:e2d4b86ce2c41f5afa2b05891e7504198657899e165a1e14f330f357a896cb73"},
 ]
 grpcio = [
     {file = "grpcio-1.42.0-cp310-cp310-linux_armv7l.whl", hash = "sha256:6e5eec67909795f7b1ff2bd941bd6c2661ca5217ea9c35003d73314100786f60"},
@@ -1271,8 +1268,8 @@ idna = [
     {file = "idna-3.3.tar.gz", hash = "sha256:9d643ff0a55b762d5cdb124b8eaa99c66322e2157b69160bc32796e824360e6d"},
 ]
 imageio = [
-    {file = "imageio-2.13.2-py3-none-any.whl", hash = "sha256:4acc2a2d0210170ee109c59edc178cee818c87f0a33a2a35116a19e3ac7badc0"},
-    {file = "imageio-2.13.2.tar.gz", hash = "sha256:5b7a55d07de88a2fd70f18a1608ca05ba2b55596a942fb2c390240201009a6c3"},
+    {file = "imageio-2.13.3-py3-none-any.whl", hash = "sha256:126f10aa970f54b657bcc52f6481a2e55137fcc0f978bb6e0451bd1e22c54f17"},
+    {file = "imageio-2.13.3.tar.gz", hash = "sha256:bb87b272e1e9b05d242e11f8d88d030aefa68ca95daf3accc986d0b782ae3cd5"},
 ]
 importlib-metadata = [
     {file = "importlib_metadata-4.8.2-py3-none-any.whl", hash = "sha256:53ccfd5c134223e497627b9815d5030edf77d2ed573922f7a0b8f8bb81a1c100"},
@@ -1484,8 +1481,8 @@ promise = [
     {file = "promise-2.3.tar.gz", hash = "sha256:dfd18337c523ba4b6a58801c164c1904a9d4d1b1747c7d5dbf45b693a49d93d0"},
 ]
 prompt-toolkit = [
-    {file = "prompt_toolkit-3.0.23-py3-none-any.whl", hash = "sha256:5f29d62cb7a0ecacfa3d8ceea05a63cd22500543472d64298fc06ddda906b25d"},
-    {file = "prompt_toolkit-3.0.23.tar.gz", hash = "sha256:7053aba00895473cb357819358ef33f11aa97e4ac83d38efb123e5649ceeecaf"},
+    {file = "prompt_toolkit-3.0.24-py3-none-any.whl", hash = "sha256:e56f2ff799bacecd3e88165b1e2f5ebf9bcd59e80e06d395fa0cc4b8bd7bb506"},
+    {file = "prompt_toolkit-3.0.24.tar.gz", hash = "sha256:1bb05628c7d87b645974a1bad3f17612be0c29fa39af9f7688030163f680bad6"},
 ]
 protobuf = [
     {file = "protobuf-3.19.1-cp310-cp310-macosx_10_9_universal2.whl", hash = "sha256:d80f80eb175bf5f1169139c2e0c5ada98b1c098e2b3c3736667f28cbbea39fc8"},
@@ -1634,10 +1631,15 @@ pyyaml = [
 ]
 ragged-buffer = [
     {file = "ragged_buffer-0.2.10-cp310-cp310-macosx_10_7_x86_64.whl", hash = "sha256:cab38efd4c5edba23626a3a38595607bfd82e85ce7556df73826d970558f46c0"},
+    {file = "ragged_buffer-0.2.10-cp310-none-win_amd64.whl", hash = "sha256:43524b1a3d90da57439fd449a85fe510f5ae300c4a320e679f2dc44b01b7d2bf"},
+    {file = "ragged_buffer-0.2.10-cp36-none-win_amd64.whl", hash = "sha256:ea13b75e12fd1079e84c06691a7966be57d0e07810c01474dff6961f35a3c664"},
     {file = "ragged_buffer-0.2.10-cp37-cp37m-macosx_10_7_x86_64.whl", hash = "sha256:ce5e07335bb133ddd8b6c7f60bd8eff5737e91ce58da31e9bd4b2ddca6bfa027"},
+    {file = "ragged_buffer-0.2.10-cp37-none-win_amd64.whl", hash = "sha256:5feb9d282ad4bd9599e8d71654ce1419f213006fd86291b81963b88075f6a833"},
     {file = "ragged_buffer-0.2.10-cp38-cp38-macosx_10_7_x86_64.whl", hash = "sha256:93484877250abdd8d8c496e2b4b840a8d531390ed451cd512407ebb4aa8df8ce"},
     {file = "ragged_buffer-0.2.10-cp38-cp38-manylinux_2_24_x86_64.whl", hash = "sha256:bbc074ec1fee2a1cc0b6c8c8b351152e11e17cc1b0e6f6218d4af10bcebf04d2"},
+    {file = "ragged_buffer-0.2.10-cp38-none-win_amd64.whl", hash = "sha256:1c84ddb2e396d86c009127673926cfa764df8f58120f0b58504d27da3cae4fe2"},
     {file = "ragged_buffer-0.2.10-cp39-cp39-macosx_10_7_x86_64.whl", hash = "sha256:b3e3b5b1cf8979693ce72741fcd7756df1a276adab0c6b71583e88512af71abe"},
+    {file = "ragged_buffer-0.2.10-cp39-none-win_amd64.whl", hash = "sha256:2579d231de52f3e335ec10bffaa6540889a5c4397cc77d33f28fa332dbcd69f7"},
     {file = "ragged_buffer-0.2.10.tar.gz", hash = "sha256:699c6ce8c76f9e7153c394ad16855042c58fed6f082194110147c80cac0abbb4"},
 ]
 requests = [

@@ -8,6 +8,7 @@ from entity_gym.environment import (
     Action,
     Observation,
     ActionSpace,
+    EpisodeStats,
     DenseCategoricalActionMask,
     ObsSpace,
     ActionMask,
@@ -63,10 +64,11 @@ class GriddlyEnv(Environment):
         entities = {
             name: np.array(obs, dtype=np.float32) for name, obs in entities.items()
         }
+
         action_masks = {}
         for action_name, entity_mask in entity_masks.items():
             action_masks[action_name] = DenseCategoricalActionMask(
-                actors=np.array([0]),
+                actors=np.array(entity_mask["ActorIdx"]),
                 mask=np.array(entity_mask["Masks"], dtype=np.float32),
             )
 
@@ -76,15 +78,24 @@ class GriddlyEnv(Environment):
             action_masks=action_masks,
             reward=reward,
             done=done,
+            end_of_episode_info=EpisodeStats(self.step, self.total_reward)
+            if done
+            else None,
         )
 
     def _reset(self) -> Observation:
         self._env.reset()
+
+        self.total_reward = 0
+        self.step = 0
 
         return self._make_observation()
 
     def _act(self, action: Mapping[str, Action]) -> Observation:
         g_action = self._to_griddly_action(action)
         _, reward, done, info = self._env.step(g_action)
+
+        self.total_reward += reward
+        self.step += 1
 
         return self._make_observation(reward, done)

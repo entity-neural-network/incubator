@@ -10,7 +10,7 @@ entity_gym = {path = "entity_gym", develop = true}
 rogue_net = {path = "rogue_net", develop = true}
 enn_ppo = {path = "enn_ppo", develop = true}
 enn_zoo = {path = "enn_zoo", develop = true}
-griddly = {version = "^1.2.17"}
+griddly = {version = "^1.2.21"}
 # torch-scatter = {url = "https://data.pyg.org/whl/torch-1.10.0%2Bcu102/torch_scatter-2.0.9-cp38-cp38-linux_x86_64.whl"}
 
 [tool.poetry.dev-dependencies]
