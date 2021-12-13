@@ -56,7 +56,9 @@ class CategoricalActionHead(nn.Module):
 
         # Apply masks from the environment
         if mask.masks is not None:
-            reshaped_masks = torch.tensor(mask.masks.as_array().reshape(logits.shape)).to(x.data.device)
+            reshaped_masks = torch.tensor(
+                mask.masks.as_array().reshape(logits.shape)
+            ).to(x.data.device)
             logits = logits.masked_fill(reshaped_masks == 0, -float("inf"))
 
         dist = Categorical(logits=logits)

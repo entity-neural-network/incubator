@@ -37,10 +37,7 @@ class MaskedCount(Environment):
     This environment also randomly masks off some of the incorrect answers.
     """
 
-    def __init__(
-            self,
-            masked_choices: int = 9
-    ):
+    def __init__(self, masked_choices: int = 9):
         self.masked_choices = masked_choices
 
     @classmethod
@@ -57,7 +54,12 @@ class MaskedCount(Environment):
 
     def reset(self, obs_space: ObsSpace) -> Observation:
         self.count = random.randint(0, self.masked_choices)
-        possible_counts = {self.count, *random.sample(range(0, self.masked_choices), random.randint(0,self.masked_choices))}
+        possible_counts = {
+            self.count,
+            *random.sample(
+                range(0, self.masked_choices), random.randint(0, self.masked_choices)
+            ),
+        }
         mask = np.zeros((10), dtype=np.int64)
         mask[list(possible_counts)] = 1
         return self.observe(obs_space, mask)
@@ -83,7 +85,11 @@ class MaskedCount(Environment):
         )
 
     def observe(
-        self, obs_filter: ObsSpace, mask: npt.NDArray[np.int64], done: bool = False, reward: float = 0.0
+        self,
+        obs_filter: ObsSpace,
+        mask: npt.NDArray[np.int64],
+        done: bool = False,
+        reward: float = 0.0,
     ) -> Observation:
         return Observation(
             entities=extract_features(

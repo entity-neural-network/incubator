@@ -110,7 +110,7 @@ class CategoricalActionMaskBatch:
             self.masks.push(mask.mask.reshape(n_masks, -1))
 
     def __getitem__(
-            self, i: Union[int, npt.NDArray[np.int64]]
+        self, i: Union[int, npt.NDArray[np.int64]]
     ) -> "CategoricalActionMaskBatch":
         if self.masks is not None:
             return CategoricalActionMaskBatch(self.actors[i], self.masks[i])
@@ -152,7 +152,7 @@ class SelectEntityActionMaskBatch:
         ...
 
     def __getitem__(
-            self, i: Union[int, npt.NDArray[np.int64]]
+        self, i: Union[int, npt.NDArray[np.int64]]
     ) -> Union["SelectEntityActionMaskBatch", RaggedBufferI64]:
         if isinstance(i, int):
             return self.actors[i]
@@ -206,9 +206,13 @@ def batch_obs(obs: List[Observation]) -> ObsBatch:
             if isinstance(mask, DenseCategoricalActionMask):
                 if k not in action_masks:
                     if mask.mask is not None:
-                        action_masks[k] = CategoricalActionMaskBatch(RaggedBufferI64(1), RaggedBufferI64(len(mask.mask)))
+                        action_masks[k] = CategoricalActionMaskBatch(
+                            RaggedBufferI64(1), RaggedBufferI64(len(mask.mask))
+                        )
                     else:
-                        action_masks[k] = CategoricalActionMaskBatch(RaggedBufferI64(1), None)
+                        action_masks[k] = CategoricalActionMaskBatch(
+                            RaggedBufferI64(1), None
+                        )
 
             elif isinstance(mask, DenseSelectEntityActionMask):
                 if k not in action_masks:
@@ -353,7 +357,7 @@ class VecEnv(ABC):
 
     @abstractmethod
     def act(
-            self, actions: Sequence[Mapping[str, Action]], obs_filter: ObsSpace
+        self, actions: Sequence[Mapping[str, Action]], obs_filter: ObsSpace
     ) -> ObsBatch:
         raise NotImplementedError
 
@@ -370,7 +374,7 @@ class EnvList(VecEnv):
         return batch_obs([e.reset(obs_space) for e in self.envs])
 
     def act(
-            self, actions: Sequence[Mapping[str, Action]], obs_space: ObsSpace
+        self, actions: Sequence[Mapping[str, Action]], obs_space: ObsSpace
     ) -> ObsBatch:
         observations = []
         for e, a in zip(self.envs, actions):
