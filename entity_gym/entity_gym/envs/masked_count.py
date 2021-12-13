@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 import numpy as np
 import numpy.typing as npt
 import random
-from typing import Dict, List, Mapping, Tuple
+from typing import Dict, List, Mapping, Tuple, Optional
 
 from entity_gym.environment import (
     CategoricalAction,
@@ -65,7 +65,7 @@ class MaskedCount(Environment):
         return self.observe(obs_space, mask)
 
     def _reset(self) -> Observation:
-        return self.reset(Count.obs_space())
+        return self.reset(MaskedCount.obs_space())
 
     def act(self, action: Mapping[str, Action], obs_filter: ObsSpace) -> Observation:
         reward = 0.0
@@ -81,13 +81,13 @@ class MaskedCount(Environment):
     def _act(self, action: Mapping[str, Action]) -> Observation:
         return self.act(
             action,
-            Count.obs_space(),
+            MaskedCount.obs_space(),
         )
 
     def observe(
         self,
         obs_filter: ObsSpace,
-        mask: npt.NDArray[np.int64],
+        mask: Optional[npt.NDArray[np.int64]],
         done: bool = False,
         reward: float = 0.0,
     ) -> Observation:

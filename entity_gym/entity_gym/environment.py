@@ -105,7 +105,7 @@ class CategoricalActionMaskBatch:
     def push(self, mask: Any) -> None:
         assert isinstance(mask, DenseCategoricalActionMask)
         self.actors.push(mask.actors.reshape(-1, 1))
-        if self.masks is not None:
+        if self.masks is not None and mask.mask is not None:
             n_masks = len(mask.actors)
             self.masks.push(mask.mask.reshape(n_masks, -1))
 
@@ -122,7 +122,7 @@ class CategoricalActionMaskBatch:
             other, CategoricalActionMaskBatch
         ), f"Expected CategoricalActionMaskBatch, got {type(other)}"
         self.actors.extend(other.actors)
-        if self.masks is not None:
+        if self.masks is not None and other.masks is not None:
             self.masks.extend(other.masks)
 
     def clear(self) -> None:
