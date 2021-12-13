@@ -81,7 +81,7 @@ def test_masked_count() -> None:
             "--num-steps=1",
             "--d-model=16",
             "--learning-rate=0.01",
-            "--env-kwargs={\"masked_choices\": 2}",
+            '--env-kwargs={"masked_choices": 2}',
             "--cuda=False",
         ]
     )
