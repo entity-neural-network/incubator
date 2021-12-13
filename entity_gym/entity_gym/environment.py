@@ -1,3 +1,5 @@
+import multiprocessing as mp
+import multiprocessing.connection as conn
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import (
@@ -10,8 +12,11 @@ from typing import (
     Tuple,
     Type,
     Union,
+    Callable,
     overload,
 )
+
+import cloudpickle
 import numpy as np
 import numpy.typing as npt
 from ragged_buffer import RaggedBufferF32, RaggedBufferI64
@@ -114,7 +119,7 @@ class CategoricalActionMaskBatch:
         ...
 
     def __getitem__(
-        self, i: Union[int, npt.NDArray[np.int64]]
+            self, i: Union[int, npt.NDArray[np.int64]]
     ) -> Union["CategoricalActionMaskBatch", RaggedBufferI64]:
         if isinstance(i, int):
             return self.actors[i]
@@ -152,7 +157,7 @@ class SelectEntityActionMaskBatch:
         ...
 
     def __getitem__(
-        self, i: Union[int, npt.NDArray[np.int64]]
+            self, i: Union[int, npt.NDArray[np.int64]]
     ) -> Union["SelectEntityActionMaskBatch", RaggedBufferI64]:
         if isinstance(i, int):
             return self.actors[i]
@@ -306,6 +311,9 @@ class Environment(ABC):
     def act(self, action: Mapping[str, Action], obs_filter: ObsSpace) -> Observation:
         return self.__class__.filter_obs(self._act(action), obs_filter)
 
+    def close(self) -> None:
+        raise NotImplementedError
+
     @classmethod
     def filter_obs(cls, obs: Observation, obs_filter: ObsSpace) -> Observation:
         selectors = cls._compile_feature_filter(obs_filter)
@@ -334,6 +342,9 @@ class Environment(ABC):
             )
         return feature_selection
 
+    def env_cls(self) -> Type["Environment"]:
+        return self.__class__
+
 
 class VecEnv(ABC):
     @abstractmethod
@@ -349,25 +360,27 @@ class VecEnv(ABC):
 
     @abstractmethod
     def act(
-        self, actions: Sequence[Mapping[str, Action]], obs_filter: ObsSpace
+            self, actions: Sequence[Mapping[str, Action]], obs_filter: ObsSpace
     ) -> ObsBatch:
         raise NotImplementedError
 
-
-class EnvList(VecEnv):
-    def __init__(self, envs: List[Environment]):
-        self.envs = envs
-        self.cls = self.envs[0].__class__
+class BaseEnvList(VecEnv):
+    def __init__(self, env_cls: Type[Environment], env_kwargs: Dict[str, Any], num_envs: int):
+        self.envs = [env_cls(**env_kwargs) for _ in range(num_envs)]
+        self.cls = env_cls
 
     def env_cls(cls) -> Type[Environment]:
         return cls.cls
 
     def reset(self, obs_space: ObsSpace) -> ObsBatch:
-        return batch_obs([e.reset(obs_space) for e in self.envs])
+        return [e.reset(obs_space) for e in self.envs]
+
+    def close(self) -> None:
+        [env.close() for env in envs]
 
     def act(
-        self, actions: Sequence[Mapping[str, Action]], obs_space: ObsSpace
-    ) -> ObsBatch:
+            self, actions: Sequence[Mapping[str, Action]], obs_space: ObsSpace
+    ) -> List[Observation]:
         observations = []
         for e, a in zip(self.envs, actions):
             obs = e.act(a, obs_space)
@@ -380,4 +393,133 @@ class EnvList(VecEnv):
                 observations.append(new_obs)
             else:
                 observations.append(obs)
+        return observations
+
+class EnvList(BaseEnvList):
+
+    def reset(self, obs_space: ObsSpace) -> ObsBatch:
+        return batch_obs(super().reset(obs_space))
+
+    def act(
+            self, actions: Sequence[Mapping[str, Action]], obs_space: ObsSpace
+    ) -> ObsBatch:
+        observations = super().act(actions, obs_space)
+        return batch_obs(observations)
+
+
+class CloudpickleWrapper:
+    """
+    Uses cloudpickle to serialize contents (otherwise multiprocessing tries to use pickle)
+
+    :param var: the variable you wish to wrap for pickling with cloudpickle
+    """
+
+    def __init__(self, var: Any):
+        self.var = var
+
+    def __getstate__(self) -> Any:
+        return cloudpickle.dumps(self.var)
+
+    def __setstate__(self, var: Any) -> None:
+        self.var = cloudpickle.loads(var)
+
+
+def _worker(
+        remote: conn.Connection, parent_remote: conn.Connection, env_list_config: CloudpickleWrapper
+) -> None:
+    parent_remote.close()
+    env_args = env_list_config.var
+    envs = BaseEnvList(*env_args)
+    while True:
+        try:
+            cmd, data = remote.recv()
+            if cmd == "act":
+                # def act(self, action: Mapping[str, Action], obs_filter: ObsSpace) -> Observation:
+                observation = envs.act(data[0], data[1])
+                if observation.done:
+                    # save final observation where user can get it, then reset
+                    #info["terminal_observation"] = observation
+                    new_obs = envs.reset(data[1])
+                    new_obs.done = True
+                    new_obs.reward = observation.reward
+                    new_obs.end_of_episode_info = observation.end_of_episode_info
+                    observation = new_obs
+                remote.send(observation)
+            elif cmd == "env_cls":
+                remote.send(env.env_cls())
+            elif cmd == "reset":
+                # def reset(self, obs_filter: ObsSpace) -> Observation:
+                observation = envs.reset(data)
+                remote.send(observation)
+            elif cmd == "close":
+                envs.close()
+                remote.close()
+                break
+            else:
+                raise NotImplementedError(f"`{cmd}` is not implemented in the worker")
+        except EOFError:
+            break
+
+
+class ParallelEnvList(VecEnv):
+    """
+    We fork the subprocessing from the stable-baselines implementation, but use RaggedBuffers for collecting batches
+
+    Citation here: https://github.com/DLR-RM/stable-baselines3/blob/master/CITATION.bib
+    """
+
+    def __init__(self, env_cls: Type[Environment], env_kwargs: Dict[str, Any], num_envs: int, num_processes: int, start_method: Optional[str] = None):
+
+
+        if start_method is None:
+            # Fork is not a thread safe method (see issue #217)
+            # but is more user friendly (does not require to wrap the code in
+            # a `if __name__ == "__main__":`)
+            forkserver_available = "forkserver" in mp.get_all_start_methods()
+            start_method = "forkserver" if forkserver_available else "spawn"
+        ctx = mp.get_context(start_method)
+
+        assert num_envs % num_processes == 0, "The required number of environments can not be equally split into the number of specified processes."
+
+        self.num_processes = num_processes
+        self.num_envs = num_envs
+        self.envs_per_process = int(num_envs / num_processes)
+
+        env_list_configs = [(env_cls, env_kwargs, self.envs_per_process) for _ in range(self.num_processes)]
+
+        self.remotes, self.work_remotes = zip(*[ctx.Pipe() for _ in range(self.num_processes)])
+        self.processes = []
+        for work_remote, remote, env_list_config in zip(self.work_remotes, self.remotes, env_list_configs):
+            args = (work_remote, remote, CloudpickleWrapper(env_list_config))
+            # daemon=True: if the main process crashes, we should not cause things to hang
+            process = ctx.Process(target=_worker, args=args, daemon=True)  # pytype:disable=attribute-error
+            process.start()
+            self.processes.append(process)
+            work_remote.close()
+
+        self.cls = env_cls
+
+    def env_cls(cls) -> Type[Environment]:
+        return cls.cls
+
+    def reset(self, obs_space: ObsSpace) -> ObsBatch:
+        for remote in self.remotes:
+            remote.send(("reset", obs_space))
+        obs = [remote.recv() for remote in self.remotes]
+        return batch_obs(obs)
+
+    def close(self):
+        for remote in self.remotes:
+            remote.send(("close", None))
+        for process in self.processes:
+            process.join()
+
+    def act(
+            self, actions: Sequence[Mapping[str, Action]], obs_space: ObsSpace
+    ) -> ObsBatch:
+        remote_actions = actions.reshape(self.num_processes, self.num_envs, -1)
+        for remote, action in zip(self.remotes, actions):
+            remote.send(("act", (action, obs_space)))
+
+        observations = [remote.recv() for remote in self.remotes]
         return batch_obs(observations)

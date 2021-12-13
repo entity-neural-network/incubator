@@ -27,6 +27,8 @@ from entity_gym.environment import (
     CategoricalActionSpace,
     DenseSelectEntityActionMask,
     EnvList,
+    Environment,
+    ParallelEnvList,
     ObsSpace,
     SelectEntityAction,
     SelectEntityActionMaskBatch,
@@ -74,6 +76,8 @@ def parse_args(override_args: Optional[List[str]] = None) -> argparse.Namespace:
         help='weather to capture videos of the agent performances (check out `videos` folder)')
     parser.add_argument('--capture-samples', type=str, default=None,
         help='if set, write the samples to this file')
+    parser.add_argument('--processes', type=int, default=1,
+        help='The number of processes to use to collect env data. The envs are split as equally as possible across the processes')
     
     # Network architecture
     parser.add_argument('--d-model', type=int, default=64,
@@ -85,7 +89,7 @@ def parse_args(override_args: Optional[List[str]] = None) -> argparse.Namespace:
 
     # Algorithm specific arguments
     parser.add_argument('--num-envs', type=int, default=4,
-        help='the number of parallel game environments')
+        help='the number of game environments')
     parser.add_argument('--num-steps', type=int, default=128,
         help='the number of steps to run in each environment per policy rollout')
     parser.add_argument('--anneal-lr', type=lambda x:bool(strtobool(x)), default=True, nargs='?', const=True,
@@ -243,7 +247,10 @@ def train(args: argparse.Namespace) -> float:
 
     # env setup
     env_kwargs = json.loads(args.env_kwargs)
-    envs = EnvList([env_cls(**env_kwargs) for _ in range(args.num_envs)])  # type: ignore
+    if args.processes > 1:
+        envs = ParallelEnvList(env_cls, env_kwargs, args.num_envs, args.processes) #[instantiate_env for _ in range(args.num_envs)])  # type: ignore
+    else:
+        envs = EnvList(env_cls, env_kwargs, args.num_envs) #'[env_cls(**env_kwargs) for _ in range(args.num_envs)])  # type: ignore
     obs_space = env_cls.obs_space()
     action_space = env_cls.action_space()
     if args.capture_samples:

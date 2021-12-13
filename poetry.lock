@@ -167,6 +167,7 @@ python-versions = ">=3.7.1,<3.10"
 develop = true
 
 [package.dependencies]
+cloudpickle = "^2.0.0"
 enn_zoo = {path = "../enn_zoo", develop = true}
 entity_gym = {path = "../entity_gym", develop = true}
 msgpack = "^1.0.3"
@@ -210,6 +211,7 @@ python-versions = ">=3.7.1,<3.10"
 develop = true
 
 [package.dependencies]
+cloudpickle = "^2.0.0"
 ragged-buffer = "^0.2.10"
 
 [package.source]
@@ -275,7 +277,7 @@ tool = ["click (>=6.0.0)"]
 
 [[package]]
 name = "griddly"
-version = "1.2.21"
+version = "1.2.23"
 description = "Griddly Python Libraries"
 category = "main"
 optional = false
@@ -843,7 +845,7 @@ pyasn1 = ">=0.1.3"
 
 [[package]]
 name = "sentry-sdk"
-version = "1.5.0"
+version = "1.5.1"
 description = "Python client for Sentry (https://sentry.io)"
 category = "main"
 optional = false
@@ -1204,15 +1206,15 @@ google-auth-oauthlib = [
     {file = "google_auth_oauthlib-0.4.6-py2.py3-none-any.whl", hash = "sha256:3f2a6e802eebbb6fb736a370fbf3b055edcb6b52878bf2f26330b5e041316c73"},
 ]
 griddly = [
-    {file = "griddly-1.2.21-cp37-cp37m-macosx_11_0_x86_64.whl", hash = "sha256:b655da94ab46e9aacacd2ac8ac8e0c7a489281e310733bc501e2d7bc20341122"},
-    {file = "griddly-1.2.21-cp37-cp37m-manylinux2014_x86_64.whl", hash = "sha256:a8b2bd42e6d973968d6b0560a39facf3f375d11a6c20d113615a63e6642b8b5a"},
-    {file = "griddly-1.2.21-cp37-cp37m-win_amd64.whl", hash = "sha256:e831c6f4f5a73b33dae2d78820c0c13d909f30c029f72b58663e0ed983e70765"},
-    {file = "griddly-1.2.21-cp38-cp38-macosx_11_0_x86_64.whl", hash = "sha256:c998cb1c8f985f9c7de0a25d42311b90e046c857bf47370691bb082295051b0b"},
-    {file = "griddly-1.2.21-cp38-cp38-manylinux2014_x86_64.whl", hash = "sha256:34d33ae01c4737e5fa8400b747a21a76d81f4dfa380d5e90a6ae3b21d63d2a12"},
-    {file = "griddly-1.2.21-cp38-cp38-win_amd64.whl", hash = "sha256:c002ecd05443255ad29c2c14692beff6e596d1a5d44dd54c22dc71084bf613b8"},
-    {file = "griddly-1.2.21-cp39-cp39-macosx_11_0_x86_64.whl", hash = "sha256:b17621fb3803918466fd13189f79a44cdb9d674357fbf54b7a554ea0843776db"},
-    {file = "griddly-1.2.21-cp39-cp39-manylinux2014_x86_64.whl", hash = "sha256:600f441279bec91af16cbcfec8e1ab52b0195d7f24235281e8dab095a6bfe4e3"},
-    {file = "griddly-1.2.21-cp39-cp39-win_amd64.whl", hash = "sha256:e2d4b86ce2c41f5afa2b05891e7504198657899e165a1e14f330f357a896cb73"},
+    {file = "griddly-1.2.23-cp37-cp37m-macosx_11_0_x86_64.whl", hash = "sha256:1afbab7b9d7491553afbc93b47bc5fbe2add9e29f8fe3cd1e02b541e01662618"},
+    {file = "griddly-1.2.23-cp37-cp37m-manylinux2014_x86_64.whl", hash = "sha256:51bcd87dfcef20a37a6f367d41d17d425b13863e0195b0ac357ceea044db6954"},
+    {file = "griddly-1.2.23-cp37-cp37m-win_amd64.whl", hash = "sha256:223ba9ca20c8157cf8758482ec20beb4769d9c5b07b7033d53c566794d12762d"},
+    {file = "griddly-1.2.23-cp38-cp38-macosx_11_0_x86_64.whl", hash = "sha256:d720e678af304e8e3a561822949841f5442a442d77651fa9234da7719e16c4cf"},
+    {file = "griddly-1.2.23-cp38-cp38-manylinux2014_x86_64.whl", hash = "sha256:659f695ec11102ebd01285b393e6dca24e262f1fed83aa3c1729fa8eb30bcd4f"},
+    {file = "griddly-1.2.23-cp38-cp38-win_amd64.whl", hash = "sha256:798c5c5506f1f6a61c1bb753b349277ab432a4557802c34288ece20cddc2ec04"},
+    {file = "griddly-1.2.23-cp39-cp39-macosx_11_0_x86_64.whl", hash = "sha256:d7b741247f6549b2e77ced103ec09a9b215e4d97fd36128407b685781c705d3f"},
+    {file = "griddly-1.2.23-cp39-cp39-manylinux2014_x86_64.whl", hash = "sha256:4fde0b7534adea749624c94de52869c36ca0cd66d50623d9e52862417a22f930"},
+    {file = "griddly-1.2.23-cp39-cp39-win_amd64.whl", hash = "sha256:a1245b06ec5a95be2dfd18d39cf85e3ced4bbd08dd04e83d866f252a030c4760"},
 ]
 grpcio = [
     {file = "grpcio-1.42.0-cp310-cp310-linux_armv7l.whl", hash = "sha256:6e5eec67909795f7b1ff2bd941bd6c2661ca5217ea9c35003d73314100786f60"},
@@ -1657,8 +1659,8 @@ rsa = [
     {file = "rsa-4.8.tar.gz", hash = "sha256:5c6bd9dc7a543b7fe4304a631f8a8a3b674e2bbfc49c2ae96200cdbe55df6b17"},
 ]
 sentry-sdk = [
-    {file = "sentry-sdk-1.5.0.tar.gz", hash = "sha256:789a11a87ca02491896e121efdd64e8fd93327b69e8f2f7d42f03e2569648e88"},
-    {file = "sentry_sdk-1.5.0-py2.py3-none-any.whl", hash = "sha256:0db297ab32e095705c20f742c3a5dac62fe15c4318681884053d0898e5abb2f6"},
+    {file = "sentry-sdk-1.5.1.tar.gz", hash = "sha256:2a1757d6611e4bec7d672c2b7ef45afef79fed201d064f53994753303944f5a8"},
+    {file = "sentry_sdk-1.5.1-py2.py3-none-any.whl", hash = "sha256:e4cb107e305b2c1b919414775fa73a9997f996447417d22b98e7610ded1e9eb5"},
 ]
 shortuuid = [
     {file = "shortuuid-1.0.8-py3-none-any.whl", hash = "sha256:44a7a86bcf24dbaba2e626cf80c779926b7c3a0d31a3a013e0d3cd1077707d23"},
