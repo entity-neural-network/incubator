@@ -10,6 +10,7 @@ from entity_gym.envs.multi_armed_bandit import MultiArmedBandit
 from entity_gym.envs.not_hotdog import NotHotdog
 from entity_gym.envs.xor import Xor
 from entity_gym.envs.count import Count
+from entity_gym.envs.masked_count import MaskedCount
 
 ENV_REGISTRY: Dict[str, Type[Environment]] = {
     "MoveToOrigin": MoveToOrigin,
@@ -21,4 +22,5 @@ ENV_REGISTRY: Dict[str, Type[Environment]] = {
     "NotHotdog": NotHotdog,
     "Xor": Xor,
     "Count": Count,
+    "MaskedCount": MaskedCount,
 }

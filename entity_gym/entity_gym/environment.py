@@ -100,35 +100,35 @@ class Observation:
 @dataclass
 class CategoricalActionMaskBatch:
     actors: RaggedBufferI64
+    masks: Optional[RaggedBufferI64]
 
     def push(self, mask: Any) -> None:
         assert isinstance(mask, DenseCategoricalActionMask)
         self.actors.push(mask.actors.reshape(-1, 1))
-
-    @overload
-    def __getitem__(self, i: int) -> RaggedBufferI64:
-        ...
-
-    @overload
-    def __getitem__(self, i: npt.NDArray[np.int64]) -> "CategoricalActionMaskBatch":
-        ...
+        if self.masks is not None:
+            n_masks = len(mask.actors)
+            self.masks.push(mask.mask.reshape(n_masks, -1))
 
     def __getitem__(
-        self, i: Union[int, npt.NDArray[np.int64]]
-    ) -> Union["CategoricalActionMaskBatch", RaggedBufferI64]:
-        if isinstance(i, int):
-            return self.actors[i]
+            self, i: Union[int, npt.NDArray[np.int64]]
+    ) -> "CategoricalActionMaskBatch":
+        if self.masks is not None:
+            return CategoricalActionMaskBatch(self.actors[i], self.masks[i])
         else:
-            return CategoricalActionMaskBatch(self.actors[i])
+            return CategoricalActionMaskBatch(self.actors[i], None)
 
     def extend(self, other: Any) -> None:
         assert isinstance(
             other, CategoricalActionMaskBatch
         ), f"Expected CategoricalActionMaskBatch, got {type(other)}"
         self.actors.extend(other.actors)
+        if self.masks is not None:
+            self.masks.extend(other.masks)
 
     def clear(self) -> None:
         self.actors.clear()
+        if self.masks is not None:
+            self.masks.clear()
 
 
 @dataclass
@@ -152,7 +152,7 @@ class SelectEntityActionMaskBatch:
         ...
 
     def __getitem__(
-        self, i: Union[int, npt.NDArray[np.int64]]
+            self, i: Union[int, npt.NDArray[np.int64]]
     ) -> Union["SelectEntityActionMaskBatch", RaggedBufferI64]:
         if isinstance(i, int):
             return self.actors[i]
@@ -205,7 +205,11 @@ def batch_obs(obs: List[Observation]) -> ObsBatch:
         for k, mask in o.action_masks.items():
             if isinstance(mask, DenseCategoricalActionMask):
                 if k not in action_masks:
-                    action_masks[k] = CategoricalActionMaskBatch(RaggedBufferI64(1))
+                    if mask.mask is not None:
+                        action_masks[k] = CategoricalActionMaskBatch(RaggedBufferI64(1), RaggedBufferI64(len(mask.mask)))
+                    else:
+                        action_masks[k] = CategoricalActionMaskBatch(RaggedBufferI64(1), None)
+
             elif isinstance(mask, DenseSelectEntityActionMask):
                 if k not in action_masks:
                     action_masks[k] = SelectEntityActionMaskBatch(
@@ -349,7 +353,7 @@ class VecEnv(ABC):
 
     @abstractmethod
     def act(
-        self, actions: Sequence[Mapping[str, Action]], obs_filter: ObsSpace
+            self, actions: Sequence[Mapping[str, Action]], obs_filter: ObsSpace
     ) -> ObsBatch:
         raise NotImplementedError
 
@@ -366,7 +370,7 @@ class EnvList(VecEnv):
         return batch_obs([e.reset(obs_space) for e in self.envs])
 
     def act(
-        self, actions: Sequence[Mapping[str, Action]], obs_space: ObsSpace
+            self, actions: Sequence[Mapping[str, Action]], obs_space: ObsSpace
     ) -> ObsBatch:
         observations = []
         for e, a in zip(self.envs, actions):
