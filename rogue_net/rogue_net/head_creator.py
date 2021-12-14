@@ -53,6 +53,14 @@ class CategoricalActionHead(nn.Module):
         )
         actor_embeds = x.data[x.index_map[actors]]
         logits = self.proj(actor_embeds)
+
+        # Apply masks from the environment
+        if mask.masks is not None:
+            reshaped_masks = torch.tensor(
+                mask.masks.as_array().reshape(logits.shape)
+            ).to(x.data.device)
+            logits = logits.masked_fill(reshaped_masks == 0, -float("inf"))
+
         dist = Categorical(logits=logits)
         if prev_actions is None:
             action = dist.sample()
@@ -133,7 +141,8 @@ class PaddedSelectEntityActionHead(nn.Module):
             1.0 / math.sqrt(self.d_qk)
         )
         logits_mask = torch.bmm(query_mask.unsqueeze(2), key_mask.unsqueeze(1))
-        # TODO: works for fully masked actions?
+
+        # Firstly mask off the conditions that are not available. This is the typical masked transformer approach
         logits = logits.masked_fill(logits_mask == 0, -float("inf"))
 
         dist = Categorical(logits=logits)
