@@ -13,6 +13,7 @@ from typing import (
     Type,
     Union,
     Callable,
+    Generator,
     overload,
 )
 
@@ -119,7 +120,7 @@ class CategoricalActionMaskBatch:
         ...
 
     def __getitem__(
-            self, i: Union[int, npt.NDArray[np.int64]]
+        self, i: Union[int, npt.NDArray[np.int64]]
     ) -> Union["CategoricalActionMaskBatch", RaggedBufferI64]:
         if isinstance(i, int):
             return self.actors[i]
@@ -157,7 +158,7 @@ class SelectEntityActionMaskBatch:
         ...
 
     def __getitem__(
-            self, i: Union[int, npt.NDArray[np.int64]]
+        self, i: Union[int, npt.NDArray[np.int64]]
     ) -> Union["SelectEntityActionMaskBatch", RaggedBufferI64]:
         if isinstance(i, int):
             return self.actors[i]
@@ -345,6 +346,18 @@ class Environment(ABC):
     def env_cls(self) -> Type["Environment"]:
         return self.__class__
 
+class BatchEnv(ABC):
+
+    @abstractmethod
+    def reset(self, obs_space: ObsSpace) -> ObsBatch:
+        raise NotImplementedError
+
+    @abstractmethod
+    def act(
+            self, actions: Sequence[Mapping[str, Action]], obs_space: ObsSpace
+    ) -> ObsBatch:
+        raise NotImplementedError
+
 
 class VecEnv(ABC):
     @abstractmethod
@@ -355,31 +368,35 @@ class VecEnv(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def reset(self, obs_config: ObsSpace) -> ObsBatch:
+    def reset(self, obs_config: ObsSpace) -> List[Observation]:
         raise NotImplementedError
 
     @abstractmethod
     def act(
-            self, actions: Sequence[Mapping[str, Action]], obs_filter: ObsSpace
-    ) -> ObsBatch:
+        self, actions: Sequence[Mapping[str, Action]], obs_filter: ObsSpace
+    ) -> List[Observation]:
         raise NotImplementedError
 
+
 class BaseEnvList(VecEnv):
-    def __init__(self, env_cls: Type[Environment], env_kwargs: Dict[str, Any], num_envs: int):
-        self.envs = [env_cls(**env_kwargs) for _ in range(num_envs)]
+    def __init__(
+        self, env_cls: Type[Environment], env_kwargs: Dict[str, Any], num_envs: int
+    ):
+        self.envs = [env_cls(**env_kwargs) for _ in range(num_envs)]  # type: ignore
         self.cls = env_cls
 
     def env_cls(cls) -> Type[Environment]:
         return cls.cls
 
-    def reset(self, obs_space: ObsSpace) -> ObsBatch:
+    def reset(self, obs_space: ObsSpace) -> List[Observation]:
         return [e.reset(obs_space) for e in self.envs]
 
     def close(self) -> None:
-        [env.close() for env in envs]
+        for env in self.envs:
+            env.close()
 
     def act(
-            self, actions: Sequence[Mapping[str, Action]], obs_space: ObsSpace
+        self, actions: Sequence[Mapping[str, Action]], obs_space: ObsSpace
     ) -> List[Observation]:
         observations = []
         for e, a in zip(self.envs, actions):
@@ -395,15 +412,21 @@ class BaseEnvList(VecEnv):
                 observations.append(obs)
         return observations
 
-class EnvList(BaseEnvList):
+
+class EnvList(BatchEnv):
+
+    def __init__(
+            self, env_cls: Type[Environment], env_kwargs: Dict[str, Any], num_envs: int
+    ):
+        self.envs = BaseEnvList(env_cls, env_kwargs, num_envs)
 
     def reset(self, obs_space: ObsSpace) -> ObsBatch:
-        return batch_obs(super().reset(obs_space))
+        return batch_obs(self.envs.reset(obs_space))
 
     def act(
-            self, actions: Sequence[Mapping[str, Action]], obs_space: ObsSpace
+        self, actions: Sequence[Mapping[str, Action]], obs_space: ObsSpace
     ) -> ObsBatch:
-        observations = super().act(actions, obs_space)
+        observations = self.envs.act(actions, obs_space)
         return batch_obs(observations)
 
 
@@ -425,7 +448,9 @@ class CloudpickleWrapper:
 
 
 def _worker(
-        remote: conn.Connection, parent_remote: conn.Connection, env_list_config: CloudpickleWrapper
+    remote: conn.Connection,
+    parent_remote: conn.Connection,
+    env_list_config: CloudpickleWrapper,
 ) -> None:
     parent_remote.close()
     env_args = env_list_config.var
@@ -436,17 +461,7 @@ def _worker(
             if cmd == "act":
                 # def act(self, action: Mapping[str, Action], obs_filter: ObsSpace) -> Observation:
                 observation = envs.act(data[0], data[1])
-                if observation.done:
-                    # save final observation where user can get it, then reset
-                    #info["terminal_observation"] = observation
-                    new_obs = envs.reset(data[1])
-                    new_obs.done = True
-                    new_obs.reward = observation.reward
-                    new_obs.end_of_episode_info = observation.end_of_episode_info
-                    observation = new_obs
                 remote.send(observation)
-            elif cmd == "env_cls":
-                remote.send(env.env_cls())
             elif cmd == "reset":
                 # def reset(self, obs_filter: ObsSpace) -> Observation:
                 observation = envs.reset(data)
@@ -461,15 +476,21 @@ def _worker(
             break
 
 
-class ParallelEnvList(VecEnv):
+class ParallelEnvList(BatchEnv):
     """
     We fork the subprocessing from the stable-baselines implementation, but use RaggedBuffers for collecting batches
 
     Citation here: https://github.com/DLR-RM/stable-baselines3/blob/master/CITATION.bib
     """
 
-    def __init__(self, env_cls: Type[Environment], env_kwargs: Dict[str, Any], num_envs: int, num_processes: int, start_method: Optional[str] = None):
-
+    def __init__(
+        self,
+        env_cls: Type[Environment],
+        env_kwargs: Dict[str, Any],
+        num_envs: int,
+        num_processes: int,
+        start_method: Optional[str] = None,
+    ):
 
         if start_method is None:
             # Fork is not a thread safe method (see issue #217)
@@ -479,20 +500,31 @@ class ParallelEnvList(VecEnv):
             start_method = "forkserver" if forkserver_available else "spawn"
         ctx = mp.get_context(start_method)
 
-        assert num_envs % num_processes == 0, "The required number of environments can not be equally split into the number of specified processes."
+        assert (
+            num_envs % num_processes == 0
+        ), "The required number of environments can not be equally split into the number of specified processes."
 
         self.num_processes = num_processes
         self.num_envs = num_envs
         self.envs_per_process = int(num_envs / num_processes)
 
-        env_list_configs = [(env_cls, env_kwargs, self.envs_per_process) for _ in range(self.num_processes)]
+        env_list_configs = [
+            (env_cls, env_kwargs, self.envs_per_process)
+            for _ in range(self.num_processes)
+        ]
 
-        self.remotes, self.work_remotes = zip(*[ctx.Pipe() for _ in range(self.num_processes)])
+        self.remotes, self.work_remotes = zip(
+            *[ctx.Pipe() for _ in range(self.num_processes)]
+        )
         self.processes = []
-        for work_remote, remote, env_list_config in zip(self.work_remotes, self.remotes, env_list_configs):
+        for work_remote, remote, env_list_config in zip(
+            self.work_remotes, self.remotes, env_list_configs
+        ):
             args = (work_remote, remote, CloudpickleWrapper(env_list_config))
             # daemon=True: if the main process crashes, we should not cause things to hang
-            process = ctx.Process(target=_worker, args=args, daemon=True)  # pytype:disable=attribute-error
+            process = ctx.Process(
+                target=_worker, args=args, daemon=True
+            )  # pytype:disable=attribute-error
             process.start()
             self.processes.append(process)
             work_remote.close()
@@ -505,21 +537,29 @@ class ParallelEnvList(VecEnv):
     def reset(self, obs_space: ObsSpace) -> ObsBatch:
         for remote in self.remotes:
             remote.send(("reset", obs_space))
-        obs = [remote.recv() for remote in self.remotes]
-        return batch_obs(obs)
+        observations = []
+        for remote in self.remotes:
+            observations.extend(remote.recv())
+        return batch_obs(observations)
 
-    def close(self):
+    def close(self) -> None:
         for remote in self.remotes:
             remote.send(("close", None))
         for process in self.processes:
             process.join()
 
+    def _chunk_actions(self, actions: Sequence[Mapping[str, Action]]) -> Generator[Sequence[Mapping[str, Action]], List[Observation], None]:
+        for i in range(0, len(actions), self.envs_per_process):
+            yield actions[i : i + self.envs_per_process]
+
     def act(
-            self, actions: Sequence[Mapping[str, Action]], obs_space: ObsSpace
+        self, actions: Sequence[Mapping[str, Action]], obs_space: ObsSpace
     ) -> ObsBatch:
-        remote_actions = actions.reshape(self.num_processes, self.num_envs, -1)
-        for remote, action in zip(self.remotes, actions):
+        remote_actions = self._chunk_actions(actions)
+        for remote, action in zip(self.remotes, remote_actions):
             remote.send(("act", (action, obs_space)))
 
-        observations = [remote.recv() for remote in self.remotes]
+        observations = []
+        for remote in self.remotes:
+            observations.extend(remote.recv())
         return batch_obs(observations)
