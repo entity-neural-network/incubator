@@ -250,13 +250,9 @@ def train(args: argparse.Namespace) -> float:
     env_kwargs = json.loads(args.env_kwargs)
     envs: BatchEnv
     if args.processes > 1:
-        envs = ParallelEnvList(
-            env_cls, env_kwargs, args.num_envs, args.processes
-        )
+        envs = ParallelEnvList(env_cls, env_kwargs, args.num_envs, args.processes)
     else:
-        envs = EnvList(
-            env_cls, env_kwargs, args.num_envs
-        )
+        envs = EnvList(env_cls, env_kwargs, args.num_envs)
     obs_space = env_cls.obs_space()
     action_space = env_cls.action_space()
     if args.capture_samples:

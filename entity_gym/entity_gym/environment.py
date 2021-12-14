@@ -346,15 +346,15 @@ class Environment(ABC):
     def env_cls(self) -> Type["Environment"]:
         return self.__class__
 
-class BatchEnv(ABC):
 
+class BatchEnv(ABC):
     @abstractmethod
     def reset(self, obs_space: ObsSpace) -> ObsBatch:
         raise NotImplementedError
 
     @abstractmethod
     def act(
-            self, actions: Sequence[Mapping[str, Action]], obs_space: ObsSpace
+        self, actions: Sequence[Mapping[str, Action]], obs_space: ObsSpace
     ) -> ObsBatch:
         raise NotImplementedError
 
@@ -414,9 +414,8 @@ class BaseEnvList(VecEnv):
 
 
 class EnvList(BatchEnv):
-
     def __init__(
-            self, env_cls: Type[Environment], env_kwargs: Dict[str, Any], num_envs: int
+        self, env_cls: Type[Environment], env_kwargs: Dict[str, Any], num_envs: int
     ):
         self.envs = BaseEnvList(env_cls, env_kwargs, num_envs)
 
@@ -548,7 +547,9 @@ class ParallelEnvList(BatchEnv):
         for process in self.processes:
             process.join()
 
-    def _chunk_actions(self, actions: Sequence[Mapping[str, Action]]) -> Generator[Sequence[Mapping[str, Action]], List[Observation], None]:
+    def _chunk_actions(
+        self, actions: Sequence[Mapping[str, Action]]
+    ) -> Generator[Sequence[Mapping[str, Action]], List[Observation], None]:
         for i in range(0, len(actions), self.envs_per_process):
             yield actions[i : i + self.envs_per_process]
 
