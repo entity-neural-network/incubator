@@ -3,15 +3,15 @@ name = "cloudpickle"
 version = "2.0.0"
 description = "Extended pickling support for Python objects"
 category = "main"
-optional = true
+optional = false
 python-versions = ">=3.6"
 
 [[package]]
 name = "griddly"
-version = "1.2.16"
+version = "1.2.23"
 description = "Griddly Python Libraries"
 category = "main"
-optional = true
+optional = false
 python-versions = "*"
 
 [package.dependencies]
@@ -25,7 +25,7 @@ name = "gym"
 version = "0.21.0"
 description = "Gym: A universal API for reinforcement learning environments."
 category = "main"
-optional = true
+optional = false
 python-versions = ">=3.6"
 
 [package.dependencies]
@@ -50,7 +50,7 @@ name = "imageio"
 version = "2.13.1"
 description = "Library for reading and writing a wide range of image, video, scientific, and volumetric data formats."
 category = "main"
-optional = true
+optional = false
 python-versions = ">=3.5"
 
 [package.dependencies]
@@ -75,7 +75,7 @@ name = "importlib-metadata"
 version = "4.8.2"
 description = "Read metadata from Python packages"
 category = "main"
-optional = true
+optional = false
 python-versions = ">=3.6"
 
 [package.dependencies]
@@ -92,7 +92,7 @@ name = "numpy"
 version = "1.21.4"
 description = "NumPy is the fundamental package for array computing with Python."
 category = "main"
-optional = true
+optional = false
 python-versions = ">=3.7,<3.11"
 
 [[package]]
@@ -100,7 +100,7 @@ name = "pillow"
 version = "8.4.0"
 description = "Python Imaging Library (Fork)"
 category = "main"
-optional = true
+optional = false
 python-versions = ">=3.6"
 
 [[package]]
@@ -108,7 +108,7 @@ name = "pyyaml"
 version = "6.0"
 description = "YAML parser and emitter for Python"
 category = "main"
-optional = true
+optional = false
 python-versions = ">=3.6"
 
 [[package]]
@@ -116,28 +116,36 @@ name = "typing-extensions"
 version = "4.0.1"
 description = "Backported and Experimental Type Hints for Python 3.6+"
 category = "main"
-optional = true
+optional = false
 python-versions = ">=3.6"
+
+[[package]]
+name = "vizdoom"
+version = "1.1.11"
+description = "Reinforcement learning platform based on Doom"
+category = "main"
+optional = false
+python-versions = "*"
+
+[package.dependencies]
+numpy = "*"
 
 [[package]]
 name = "zipp"
 version = "3.6.0"
 description = "Backport of pathlib-compatible object wrapper for zip files"
 category = "main"
-optional = true
+optional = false
 python-versions = ">=3.6"
 
 [package.extras]
 docs = ["sphinx", "jaraco.packaging (>=8.2)", "rst.linker (>=1.9)"]
 testing = ["pytest (>=4.6)", "pytest-checkdocs (>=2.4)", "pytest-flake8", "pytest-cov", "pytest-enabler (>=1.0.1)", "jaraco.itertools", "func-timeout", "pytest-black (>=0.3.7)", "pytest-mypy"]
 
-[extras]
-griddly = ["griddly"]
-
 [metadata]
 lock-version = "1.1"
 python-versions = ">=3.7.1,<3.10"
-content-hash = "d0fc8a4e42e354861f8cb3a432850f46cf697f399e801a2aa2fba941d4e5a5c1"
+content-hash = "684d60c65715fc69308a699304e4fd315c58fad5464330d33bae7d5de242f1e7"
 
 [metadata.files]
 cloudpickle = [
@@ -145,18 +153,15 @@ cloudpickle = [
     {file = "cloudpickle-2.0.0.tar.gz", hash = "sha256:5cd02f3b417a783ba84a4ec3e290ff7929009fe51f6405423cfccfadd43ba4a4"},
 ]
 griddly = [
-    {file = "griddly-1.2.16-cp36-cp36m-macosx_10_15_x86_64.whl", hash = "sha256:484e8ec9f00663bc431a80eb88cbc5023a856836294f138570febebe6760ad8f"},
-    {file = "griddly-1.2.16-cp36-cp36m-manylinux2014_x86_64.whl", hash = "sha256:1807143a50190d454c01d6d411682b69436c9dc3900ee06f8b29f5349ed6b7be"},
-    {file = "griddly-1.2.16-cp36-cp36m-win_amd64.whl", hash = "sha256:9e4a350f50e8b63a75b3ff3b2810a8b9f9fd5be0552f32012adf0ad575fa8339"},
-    {file = "griddly-1.2.16-cp37-cp37m-macosx_10_15_x86_64.whl", hash = "sha256:e3adb68fc9b06fdde2acb700e6dca78b4790783943c58162d058af071db21070"},
-    {file = "griddly-1.2.16-cp37-cp37m-manylinux2014_x86_64.whl", hash = "sha256:052b6613e15f827544c6eb37b44409d54618b7621d66895f6301678fbc9baf18"},
-    {file = "griddly-1.2.16-cp37-cp37m-win_amd64.whl", hash = "sha256:4eee8cd85e7e2f3ce56f2818d904eb9f6d1d6af8741d073a4802bd2b6b5ff804"},
-    {file = "griddly-1.2.16-cp38-cp38-macosx_10_15_x86_64.whl", hash = "sha256:79a3c2b103380f043cd084a5d9b3df5d239054b5a97c05015c094a59701eb1d1"},
-    {file = "griddly-1.2.16-cp38-cp38-manylinux2014_x86_64.whl", hash = "sha256:0f67ea041d883afdb7944bf6de9f5978f6741c23c2f8fb29da4382c9d6fe0e69"},
-    {file = "griddly-1.2.16-cp38-cp38-win_amd64.whl", hash = "sha256:4a48b0ba26902c5c48bc56b9a69e87ceb4a06e9354a9820c0ee46feb82d3fe8c"},
-    {file = "griddly-1.2.16-cp39-cp39-macosx_10_15_x86_64.whl", hash = "sha256:9daf00abd75f8536a27ecda43df76cbf902a48dad57d9cf32c0caa912082424a"},
-    {file = "griddly-1.2.16-cp39-cp39-manylinux2014_x86_64.whl", hash = "sha256:e85cb906417d489d5b614939be59283de0a2cf6c255f5529eb97c5c3c0b332c5"},
-    {file = "griddly-1.2.16-cp39-cp39-win_amd64.whl", hash = "sha256:b47e3a91344549d7ba0450eccba2a5fb1827ea6b98c821a77825438da831de39"},
+    {file = "griddly-1.2.23-cp37-cp37m-macosx_11_0_x86_64.whl", hash = "sha256:1afbab7b9d7491553afbc93b47bc5fbe2add9e29f8fe3cd1e02b541e01662618"},
+    {file = "griddly-1.2.23-cp37-cp37m-manylinux2014_x86_64.whl", hash = "sha256:51bcd87dfcef20a37a6f367d41d17d425b13863e0195b0ac357ceea044db6954"},
+    {file = "griddly-1.2.23-cp37-cp37m-win_amd64.whl", hash = "sha256:223ba9ca20c8157cf8758482ec20beb4769d9c5b07b7033d53c566794d12762d"},
+    {file = "griddly-1.2.23-cp38-cp38-macosx_11_0_x86_64.whl", hash = "sha256:d720e678af304e8e3a561822949841f5442a442d77651fa9234da7719e16c4cf"},
+    {file = "griddly-1.2.23-cp38-cp38-manylinux2014_x86_64.whl", hash = "sha256:659f695ec11102ebd01285b393e6dca24e262f1fed83aa3c1729fa8eb30bcd4f"},
+    {file = "griddly-1.2.23-cp38-cp38-win_amd64.whl", hash = "sha256:798c5c5506f1f6a61c1bb753b349277ab432a4557802c34288ece20cddc2ec04"},
+    {file = "griddly-1.2.23-cp39-cp39-macosx_11_0_x86_64.whl", hash = "sha256:d7b741247f6549b2e77ced103ec09a9b215e4d97fd36128407b685781c705d3f"},
+    {file = "griddly-1.2.23-cp39-cp39-manylinux2014_x86_64.whl", hash = "sha256:4fde0b7534adea749624c94de52869c36ca0cd66d50623d9e52862417a22f930"},
+    {file = "griddly-1.2.23-cp39-cp39-win_amd64.whl", hash = "sha256:a1245b06ec5a95be2dfd18d39cf85e3ced4bbd08dd04e83d866f252a030c4760"},
 ]
 gym = [
     {file = "gym-0.21.0.tar.gz", hash = "sha256:0fd1ce165c754b4017e37a617b097c032b8c3feb8a0394ccc8777c7c50dddff3"},
@@ -282,6 +287,14 @@ pyyaml = [
 typing-extensions = [
     {file = "typing_extensions-4.0.1-py3-none-any.whl", hash = "sha256:7f001e5ac290a0c0401508864c7ec868be4e701886d5b573a9528ed3973d9d3b"},
     {file = "typing_extensions-4.0.1.tar.gz", hash = "sha256:4ca091dea149f945ec56afb48dae714f21e8692ef22a395223bcd328961b6a0e"},
+]
+vizdoom = [
+    {file = "vizdoom-1.1.11-cp310-cp310-win_amd64.whl", hash = "sha256:2094651f0bb264fe3c306f624dee1a520df22127f6b04e8beaee8f0927a7ff7e"},
+    {file = "vizdoom-1.1.11-cp36-cp36m-win_amd64.whl", hash = "sha256:c41d031d9baab682f0a36fc9c8436be97bb509eef260329537f06106e466321f"},
+    {file = "vizdoom-1.1.11-cp37-cp37m-win_amd64.whl", hash = "sha256:f67ee953f63415f8f9f3a798d6e3661a8d532501b67249970eacf87184e55805"},
+    {file = "vizdoom-1.1.11-cp38-cp38-win_amd64.whl", hash = "sha256:55c06b3bbd36197aac43558e8bf8df027be19b54248b95c02782d6dfe735a41f"},
+    {file = "vizdoom-1.1.11-cp39-cp39-win_amd64.whl", hash = "sha256:d40489f3f86add3685809999e603753bfef6e4a3a27e3e48869550656c9da0d0"},
+    {file = "vizdoom-1.1.11.tar.gz", hash = "sha256:ce4aa0e0c17fa78ee0e05399c46fe5c9f8efcbb21671661fd078474f06c40960"},
 ]
 zipp = [
     {file = "zipp-3.6.0-py3-none-any.whl", hash = "sha256:9fe5ea21568a0a70e50f273397638d39b03353731e6cbbb3fd8502a33fec40bc"},
