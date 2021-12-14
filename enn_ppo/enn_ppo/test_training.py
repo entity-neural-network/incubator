@@ -75,7 +75,7 @@ def test_masked_count() -> None:
     args = train.parse_args(
         [
             "--total-timesteps=2000",
-            "--gym-id=MaskedCount",
+            "--gym-id=Count",
             "--num-envs=16",
             "--n-layer=1",
             "--num-steps=1",
