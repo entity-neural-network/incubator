@@ -40,7 +40,9 @@ class Count(Environment):
     """
 
     def __init__(self, masked_choices: int = 10):
-        assert masked_choices >= 1 and masked_choices <= 10, "masked_choices must be between 1 and 10"
+        assert (
+            masked_choices >= 1 and masked_choices <= 10
+        ), "masked_choices must be between 1 and 10"
         self.masked_choices = masked_choices
 
     @classmethod
@@ -56,7 +58,7 @@ class Count(Environment):
         }
 
     def reset(self, obs_space: ObsSpace) -> Observation:
-        self.count = random.randint(0, self.masked_choices-1)
+        self.count = random.randint(0, self.masked_choices - 1)
         possible_counts = {
             self.count,
             *random.sample(
