@@ -241,6 +241,11 @@ def merge_obs(a: Optional[ObsBatch], b: ObsBatch) -> ObsBatch:
     reward = np.concatenate((a.reward, b.reward))
     done = np.concatenate((a.done, b.done))
 
+    for k, v in a.end_of_episode_info.items(): # type: ignore
+        end_of_episode_info[k] = v # type: ignore
+    for k, v in b.end_of_episode_info.items(): # type: ignore
+        end_of_episode_info[k] = v # type: ignore
+
     return ObsBatch(
         entities,
         ids,
