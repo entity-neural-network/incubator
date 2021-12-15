@@ -193,6 +193,7 @@ class ObsBatch:
     done: npt.NDArray[np.bool_]
     end_of_episode_info: Dict[int, EpisodeStats]
 
+
 def merge_obs(a: Optional[ObsBatch], b: ObsBatch) -> ObsBatch:
     """
     merges two obs_batches
@@ -225,8 +226,8 @@ def merge_obs(a: Optional[ObsBatch], b: ObsBatch) -> ObsBatch:
             entities[k] = b.entities[k]
 
     # merge ids
-    ids.extend(a.ids) # type: ignore
-    ids.extend(b.ids) # type: ignore
+    ids.extend(a.ids)  # type: ignore
+    ids.extend(b.ids)  # type: ignore
 
     # merge masks
     for k in set(a.action_masks.keys()) | set(b.action_masks.keys()):
@@ -461,7 +462,7 @@ class EnvList(VecEnv):
         return batch_obs(observations)
 
 
-class CloudpickleWrapper():
+class CloudpickleWrapper:
     def __init__(self, var: Any):
         self.var = var
 
@@ -471,10 +472,12 @@ class CloudpickleWrapper():
     def __setstate__(self, var: Any) -> None:
         self.var = cloudpickle.loads(var)
 
+
 class MsgpackConnectionWrapper(object):
     """
     Use msgpack instead of pickle to send and recieve data from workers.
     """
+
     def __init__(self, conn: Connection) -> None:
         self._conn = conn
 
@@ -482,35 +485,38 @@ class MsgpackConnectionWrapper(object):
         self._conn.close()
 
     def send(self, data: Any) -> None:
-        s = msgpack_numpy.dumps(data, default=MsgpackConnectionWrapper.ragged_buffer_encode)
+        s = msgpack_numpy.dumps(
+            data, default=MsgpackConnectionWrapper.ragged_buffer_encode
+        )
         self._conn.send_bytes(s)
 
     def recv(self) -> Any:
         data_bytes = self._conn.recv_bytes()
-        return msgpack_numpy.loads(data_bytes, object_hook=MsgpackConnectionWrapper.ragged_buffer_decode, strict_map_key=False)
+        return msgpack_numpy.loads(
+            data_bytes,
+            object_hook=MsgpackConnectionWrapper.ragged_buffer_decode,
+            strict_map_key=False,
+        )
 
     @classmethod
     def ragged_buffer_encode(cls, obj: Any) -> Any:
-        if isinstance(obj, RaggedBufferF32) or isinstance(obj, RaggedBufferI64): # type: ignore
+        if isinstance(obj, RaggedBufferF32) or isinstance(obj, RaggedBufferI64):  # type: ignore
             flattened = obj.as_array()
             lengths = obj.size1()
             return {
                 "__flattened__": msgpack_numpy.encode(flattened),
-                "__lengths__": msgpack_numpy.encode(lengths)
+                "__lengths__": msgpack_numpy.encode(lengths),
             }
-        elif hasattr(obj, '__dict__'):
-            return {
-                '__classname__': obj.__class__.__name__,
-                'data': vars(obj)
-            }
+        elif hasattr(obj, "__dict__"):
+            return {"__classname__": obj.__class__.__name__, "data": vars(obj)}
         else:
             return obj
 
     @classmethod
     def ragged_buffer_decode(cls, obj: Any) -> Any:
         if "__flattened__" in obj:
-            flattened = msgpack_numpy.decode(obj['__flattened__'])
-            lengths = msgpack_numpy.decode(obj['__lengths__'])
+            flattened = msgpack_numpy.decode(obj["__flattened__"])
+            lengths = msgpack_numpy.decode(obj["__lengths__"])
 
             dtype = flattened.dtype
 
@@ -518,11 +524,12 @@ class MsgpackConnectionWrapper(object):
                 return RaggedBufferF32.from_flattened(flattened, lengths)
             elif dtype == int:
                 return RaggedBufferI64.from_flattened(flattened, lengths)
-        elif '__classname__' in obj:
-            cls_name = globals()[obj['__classname__']]
-            return cls_name(**obj['data'])
+        elif "__classname__" in obj:
+            cls_name = globals()[obj["__classname__"]]
+            return cls_name(**obj["data"])
         else:
             return obj
+
 
 def _worker(
     remote: conn.Connection,
