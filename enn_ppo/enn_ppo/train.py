@@ -27,7 +27,6 @@ from entity_gym.environment import (
     CategoricalActionSpace,
     DenseSelectEntityActionMask,
     EnvList,
-    BatchEnv,
     Environment,
     ParallelEnvList,
     ObsSpace,

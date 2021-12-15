@@ -1,5 +1,7 @@
+import functools
 import multiprocessing as mp
 import multiprocessing.connection as conn
+from multiprocessing.connection import ConnectionWrapper
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import (
@@ -16,8 +18,9 @@ from typing import (
     Generator,
     overload,
 )
-
 import cloudpickle
+import msgpack
+import msgpack_numpy
 import numpy as np
 import numpy.typing as npt
 from ragged_buffer import RaggedBufferF32, RaggedBufferI64
@@ -189,6 +192,60 @@ class ObsBatch:
     done: npt.NDArray[np.bool_]
     end_of_episode_info: Dict[int, EpisodeStats]
 
+def merge_obs(a: Optional[ObsBatch], b: ObsBatch) -> ObsBatch:
+    """
+    merges two obs_batches
+    """
+
+    if a == None:
+        return b
+
+    entities = {}
+    ids = []
+    action_masks: Dict[
+        str, Union[CategoricalActionMaskBatch, SelectEntityActionMaskBatch]
+    ] = {}
+    reward = []
+    done = []
+    end_of_episode_info = {}
+
+    # merge entities
+    for k in set(a.entities.keys()) | set(b.entities.keys()):
+        if k in a.entities:
+            entities[k] = a.entities[k]
+            if k in b.entities:
+                entities[k].extend(b.entities[k])
+        elif k in b.entities:
+            # TODO: @cswinter ... if we have a rare entity type that only shows up in a later batch, do we need to
+            # "pad" the buffer here with lengths=[0,0,0,0,0,0,0,0.... ??
+            # Is this also a problem in batch_obs (if we assume that not all observations have all the same keys)
+            entities[k] = b.entities[k]
+
+    # merge ids
+    ids.extend(a.ids)
+    ids.extend(b.ids)
+
+    # merge masks
+    for k in set(a.action_masks.keys()) | set(b.action_masks.keys()):
+        if k in a.action_masks:
+            action_masks[k] = a.action_masks[k]
+            if k in b.action_masks:
+                action_masks[k].extend(b.action_masks[k])
+        elif k in b.action_masks:
+            action_masks[k] = b.action_masks[k]
+
+    reward = np.concatenate((a.reward, b.reward))
+    done = np.concatenate((a.done, b.done))
+
+    return ObsBatch(
+        entities,
+        ids,
+        action_masks,
+        np.array(reward),
+        np.array(done),
+        end_of_episode_info,
+    )
+
 
 def batch_obs(obs: List[Observation]) -> ObsBatch:
     """
@@ -347,18 +404,6 @@ class Environment(ABC):
         return self.__class__
 
 
-class BatchEnv(ABC):
-    @abstractmethod
-    def reset(self, obs_space: ObsSpace) -> ObsBatch:
-        raise NotImplementedError
-
-    @abstractmethod
-    def act(
-        self, actions: Sequence[Mapping[str, Action]], obs_space: ObsSpace
-    ) -> ObsBatch:
-        raise NotImplementedError
-
-
 class VecEnv(ABC):
     @abstractmethod
     def env_cls(cls) -> Type[Environment]:
@@ -368,17 +413,17 @@ class VecEnv(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def reset(self, obs_config: ObsSpace) -> List[Observation]:
+    def reset(self, obs_config: ObsSpace) -> ObsBatch:
         raise NotImplementedError
 
     @abstractmethod
     def act(
         self, actions: Sequence[Mapping[str, Action]], obs_filter: ObsSpace
-    ) -> List[Observation]:
+    ) -> ObsBatch:
         raise NotImplementedError
 
 
-class BaseEnvList(VecEnv):
+class EnvList(VecEnv):
     def __init__(
         self, env_cls: Type[Environment], env_kwargs: Dict[str, Any], num_envs: int
     ):
@@ -388,8 +433,8 @@ class BaseEnvList(VecEnv):
     def env_cls(cls) -> Type[Environment]:
         return cls.cls
 
-    def reset(self, obs_space: ObsSpace) -> List[Observation]:
-        return [e.reset(obs_space) for e in self.envs]
+    def reset(self, obs_space: ObsSpace) -> ObsBatch:
+        return batch_obs([e.reset(obs_space) for e in self.envs])
 
     def close(self) -> None:
         for env in self.envs:
@@ -397,7 +442,7 @@ class BaseEnvList(VecEnv):
 
     def act(
         self, actions: Sequence[Mapping[str, Action]], obs_space: ObsSpace
-    ) -> List[Observation]:
+    ) -> ObsBatch:
         observations = []
         for e, a in zip(self.envs, actions):
             obs = e.act(a, obs_space)
@@ -410,32 +455,10 @@ class BaseEnvList(VecEnv):
                 observations.append(new_obs)
             else:
                 observations.append(obs)
-        return observations
-
-
-class EnvList(BatchEnv):
-    def __init__(
-        self, env_cls: Type[Environment], env_kwargs: Dict[str, Any], num_envs: int
-    ):
-        self.envs = BaseEnvList(env_cls, env_kwargs, num_envs)
-
-    def reset(self, obs_space: ObsSpace) -> ObsBatch:
-        return batch_obs(self.envs.reset(obs_space))
-
-    def act(
-        self, actions: Sequence[Mapping[str, Action]], obs_space: ObsSpace
-    ) -> ObsBatch:
-        observations = self.envs.act(actions, obs_space)
         return batch_obs(observations)
 
 
-class CloudpickleWrapper:
-    """
-    Uses cloudpickle to serialize contents (otherwise multiprocessing tries to use pickle)
-
-    :param var: the variable you wish to wrap for pickling with cloudpickle
-    """
-
+class CloudpickleWrapper():
     def __init__(self, var: Any):
         self.var = var
 
@@ -445,6 +468,58 @@ class CloudpickleWrapper:
     def __setstate__(self, var: Any) -> None:
         self.var = cloudpickle.loads(var)
 
+class MsgpackConnectionWrapper(object):
+    """
+    Use msgpack instead of pickle to send and recieve data from workers.
+    """
+    def __init__(self, conn):
+        self._conn = conn
+
+    def close(self):
+        self._conn.close()
+
+    def send(self, data):
+        s = msgpack_numpy.dumps(data, default=MsgpackConnectionWrapper.ragged_buffer_encode)
+        self._conn.send_bytes(s)
+
+    def recv(self):
+        data_bytes = self._conn.recv_bytes()
+        return msgpack_numpy.loads(data_bytes, object_hook=MsgpackConnectionWrapper.ragged_buffer_decode, strict_map_key=False)
+
+    @classmethod
+    def ragged_buffer_encode(cls, obj):
+        if isinstance(obj, RaggedBufferF32) or isinstance(obj, RaggedBufferI64):
+            flattened = obj.as_array()
+            lengths = obj.size1()
+            return {
+                "__flattened__": msgpack_numpy.encode(flattened),
+                "__lengths__": msgpack_numpy.encode(lengths)
+            }
+        elif hasattr(obj, '__dict__'):
+            return {
+                '__classname__': obj.__class__.__name__,
+                'data': vars(obj)
+            }
+        else:
+            return obj
+
+    @classmethod
+    def ragged_buffer_decode(cls, obj):
+        if "__flattened__" in obj:
+            flattened = msgpack_numpy.decode(obj['__flattened__'])
+            lengths = msgpack_numpy.decode(obj['__lengths__'])
+
+            dtype = flattened.dtype
+
+            if dtype == np.float32:
+                return RaggedBufferF32.from_flattened(flattened, lengths)
+            elif dtype == int:
+                return RaggedBufferI64.from_flattened(flattened, lengths)
+        elif '__classname__' in obj:
+            cls_name = globals()[obj['__classname__']]
+            return cls_name(**obj['data'])
+        else:
+            return obj
 
 def _worker(
     remote: conn.Connection,
@@ -453,7 +528,7 @@ def _worker(
 ) -> None:
     parent_remote.close()
     env_args = env_list_config.var
-    envs = BaseEnvList(*env_args)
+    envs = EnvList(*env_args)
     while True:
         try:
             cmd, data = remote.recv()
@@ -475,7 +550,7 @@ def _worker(
             break
 
 
-class ParallelEnvList(BatchEnv):
+class ParallelEnvList(VecEnv):
     """
     We fork the subprocessing from the stable-baselines implementation, but use RaggedBuffers for collecting batches
 
@@ -512,13 +587,19 @@ class ParallelEnvList(BatchEnv):
             for _ in range(self.num_processes)
         ]
 
-        self.remotes, self.work_remotes = zip(
-            *[ctx.Pipe() for _ in range(self.num_processes)]
-        )
+        self.remotes = []
+        self.work_remotes = []
+        for i in range(self.num_processes):
+            pipe = ctx.Pipe()
+            self.remotes.append(MsgpackConnectionWrapper(pipe[0]))
+            self.work_remotes.append(MsgpackConnectionWrapper(pipe[1]))
+
         self.processes = []
         for work_remote, remote, env_list_config in zip(
             self.work_remotes, self.remotes, env_list_configs
         ):
+            # Have to use cloudpickle wrapper here to serialize the ABCMeta class reference
+            # TODO: Can this be achieved with custom msgpack somehow?
             args = (work_remote, remote, CloudpickleWrapper(env_list_config))
             # daemon=True: if the main process crashes, we should not cause things to hang
             process = ctx.Process(
@@ -536,10 +617,12 @@ class ParallelEnvList(BatchEnv):
     def reset(self, obs_space: ObsSpace) -> ObsBatch:
         for remote in self.remotes:
             remote.send(("reset", obs_space))
-        observations = []
+
+        observations: ObsBatch = None
         for remote in self.remotes:
-            observations.extend(remote.recv())
-        return batch_obs(observations)
+            remote_obs_batch = remote.recv()
+            observations = merge_obs(observations, remote_obs_batch)
+        return observations
 
     def close(self) -> None:
         for remote in self.remotes:
@@ -560,7 +643,8 @@ class ParallelEnvList(BatchEnv):
         for remote, action in zip(self.remotes, remote_actions):
             remote.send(("act", (action, obs_space)))
 
-        observations = []
+        observations: ObsBatch = None
         for remote in self.remotes:
-            observations.extend(remote.recv())
-        return batch_obs(observations)
+            remote_obs_batch = remote.recv()
+            observations = merge_obs(observations, remote_obs_batch)
+        return observations
