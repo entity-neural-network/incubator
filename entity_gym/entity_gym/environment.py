@@ -1,7 +1,7 @@
 import functools
 import multiprocessing as mp
 import multiprocessing.connection as conn
-from multiprocessing.connection import ConnectionWrapper
+from multiprocessing.connection import Connection
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import (
@@ -14,6 +14,7 @@ from typing import (
     Tuple,
     Type,
     Union,
+    Iterable,
     Callable,
     Generator,
     overload,
@@ -200,14 +201,16 @@ def merge_obs(a: Optional[ObsBatch], b: ObsBatch) -> ObsBatch:
     if a == None:
         return b
 
+    assert isinstance(a, ObsBatch)
+
     entities = {}
-    ids = []
+    ids: Sequence[Sequence[EntityID]] = []
     action_masks: Dict[
         str, Union[CategoricalActionMaskBatch, SelectEntityActionMaskBatch]
     ] = {}
     reward = []
     done = []
-    end_of_episode_info = {}
+    end_of_episode_info: Dict[int, EpisodeStats] = {}
 
     # merge entities
     for k in set(a.entities.keys()) | set(b.entities.keys()):
@@ -222,8 +225,8 @@ def merge_obs(a: Optional[ObsBatch], b: ObsBatch) -> ObsBatch:
             entities[k] = b.entities[k]
 
     # merge ids
-    ids.extend(a.ids)
-    ids.extend(b.ids)
+    ids.extend(a.ids) # type: ignore
+    ids.extend(b.ids) # type: ignore
 
     # merge masks
     for k in set(a.action_masks.keys()) | set(b.action_masks.keys()):
@@ -472,23 +475,23 @@ class MsgpackConnectionWrapper(object):
     """
     Use msgpack instead of pickle to send and recieve data from workers.
     """
-    def __init__(self, conn):
+    def __init__(self, conn: Connection) -> None:
         self._conn = conn
 
-    def close(self):
+    def close(self) -> None:
         self._conn.close()
 
-    def send(self, data):
+    def send(self, data: Any) -> None:
         s = msgpack_numpy.dumps(data, default=MsgpackConnectionWrapper.ragged_buffer_encode)
         self._conn.send_bytes(s)
 
-    def recv(self):
+    def recv(self) -> Any:
         data_bytes = self._conn.recv_bytes()
         return msgpack_numpy.loads(data_bytes, object_hook=MsgpackConnectionWrapper.ragged_buffer_decode, strict_map_key=False)
 
     @classmethod
-    def ragged_buffer_encode(cls, obj):
-        if isinstance(obj, RaggedBufferF32) or isinstance(obj, RaggedBufferI64):
+    def ragged_buffer_encode(cls, obj: Any) -> Any:
+        if isinstance(obj, RaggedBufferF32) or isinstance(obj, RaggedBufferI64): # type: ignore
             flattened = obj.as_array()
             lengths = obj.size1()
             return {
@@ -504,7 +507,7 @@ class MsgpackConnectionWrapper(object):
             return obj
 
     @classmethod
-    def ragged_buffer_decode(cls, obj):
+    def ragged_buffer_decode(cls, obj: Any) -> Any:
         if "__flattened__" in obj:
             flattened = msgpack_numpy.decode(obj['__flattened__'])
             lengths = msgpack_numpy.decode(obj['__lengths__'])
@@ -618,10 +621,12 @@ class ParallelEnvList(VecEnv):
         for remote in self.remotes:
             remote.send(("reset", obs_space))
 
-        observations: ObsBatch = None
+        observations: Optional[ObsBatch] = None
         for remote in self.remotes:
             remote_obs_batch = remote.recv()
             observations = merge_obs(observations, remote_obs_batch)
+
+        assert isinstance(observations, ObsBatch)
         return observations
 
     def close(self) -> None:
@@ -643,8 +648,9 @@ class ParallelEnvList(VecEnv):
         for remote, action in zip(self.remotes, remote_actions):
             remote.send(("act", (action, obs_space)))
 
-        observations: ObsBatch = None
+        observations: Optional[ObsBatch] = None
         for remote in self.remotes:
             remote_obs_batch = remote.recv()
             observations = merge_obs(observations, remote_obs_batch)
+        assert isinstance(observations, ObsBatch)
         return observations

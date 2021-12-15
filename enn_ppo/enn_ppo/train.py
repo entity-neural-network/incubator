@@ -27,6 +27,7 @@ from entity_gym.environment import (
     CategoricalActionSpace,
     DenseSelectEntityActionMask,
     EnvList,
+    VecEnv,
     Environment,
     ParallelEnvList,
     ObsSpace,
@@ -247,7 +248,7 @@ def train(args: argparse.Namespace) -> float:
 
     # env setup
     env_kwargs = json.loads(args.env_kwargs)
-    envs: BatchEnv
+    envs: VecEnv
     if args.processes > 1:
         envs = ParallelEnvList(env_cls, env_kwargs, args.num_envs, args.processes)
     else:
