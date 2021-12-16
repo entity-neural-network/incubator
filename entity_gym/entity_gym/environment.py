@@ -121,7 +121,7 @@ class CategoricalActionMaskBatch:
     def __getitem__(
         self, i: Union[int, npt.NDArray[np.int64]]
     ) -> "CategoricalActionMaskBatch":
-        if self.masks is not None:
+        if self.masks is not None and self.masks.size0() > 0:
             return CategoricalActionMaskBatch(self.actors[i], self.masks[i])
         else:
             return CategoricalActionMaskBatch(self.actors[i], None)
