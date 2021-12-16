@@ -70,7 +70,7 @@ def test_not_hotdog() -> None:
     assert meanrew >= 0.99
 
 
-def test_count() -> None:
+def test_masked_count() -> None:
     # --total-timesteps=2000 --track --gym-id=Count --num-envs=16 --max-log-frequency=1000 --n-layer=1 --num-steps=1 --d-model=16 --learning-rate=0.01 --cuda=False
     args = train.parse_args(
         [
@@ -81,6 +81,7 @@ def test_count() -> None:
             "--num-steps=1",
             "--d-model=16",
             "--learning-rate=0.01",
+            '--env-kwargs={"masked_choices": 2}',
             "--cuda=False",
         ]
     )
