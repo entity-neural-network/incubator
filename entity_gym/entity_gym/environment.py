@@ -24,7 +24,7 @@ import msgpack
 import msgpack_numpy
 import numpy as np
 import numpy.typing as npt
-from ragged_buffer import RaggedBufferF32, RaggedBufferI64
+from ragged_buffer import RaggedBufferF32, RaggedBufferI64, RaggedBufferBool
 
 
 @dataclass
@@ -110,14 +110,13 @@ class Observation:
 @dataclass
 class CategoricalActionMaskBatch:
     actors: RaggedBufferI64
-    masks: Optional[RaggedBufferI64]
+    masks: Optional[RaggedBufferBool]
 
     def push(self, mask: Any) -> None:
         assert isinstance(mask, DenseCategoricalActionMask)
         self.actors.push(mask.actors.reshape(-1, 1))
         if self.masks is not None and mask.mask is not None:
-            n_masks = len(mask.actors)
-            self.masks.push(mask.mask.reshape(n_masks, -1))
+            self.masks.push(mask.mask)
 
     def __getitem__(
         self, i: Union[int, npt.NDArray[np.int64]]
@@ -183,13 +182,16 @@ class SelectEntityActionMaskBatch:
 
 ActionMaskBatch = Union[CategoricalActionMaskBatch, SelectEntityActionMaskBatch]
 
+
 @dataclass
 class Entity:
     features: List[str]
 
+
 @dataclass
 class ObsSpace:
     entities: Dict[str, Entity]
+
 
 @dataclass
 class ObsBatch:
@@ -262,7 +264,10 @@ def merge_obs(a: Optional[ObsBatch], b: ObsBatch) -> ObsBatch:
         end_of_episode_info,
     )
 
-def batch_obs(obs: List[Observation], obs_space: ObsSpace, action_space: Dict[str, ActionSpace]) -> ObsBatch:
+
+def batch_obs(
+    obs: List[Observation], obs_space: ObsSpace, action_space: Dict[str, ActionSpace]
+) -> ObsBatch:
     """
     Converts a list of observations into a batch of observations.
     """
@@ -276,16 +281,20 @@ def batch_obs(obs: List[Observation], obs_space: ObsSpace, action_space: Dict[st
     end_of_episode_info = {}
 
     # Initialize the entire batch with all entities and actions
-    for entity_name, features in obs_space.entities.items():
-        feature_size = len(features)
+    for entity_name, entity in obs_space.entities.items():
+        feature_size = len(entity.features)
         entities[entity_name] = RaggedBufferF32(feature_size)
 
     for action_name, space in action_space.items():
         if isinstance(space, CategoricalActionSpace):
             mask_size = len(space.choices)
-            actionmasks[entity_name] = CategoricalActionMaskBatch(RaggedBufferI64(mask_size))
+            action_masks[action_name] = CategoricalActionMaskBatch(
+                RaggedBufferI64(1), RaggedBufferBool(mask_size)
+            )
         elif isinstance(space, SelectEntityActionSpace):
-            actionmasks[entity_name] = SelectEntityActionMaskBatch(RaggedBufferI64(1), RaggedBufferI64(1))
+            action_masks[action_name] = SelectEntityActionMaskBatch(
+                RaggedBufferI64(1), RaggedBufferI64(1)
+            )
 
     for o in obs:
 
@@ -296,30 +305,31 @@ def batch_obs(obs: List[Observation], obs_space: ObsSpace, action_space: Dict[st
         for entity_name in obs_space.entities.keys():
             if entity_name not in o.entities:
                 feature_size = len(obs_space.entities[entity_name].features)
-                entities[entity_name].push(np.array([[]], dtype=np.float32).reshape(0, feature_size))
+                entities[entity_name].push(np.array([], dtype=np.float32))
             else:
                 entities[entity_name].push(o.entities[entity_name])
 
         # Append the action masks
-        for
-        for k, mask in o.action_masks.items():
-            if isinstance(mask, DenseCategoricalActionMask):
-                if k not in action_masks:
-                    if mask.mask is not None:
-                        action_masks[k] = CategoricalActionMaskBatch(
-                            RaggedBufferI64(1), RaggedBufferI64(len(mask.mask))
+        for action_name, space in action_space.items():
+            if isinstance(space, CategoricalActionSpace):
+                if action_name not in o.action_masks:
+                    mask_size = len(space.choices)
+                    action_masks[action_name].push(
+                        DenseCategoricalActionMask(
+                            np.array([], dtype=int), np.array([], dtype=bool)
                         )
-                    else:
-                        action_masks[k] = CategoricalActionMaskBatch(
-                            RaggedBufferI64(1), None
-                        )
-
-            elif isinstance(mask, DenseSelectEntityActionMask):
-                if k not in action_masks:
-                    action_masks[k] = SelectEntityActionMaskBatch(
-                        RaggedBufferI64(1), RaggedBufferI64(1)
                     )
-            action_masks[k].push(mask)
+                else:
+                    action_masks[action_name].push(o.action_masks[action_name])
+            elif isinstance(space, SelectEntityActionSpace):
+                if action_name not in o.action_masks:
+                    action_masks[action_name].push(
+                        DenseSelectEntityActionMask(
+                            np.array([], dtype=int), np.array([], dtype=int)
+                        )
+                    )
+                else:
+                    action_masks[action_name].push(o.action_masks[action_name])
 
         # Append the rewards
         reward.append(o.reward)
@@ -480,7 +490,11 @@ class EnvList(VecEnv):
         return cls.cls
 
     def reset(self, obs_space: ObsSpace) -> ObsBatch:
-        return batch_obs([e.reset(obs_space) for e in self.envs], self.cls.obs_space())
+        return batch_obs(
+            [e.reset(obs_space) for e in self.envs],
+            self.cls.obs_space(),
+            self.cls.action_space(),
+        )
 
     def close(self) -> None:
         for env in self.envs:
@@ -501,7 +515,7 @@ class EnvList(VecEnv):
                 observations.append(new_obs)
             else:
                 observations.append(obs)
-        return batch_obs(observations, self.cls.obs_space())
+        return batch_obs(observations, self.cls.obs_space(), self.cls.action_space())
 
 
 class CloudpickleWrapper:
