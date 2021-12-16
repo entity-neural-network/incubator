@@ -183,6 +183,13 @@ class SelectEntityActionMaskBatch:
 
 ActionMaskBatch = Union[CategoricalActionMaskBatch, SelectEntityActionMaskBatch]
 
+@dataclass
+class Entity:
+    features: List[str]
+
+@dataclass
+class ObsSpace:
+    entities: Dict[str, Entity]
 
 @dataclass
 class ObsBatch:
@@ -255,8 +262,7 @@ def merge_obs(a: Optional[ObsBatch], b: ObsBatch) -> ObsBatch:
         end_of_episode_info,
     )
 
-
-def batch_obs(obs: List[Observation]) -> ObsBatch:
+def batch_obs(obs: List[Observation], obs_space: ObsSpace, action_space: Dict[str, ActionSpace]) -> ObsBatch:
     """
     Converts a list of observations into a batch of observations.
     """
@@ -268,12 +274,34 @@ def batch_obs(obs: List[Observation]) -> ObsBatch:
     reward = []
     done = []
     end_of_episode_info = {}
+
+    # Initialize the entire batch with all entities and actions
+    for entity_name, features in obs_space.entities.items():
+        feature_size = len(features)
+        entities[entity_name] = RaggedBufferF32(feature_size)
+
+    for action_name, space in action_space.items():
+        if isinstance(space, CategoricalActionSpace):
+            mask_size = len(space.choices)
+            actionmasks[entity_name] = CategoricalActionMaskBatch(RaggedBufferI64(mask_size))
+        elif isinstance(space, SelectEntityActionSpace):
+            actionmasks[entity_name] = SelectEntityActionMaskBatch(RaggedBufferI64(1), RaggedBufferI64(1))
+
     for o in obs:
-        for k, feats in o.entities.items():
-            if k not in entities:
-                entities[k] = RaggedBufferF32(feats.shape[-1])
-            entities[k].push(feats)
+
+        # Append the IDs
         ids.append(o.ids)
+
+        # Append the entities
+        for entity_name in obs_space.entities.keys():
+            if entity_name not in o.entities:
+                feature_size = len(obs_space.entities[entity_name].features)
+                entities[entity_name].push(np.array([[]], dtype=np.float32).reshape(0, feature_size))
+            else:
+                entities[entity_name].push(o.entities[entity_name])
+
+        # Append the action masks
+        for
         for k, mask in o.action_masks.items():
             if isinstance(mask, DenseCategoricalActionMask):
                 if k not in action_masks:
@@ -285,10 +313,16 @@ def batch_obs(obs: List[Observation]) -> ObsBatch:
                     )
             action_masks[k].push(mask)
 
+        # Append the rewards
         reward.append(o.reward)
+
+        # Append the dones
         done.append(o.done)
+
+        # Append the episode infos
         if o.end_of_episode_info:
             end_of_episode_info[len(ids) - 1] = o.end_of_episode_info
+
     return ObsBatch(
         entities,
         ids,
@@ -302,11 +336,6 @@ def batch_obs(obs: List[Observation]) -> ObsBatch:
 @dataclass
 class Entity:
     features: List[str]
-
-
-@dataclass
-class ObsSpace:
-    entities: Dict[str, Entity]
 
 
 @dataclass
@@ -443,7 +472,7 @@ class EnvList(VecEnv):
         return cls.cls
 
     def reset(self, obs_space: ObsSpace) -> ObsBatch:
-        return batch_obs([e.reset(obs_space) for e in self.envs])
+        return batch_obs([e.reset(obs_space) for e in self.envs], self.cls.obs_space())
 
     def close(self) -> None:
         for env in self.envs:
@@ -464,7 +493,7 @@ class EnvList(VecEnv):
                 observations.append(new_obs)
             else:
                 observations.append(obs)
-        return batch_obs(observations)
+        return batch_obs(observations, self.cls.obs_space())
 
 
 class CloudpickleWrapper:
