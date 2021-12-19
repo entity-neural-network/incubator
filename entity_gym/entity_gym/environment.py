@@ -116,7 +116,7 @@ class CategoricalActionMaskBatch:
         assert isinstance(mask, DenseCategoricalActionMask)
         self.actors.push(mask.actors.reshape(-1, 1))
         if self.masks is not None and mask.mask is not None:
-            self.masks.push(mask.mask)
+            self.masks.push(mask.mask.reshape(-1, self.masks.size2()))
 
     def __getitem__(
         self, i: Union[int, npt.NDArray[np.int64]]
@@ -213,6 +213,13 @@ def merge_obs(a: Optional[ObsBatch], b: ObsBatch) -> ObsBatch:
 
     assert isinstance(a, ObsBatch)
 
+    assert (
+        a.entities.keys() == b.entities.keys()
+    ), "Malformed batches. batches must contain the same entity keys to be merged"
+    assert (
+        a.action_masks.keys() == b.action_masks.keys()
+    ), "Malformed batches. batches must contain the same action mask keys to be merged"
+
     entities = {}
     ids: Sequence[Sequence[EntityID]] = []
     action_masks: Dict[
@@ -223,29 +230,18 @@ def merge_obs(a: Optional[ObsBatch], b: ObsBatch) -> ObsBatch:
     end_of_episode_info: Dict[int, EpisodeStats] = {}
 
     # merge entities
-    for k in set(a.entities.keys()) | set(b.entities.keys()):
-        if k in a.entities:
-            entities[k] = a.entities[k]
-            if k in b.entities:
-                entities[k].extend(b.entities[k])
-        elif k in b.entities:
-            # TODO: @cswinter ... if we have a rare entity type that only shows up in a later batch, do we need to
-            # "pad" the buffer here with lengths=[0,0,0,0,0,0,0,0.... ??
-            # Is this also a problem in batch_obs (if we assume that not all observations have all the same keys)
-            entities[k] = b.entities[k]
+    for k in a.entities.keys():
+        entities[k] = a.entities[k]
+        entities[k].extend(b.entities[k])
 
     # merge ids
     ids.extend(a.ids)  # type: ignore
     ids.extend(b.ids)  # type: ignore
 
     # merge masks
-    for k in set(a.action_masks.keys()) | set(b.action_masks.keys()):
-        if k in a.action_masks:
-            action_masks[k] = a.action_masks[k]
-            if k in b.action_masks:
-                action_masks[k].extend(b.action_masks[k])
-        elif k in b.action_masks:
-            action_masks[k] = b.action_masks[k]
+    for k in a.action_masks.keys():
+        action_masks[k] = a.action_masks[k]
+        action_masks[k].extend(b.action_masks[k])
 
     reward = np.concatenate((a.reward, b.reward))
     done = np.concatenate((a.done, b.done))
@@ -556,7 +552,7 @@ class MsgpackConnectionWrapper(object):
 
     @classmethod
     def ragged_buffer_encode(cls, obj: Any) -> Any:
-        if isinstance(obj, RaggedBufferF32) or isinstance(obj, RaggedBufferI64):  # type: ignore
+        if isinstance(obj, RaggedBufferF32) or isinstance(obj, RaggedBufferI64) or isinstance(obj, RaggedBufferBool):  # type: ignore
             flattened = obj.as_array()
             lengths = obj.size1()
             return {

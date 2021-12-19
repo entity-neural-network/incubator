@@ -5,14 +5,19 @@ from entity_gym.environment import (
     CategoricalActionSpace,
     DenseSelectEntityActionMask,
     DenseCategoricalActionMask,
+    CategoricalActionMaskBatch,
+    SelectEntityActionMaskBatch,
     SelectEntityAction,
     Observation,
     ObsSpace,
+    ObsBatch,
     Entity,
     batch_obs,
     merge_obs,
 )
 import numpy as np
+
+from ragged_buffer import RaggedBufferF32, RaggedBufferI64, RaggedBufferBool
 
 
 def test_env_list() -> None:
@@ -27,8 +32,8 @@ def test_env_list() -> None:
     assert len(obs_reset.ids) == 100
 
     actions = [
-                  {"Pick Cherry": SelectEntityAction(actions=[("Player", "Cherry 1")])}
-              ] * 100
+        {"Pick Cherry": SelectEntityAction(actions=[("Player", "Cherry 1")])}
+    ] * 100
     obs_act = envs.act(actions, obs_space)
 
     assert len(obs_act.ids) == 100
@@ -46,8 +51,8 @@ def test_parallel_env_list() -> None:
     assert len(obs_reset.ids) == 100
 
     actions = [
-                  {"Pick Cherry": SelectEntityAction(actions=[("Player", "Cherry 1")])}
-              ] * 100
+        {"Pick Cherry": SelectEntityAction(actions=[("Player", "Cherry 1")])}
+    ] * 100
     obs_act = envs.act(actions, obs_space)
 
     assert len(obs_act.ids) == 100
@@ -174,7 +179,9 @@ def test_batch_obs_select_entity_action():
             "high_five": DenseSelectEntityActionMask(
                 np.array([3]), np.array([0]), None
             ),
-            "mid_five": DenseSelectEntityActionMask(np.array([1, 2]), np.array([3]), None),
+            "mid_five": DenseSelectEntityActionMask(
+                np.array([1, 2]), np.array([3]), None
+            ),
             "low_five": DenseSelectEntityActionMask(
                 np.array([0, 1, 2]), np.array([0, 1, 2]), None
             ),
@@ -214,9 +221,7 @@ def test_batch_obs_categorical_action():
 
     action_space = {
         "move": CategoricalActionSpace(["up", "down", "left", "right"]),
-        "choose_inventory_item": CategoricalActionSpace(
-            ["axe", "sword", "pigeon"]
-        ),
+        "choose_inventory_item": CategoricalActionSpace(["axe", "sword", "pigeon"]),
     }
 
     observation1 = Observation(
@@ -227,7 +232,10 @@ def test_batch_obs_categorical_action():
         ["entity1_0", "entity2_0"],
         {
             # both entity1 and entity2 can move all directions
-            "move": DenseCategoricalActionMask(np.array([0, 1]), np.array([[True, True, True, True], [True, True, True, True]])),
+            "move": DenseCategoricalActionMask(
+                np.array([0, 1]),
+                np.array([[True, True, True, True], [True, True, True, True]]),
+            ),
         },
         0.0,
         False,
@@ -242,8 +250,19 @@ def test_batch_obs_categorical_action():
         ["entity1_0", "entity3_0", "entity3_1"],
         {
             # all entities can move. Entity 3_1 can also choose items
-            "move": DenseCategoricalActionMask(np.array([0, 1, 2]), np.array([[True, True, True, True], [True, True, True, True], [True, True, True, True]])),
-            "choose_inventory_item": DenseCategoricalActionMask(np.array([2]), np.array([[True, True, True]]))
+            "move": DenseCategoricalActionMask(
+                np.array([0, 1, 2]),
+                np.array(
+                    [
+                        [True, True, True, True],
+                        [True, True, True, True],
+                        [True, True, True, True],
+                    ]
+                ),
+            ),
+            "choose_inventory_item": DenseCategoricalActionMask(
+                np.array([2]), np.array([[True, True, True]])
+            ),
         },
         0.0,
         False,
@@ -272,10 +291,269 @@ def test_batch_obs_categorical_action():
     assert np.all(obs_batch.action_masks["move"].actors.size1() == [2, 3, 0])
     assert np.all(obs_batch.action_masks["move"].masks.size1() == [2, 3, 0])
 
-    assert np.all(obs_batch.action_masks["choose_inventory_item"].actors.size1() == [0, 1, 0])
-    assert np.all(obs_batch.action_masks["choose_inventory_item"].masks.size1() == [0, 1, 0])
+    assert np.all(
+        obs_batch.action_masks["choose_inventory_item"].actors.size1() == [0, 1, 0]
+    )
+    assert np.all(
+        obs_batch.action_masks["choose_inventory_item"].masks.size1() == [0, 1, 0]
+    )
 
-# def test_merge_rare_entity():
+
+def test_merge_obs_entities():
+    """
+    First batch has only entity1 and second batch only has entity2.
+
+    both batches have 10 entries (some are 0-length)
+
+    the output batch should have 20 of EACH entity 1 and entity2, but with zero length rows padded appropriately
+    """
+
+    obs_batch1 = ObsBatch(
+        entities={
+            "entity1": RaggedBufferF32.from_flattened(
+                flattened=np.array([[10, 10, 10]] * 10, np.float32),
+                lengths=np.array([0, 0, 1, 1, 0, 2, 3, 3, 0, 0]),
+            ),
+            "entity2": RaggedBufferF32.from_flattened(
+                flattened=np.array([], np.float32).reshape(0, 3),
+                lengths=np.array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0]),
+            ),
+        },
+        ids=[f"entity1_{i}" for i in range(10)] + [f"entity2_{i}" for i in range(10)],
+        action_masks={},
+        reward=np.array([0] * 10, np.float32),
+        done=np.array([False] * 10, np.bool),
+        end_of_episode_info={},
+    )
+
+    obs_batch2 = ObsBatch(
+        entities={
+            "entity1": RaggedBufferF32.from_flattened(
+                flattened=np.array([], np.float32).reshape(0, 3),
+                lengths=np.array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0]),
+            ),
+            "entity2": RaggedBufferF32.from_flattened(
+                flattened=np.array([[10, 10, 10]] * 10, np.float32),
+                lengths=np.array([0, 0, 1, 1, 0, 2, 3, 3, 0, 0]),
+            ),
+        },
+        ids=[f"entity1_{i}" for i in range(10)] + [f"entity2_{i}" for i in range(10)],
+        action_masks={},
+        reward=np.array([0] * 10, np.float32),
+        done=np.array([False] * 10, np.bool),
+        end_of_episode_info={},
+    )
+
+    merged_obs = merge_obs(obs_batch1, obs_batch2)
+
+    assert np.all(
+        merged_obs.entities["entity1"].size1()
+        == [0, 0, 1, 1, 0, 2, 3, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    )
+    assert np.all(
+        merged_obs.entities["entity2"].size1()
+        == [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 2, 3, 3, 0, 0]
+    )
 
 
-# def test_merge_rare_action():
+def test_merge_obs_actions_categorical():
+    """ """
+
+    obs_batch1 = ObsBatch(
+        entities={
+            "entity1": RaggedBufferF32.from_flattened(
+                flattened=np.array([[10, 10, 10]] * 3, np.float32),
+                lengths=np.array([1, 1, 1]),
+            ),
+            "entity2": RaggedBufferF32.from_flattened(
+                flattened=np.array([[10, 10, 10]] * 3, np.float32),
+                lengths=np.array([1, 1, 1]),
+            ),
+        },
+        ids=["entity1_0", "entity2_0"],
+        action_masks={
+            "action1": CategoricalActionMaskBatch(
+                RaggedBufferI64.from_flattened(
+                    flattened=np.array([[0], [0], [1], [0]], int),
+                    lengths=np.array([1, 2, 1]),
+                ),
+                RaggedBufferBool.from_flattened(
+                    flattened=np.array(
+                        [
+                            [True, True, True, True],
+                            [True, True, True, True],
+                            [True, True, True, True],
+                            [True, True, True, True],
+                        ],
+                        np.bool,
+                    ),
+                    lengths=np.array([1, 2, 1]),
+                ),
+            ),
+            "action2": CategoricalActionMaskBatch(
+                RaggedBufferI64.from_flattened(
+                    flattened=np.array([], int).reshape(0, 1),
+                    lengths=np.array([0, 0, 0]),
+                ),
+                RaggedBufferBool.from_flattened(
+                    flattened=np.array([], np.bool).reshape(0, 4),
+                    lengths=np.array([0, 0, 0]),
+                ),
+            ),
+        },
+        reward=np.array([0] * 10, np.float32),
+        done=np.array([False] * 10, np.bool),
+        end_of_episode_info={},
+    )
+
+    obs_batch2 = ObsBatch(
+        entities={
+            "entity1": RaggedBufferF32.from_flattened(
+                flattened=np.array([[10, 10, 10]] * 3, np.float32),
+                lengths=np.array([1, 1, 1]),
+            ),
+            "entity2": RaggedBufferF32.from_flattened(
+                flattened=np.array([[10, 10, 10]] * 3, np.float32),
+                lengths=np.array([1, 1, 1]),
+            ),
+        },
+        ids=["entity1_0", "entity2_0"],
+        action_masks={
+            "action2": CategoricalActionMaskBatch(
+                RaggedBufferI64.from_flattened(
+                    flattened=np.array([[0], [0], [1], [0]], int),
+                    lengths=np.array([1, 2, 1]),
+                ),
+                RaggedBufferBool.from_flattened(
+                    flattened=np.array(
+                        [
+                            [True, True, True, True],
+                            [True, True, True, True],
+                            [True, True, True, True],
+                            [True, True, True, True],
+                        ],
+                        np.bool,
+                    ),
+                    lengths=np.array([1, 2, 1]),
+                ),
+            ),
+            "action1": CategoricalActionMaskBatch(
+                RaggedBufferI64.from_flattened(
+                    flattened=np.array([], int).reshape(0, 1),
+                    lengths=np.array([0, 0, 0]),
+                ),
+                RaggedBufferBool.from_flattened(
+                    flattened=np.array([], np.bool).reshape(0, 4),
+                    lengths=np.array([0, 0, 0]),
+                ),
+            ),
+        },
+        reward=np.array([0] * 10, np.float32),
+        done=np.array([False] * 10, np.bool),
+        end_of_episode_info={},
+    )
+
+    merged_obs = merge_obs(obs_batch1, obs_batch2)
+
+    assert np.all(
+        merged_obs.action_masks["action1"].actors.size1() == [1, 2, 1, 0, 0, 0]
+    )
+    assert np.all(
+        merged_obs.action_masks["action2"].actors.size1() == [0, 0, 0, 1, 2, 1]
+    )
+
+
+def test_merge_obs_actions_select_entity():
+
+    obs_batch1 = ObsBatch(
+        entities={
+            "entity1": RaggedBufferF32.from_flattened(
+                flattened=np.array([[10, 10, 10]] * 3, np.float32),
+                lengths=np.array([1, 1, 1]),
+            ),
+            "entity2": RaggedBufferF32.from_flattened(
+                flattened=np.array([[10, 10, 10]] * 3, np.float32),
+                lengths=np.array([1, 1, 1]),
+            ),
+        },
+        ids=["entity1_0", "entity2_0"],
+        action_masks={
+            "action1": SelectEntityActionMaskBatch(
+                RaggedBufferI64.from_flattened(
+                    flattened=np.array([[0], [0], [1], [2]], int),
+                    lengths=np.array([1, 2, 1]),
+                ),
+                RaggedBufferI64.from_flattened(
+                    flattened=np.array([[3], [4], [5], [6], [0]], int),
+                    lengths=np.array([2, 1, 2]),
+                ),
+            ),
+            "action2": SelectEntityActionMaskBatch(
+                RaggedBufferI64.from_flattened(
+                    flattened=np.array([], int).reshape(0, 1),
+                    lengths=np.array([0, 0, 0]),
+                ),
+                RaggedBufferI64.from_flattened(
+                    flattened=np.array([], int).reshape(0, 1),
+                    lengths=np.array([0, 0, 0]),
+                ),
+            ),
+        },
+        reward=np.array([0] * 10, np.float32),
+        done=np.array([False] * 10, np.bool),
+        end_of_episode_info={},
+    )
+
+    obs_batch2 = ObsBatch(
+        entities={
+            "entity1": RaggedBufferF32.from_flattened(
+                flattened=np.array([[10, 10, 10]] * 3, np.float32),
+                lengths=np.array([1, 1, 1]),
+            ),
+            "entity2": RaggedBufferF32.from_flattened(
+                flattened=np.array([[10, 10, 10]] * 3, np.float32),
+                lengths=np.array([1, 1, 1]),
+            ),
+        },
+        ids=["entity1_0", "entity2_0"],
+        action_masks={
+            "action1": SelectEntityActionMaskBatch(
+                RaggedBufferI64.from_flattened(
+                    flattened=np.array([], int).reshape(0, 1),
+                    lengths=np.array([0, 0, 0]),
+                ),
+                RaggedBufferI64.from_flattened(
+                    flattened=np.array([], int).reshape(0, 1),
+                    lengths=np.array([0, 0, 0]),
+                ),
+            ),
+            "action2": SelectEntityActionMaskBatch(
+                RaggedBufferI64.from_flattened(
+                    flattened=np.array([[0], [0], [1], [2]], int),
+                    lengths=np.array([1, 2, 1]),
+                ),
+                RaggedBufferI64.from_flattened(
+                    flattened=np.array([[3], [4], [5], [6], [0]], int),
+                    lengths=np.array([2, 1, 2]),
+                ),
+            ),
+        },
+        reward=np.array([0] * 10, np.float32),
+        done=np.array([False] * 10, np.bool),
+        end_of_episode_info={},
+    )
+
+    merged_obs = merge_obs(obs_batch1, obs_batch2)
+
+    assert np.all(
+        merged_obs.action_masks["action1"].actors.size1() == [1, 2, 1, 0, 0, 0]
+    )
+    assert np.all(
+        merged_obs.action_masks["action1"].actees.size1() == [2, 1, 2, 0, 0, 0]
+    )
+    assert np.all(
+        merged_obs.action_masks["action2"].actors.size1() == [0, 0, 0, 1, 2, 1]
+    )
+    assert np.all(
+        merged_obs.action_masks["action2"].actees.size1() == [0, 0, 0, 2, 1, 2]
+    )
