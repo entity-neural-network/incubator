@@ -11,11 +11,13 @@ from entity_gym.environment import (
     Observation,
     ObsSpace,
     ObsBatch,
+    ActionSpace,
     Entity,
     batch_obs,
     merge_obs,
 )
 import numpy as np
+from typing import Dict
 
 from ragged_buffer import RaggedBufferF32, RaggedBufferI64, RaggedBufferBool
 
@@ -58,7 +60,7 @@ def test_parallel_env_list() -> None:
     assert len(obs_act.ids) == 100
 
 
-def test_batch_obs_entities():
+def test_batch_obs_entities() -> None:
     """
     We  have a set of observations and only a single one of those observations contains a paricular entity.
     When this entity is batched, it needs to needs to contain 0-length rows for that entity for all other observations.
@@ -71,7 +73,7 @@ def test_batch_obs_entities():
         }
     )
 
-    action_space = {}
+    action_space: Dict[str, ActionSpace] = {}
 
     observation1 = Observation(
         {"entity1": np.array([[10, 10, 10], [10, 10, 10]], np.float32)},
@@ -110,11 +112,11 @@ def test_batch_obs_entities():
 
     # entity1 observations should have a ragged array with lengths [2, 1, 0]
     # rare observations should have a ragged array with lengths [0, 0, 3]
-    assert np.all(obs_batch.entities["entity1"].size1() == [2, 1, 0])
-    assert np.all(obs_batch.entities["rare"].size1() == [0, 0, 3])
+    assert np.all(obs_batch.entities["entity1"].size1() == np.array([2, 1, 0]))
+    assert np.all(obs_batch.entities["rare"].size1() == np.array([0, 0, 3]))
 
 
-def test_batch_obs_select_entity_action():
+def test_batch_obs_select_entity_action() -> None:
     """
     We have three actions types that are dependent on the entities that are present in each observation
     This is common in procedurally generated environments, where types of objects/entities can be generated randomly,
@@ -129,7 +131,7 @@ def test_batch_obs_select_entity_action():
         }
     )
 
-    action_space = {
+    action_space: Dict[str, ActionSpace] = {
         "high_five": SelectEntityActionSpace(),
         "mid_five": SelectEntityActionSpace(),
         "low_five": SelectEntityActionSpace(),
@@ -195,17 +197,33 @@ def test_batch_obs_select_entity_action():
         [observation1, observation2, observation3], obs_space, action_space
     )
 
-    assert np.all(obs_batch.action_masks["high_five"].actors.size1() == [0, 1, 1])
-    assert np.all(obs_batch.action_masks["high_five"].actees.size1() == [0, 1, 1])
+    assert isinstance(obs_batch.action_masks["high_five"], SelectEntityActionMaskBatch)
+    assert isinstance(obs_batch.action_masks["mid_five"], SelectEntityActionMaskBatch)
+    assert isinstance(obs_batch.action_masks["low_five"], SelectEntityActionMaskBatch)
 
-    assert np.all(obs_batch.action_masks["mid_five"].actors.size1() == [0, 0, 2])
-    assert np.all(obs_batch.action_masks["mid_five"].actees.size1() == [0, 0, 1])
+    assert np.all(
+        obs_batch.action_masks["high_five"].actors.size1() == np.array([0, 1, 1])
+    )
+    assert np.all(
+        obs_batch.action_masks["high_five"].actees.size1() == np.array([0, 1, 1])
+    )
 
-    assert np.all(obs_batch.action_masks["low_five"].actors.size1() == [2, 0, 3])
-    assert np.all(obs_batch.action_masks["low_five"].actees.size1() == [2, 0, 3])
+    assert np.all(
+        obs_batch.action_masks["mid_five"].actors.size1() == np.array([0, 0, 2])
+    )
+    assert np.all(
+        obs_batch.action_masks["mid_five"].actees.size1() == np.array([0, 0, 1])
+    )
+
+    assert np.all(
+        obs_batch.action_masks["low_five"].actors.size1() == np.array([2, 0, 3])
+    )
+    assert np.all(
+        obs_batch.action_masks["low_five"].actees.size1() == np.array([2, 0, 3])
+    )
 
 
-def test_batch_obs_categorical_action():
+def test_batch_obs_categorical_action() -> None:
     """
     In some cases there are categorical that may only exist for certain entity types, or may only exist under certain circumstances.
     A particular example would be an action that is only available when an entity has a particular state (a special item or similar)
@@ -219,7 +237,7 @@ def test_batch_obs_categorical_action():
         }
     )
 
-    action_space = {
+    action_space: Dict[str, ActionSpace] = {
         "move": CategoricalActionSpace(["up", "down", "left", "right"]),
         "choose_inventory_item": CategoricalActionSpace(["axe", "sword", "pigeon"]),
     }
@@ -288,18 +306,27 @@ def test_batch_obs_categorical_action():
         [observation1, observation2, observation3], obs_space, action_space
     )
 
-    assert np.all(obs_batch.action_masks["move"].actors.size1() == [2, 3, 0])
-    assert np.all(obs_batch.action_masks["move"].masks.size1() == [2, 3, 0])
-
-    assert np.all(
-        obs_batch.action_masks["choose_inventory_item"].actors.size1() == [0, 1, 0]
-    )
-    assert np.all(
-        obs_batch.action_masks["choose_inventory_item"].masks.size1() == [0, 1, 0]
+    assert isinstance(obs_batch.action_masks["move"], CategoricalActionMaskBatch)
+    assert isinstance(
+        obs_batch.action_masks["choose_inventory_item"], CategoricalActionMaskBatch
     )
 
+    assert isinstance(obs_batch.action_masks["move"].masks, np.ndarray)
 
-def test_merge_obs_entities():
+    assert np.all(obs_batch.action_masks["move"].actors.size1() == np.array([2, 3, 0]))
+    assert np.all(obs_batch.action_masks["move"].masks.size1() == np.array([2, 3, 0]))
+
+    assert np.all(
+        obs_batch.action_masks["choose_inventory_item"].actors.size1()
+        == np.array([0, 1, 0])
+    )
+    assert np.all(
+        obs_batch.action_masks["choose_inventory_item"].masks.size1()
+        == np.array([0, 1, 0])
+    )
+
+
+def test_merge_obs_entities() -> None:
     """
     First batch has only entity1 and second batch only has entity2.
 
@@ -322,7 +349,7 @@ def test_merge_obs_entities():
         ids=[f"entity1_{i}" for i in range(10)] + [f"entity2_{i}" for i in range(10)],
         action_masks={},
         reward=np.array([0] * 10, np.float32),
-        done=np.array([False] * 10, np.bool),
+        done=np.array([False] * 10, np.bool_),
         end_of_episode_info={},
     )
 
@@ -340,7 +367,7 @@ def test_merge_obs_entities():
         ids=[f"entity1_{i}" for i in range(10)] + [f"entity2_{i}" for i in range(10)],
         action_masks={},
         reward=np.array([0] * 10, np.float32),
-        done=np.array([False] * 10, np.bool),
+        done=np.array([False] * 10, np.bool_),
         end_of_episode_info={},
     )
 
@@ -356,8 +383,18 @@ def test_merge_obs_entities():
     )
 
 
-def test_merge_obs_actions_categorical():
-    """ """
+def test_merge_obs_actions_categorical() -> None:
+    """
+    There are 3 of entity 1 and 3 of entity 2.
+
+    We have batches which contain two categorical actions "action1" and "action2"
+    The first batch contains 4 action1 in 3 observations (2 in the second obsercation) and none of action2
+    The second batch contains 4 action2 in 3 observations (2 in the second observation) and none of action1
+
+    We test that when merging these two batches, the number of empty action rows is consistent in the super-batch
+    action2 is padded to 0-length rows in the first batch and action1 is padded with 0-length rows in the second batch.
+    Overall batch1 and batch 2 should contain 6 observations for both action1 and action2 (with 0-length rows where appropriate)
+    """
 
     obs_batch1 = ObsBatch(
         entities={
@@ -370,11 +407,18 @@ def test_merge_obs_actions_categorical():
                 lengths=np.array([1, 1, 1]),
             ),
         },
-        ids=["entity1_0", "entity2_0"],
+        ids=[
+            "entity1_0",
+            "entity1_1",
+            "entity1_2",
+            "entity2_0",
+            "entity2_1",
+            "entity2_2",
+        ],
         action_masks={
             "action1": CategoricalActionMaskBatch(
                 RaggedBufferI64.from_flattened(
-                    flattened=np.array([[0], [0], [1], [0]], int),
+                    flattened=np.array([[0], [1], [2], [3]], int),
                     lengths=np.array([1, 2, 1]),
                 ),
                 RaggedBufferBool.from_flattened(
@@ -385,7 +429,7 @@ def test_merge_obs_actions_categorical():
                             [True, True, True, True],
                             [True, True, True, True],
                         ],
-                        np.bool,
+                        np.bool_,
                     ),
                     lengths=np.array([1, 2, 1]),
                 ),
@@ -396,13 +440,13 @@ def test_merge_obs_actions_categorical():
                     lengths=np.array([0, 0, 0]),
                 ),
                 RaggedBufferBool.from_flattened(
-                    flattened=np.array([], np.bool).reshape(0, 4),
+                    flattened=np.array([], np.bool_).reshape(0, 4),
                     lengths=np.array([0, 0, 0]),
                 ),
             ),
         },
         reward=np.array([0] * 10, np.float32),
-        done=np.array([False] * 10, np.bool),
+        done=np.array([False] * 10, np.bool_),
         end_of_episode_info={},
     )
 
@@ -432,7 +476,7 @@ def test_merge_obs_actions_categorical():
                             [True, True, True, True],
                             [True, True, True, True],
                         ],
-                        np.bool,
+                        np.bool_,
                     ),
                     lengths=np.array([1, 2, 1]),
                 ),
@@ -443,17 +487,20 @@ def test_merge_obs_actions_categorical():
                     lengths=np.array([0, 0, 0]),
                 ),
                 RaggedBufferBool.from_flattened(
-                    flattened=np.array([], np.bool).reshape(0, 4),
+                    flattened=np.array([], np.bool_).reshape(0, 4),
                     lengths=np.array([0, 0, 0]),
                 ),
             ),
         },
         reward=np.array([0] * 10, np.float32),
-        done=np.array([False] * 10, np.bool),
+        done=np.array([False] * 10, np.bool_),
         end_of_episode_info={},
     )
 
     merged_obs = merge_obs(obs_batch1, obs_batch2)
+
+    assert isinstance(merged_obs.action_masks["action1"], CategoricalActionMaskBatch)
+    assert isinstance(merged_obs.action_masks["action2"], CategoricalActionMaskBatch)
 
     assert np.all(
         merged_obs.action_masks["action1"].actors.size1() == [1, 2, 1, 0, 0, 0]
@@ -463,8 +510,18 @@ def test_merge_obs_actions_categorical():
     )
 
 
-def test_merge_obs_actions_select_entity():
+def test_merge_obs_actions_select_entity() -> None:
+    """
+    There are 3 of entity 1 and 3 of entity 2.
 
+    We have batches which contain two select entity actions "action1" and "action2"
+    The first batch contains 3 observations of action1 with 1, 2 and 1 actors and 2, 1 and 2 actees respectively
+    The first batch contains 3 observations of action2 with 1, 2 and 1 actors and 2, 1 and 2 actees respectively
+
+    We test that when merging these two batches, the number of empty action rows is consistent in the super-batch
+    action2 is padded to 0-length rows in the first batch and action1 is padded with 0-length rows in the second batch.
+    Overall batch1 and batch 2 should contain 6 observations for both action1 and action2 (with 0-length rows where appropriate)
+    """
     obs_batch1 = ObsBatch(
         entities={
             "entity1": RaggedBufferF32.from_flattened(
@@ -476,7 +533,14 @@ def test_merge_obs_actions_select_entity():
                 lengths=np.array([1, 1, 1]),
             ),
         },
-        ids=["entity1_0", "entity2_0"],
+        ids=[
+            "entity1_0",
+            "entity1_1",
+            "entity1_2",
+            "entity2_0",
+            "entity2_1",
+            "entity2_2",
+        ],
         action_masks={
             "action1": SelectEntityActionMaskBatch(
                 RaggedBufferI64.from_flattened(
@@ -500,7 +564,7 @@ def test_merge_obs_actions_select_entity():
             ),
         },
         reward=np.array([0] * 10, np.float32),
-        done=np.array([False] * 10, np.bool),
+        done=np.array([False] * 10, np.bool_),
         end_of_episode_info={},
     )
 
@@ -515,7 +579,14 @@ def test_merge_obs_actions_select_entity():
                 lengths=np.array([1, 1, 1]),
             ),
         },
-        ids=["entity1_0", "entity2_0"],
+        ids=[
+            "entity1_0",
+            "entity1_1",
+            "entity1_2",
+            "entity2_0",
+            "entity2_1",
+            "entity2_2",
+        ],
         action_masks={
             "action1": SelectEntityActionMaskBatch(
                 RaggedBufferI64.from_flattened(
@@ -539,11 +610,14 @@ def test_merge_obs_actions_select_entity():
             ),
         },
         reward=np.array([0] * 10, np.float32),
-        done=np.array([False] * 10, np.bool),
+        done=np.array([False] * 10, np.bool_),
         end_of_episode_info={},
     )
 
     merged_obs = merge_obs(obs_batch1, obs_batch2)
+
+    assert isinstance(merged_obs.action_masks["action1"], SelectEntityActionMaskBatch)
+    assert isinstance(merged_obs.action_masks["action2"], SelectEntityActionMaskBatch)
 
     assert np.all(
         merged_obs.action_masks["action1"].actors.size1() == [1, 2, 1, 0, 0, 0]

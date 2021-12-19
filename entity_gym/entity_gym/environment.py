@@ -348,11 +348,6 @@ def batch_obs(
 
 
 @dataclass
-class Entity:
-    features: List[str]
-
-
-@dataclass
 class CategoricalAction:
     # TODO: figure out best representation
     actions: List[Tuple[EntityID, int]]

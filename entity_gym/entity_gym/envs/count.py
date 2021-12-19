@@ -65,7 +65,7 @@ class Count(Environment):
                 range(0, self.masked_choices), random.randint(0, self.masked_choices)
             ),
         }
-        mask = np.zeros((10), dtype=np.bool)
+        mask = np.zeros((10), dtype=np.bool_)
         mask[list(possible_counts)] = True
         return self.observe(obs_space, mask)
 
