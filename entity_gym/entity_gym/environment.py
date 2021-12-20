@@ -196,8 +196,8 @@ class ObsSpace:
 @dataclass
 class ObsBatch:
     entities: Dict[str, RaggedBufferF32]
-    ids: Sequence[Sequence[EntityID]]
-    action_masks: Mapping[str, ActionMaskBatch]
+    ids: List[Sequence[EntityID]]
+    action_masks: Dict[str, ActionMaskBatch]
     reward: npt.NDArray[np.float32]
     done: npt.NDArray[np.bool_]
     end_of_episode_info: Dict[int, EpisodeStats]
@@ -208,38 +208,25 @@ def merge_obs(a: ObsBatch, b: ObsBatch) -> ObsBatch:
     merges two obs_batches
     """
 
-    assert (
-        a.entities.keys() == b.entities.keys()
-    ), "Malformed batches. batches must contain the same entity keys to be merged"
-    assert (
-        a.action_masks.keys() == b.action_masks.keys()
-    ), "Malformed batches. batches must contain the same action mask keys to be merged"
-
-    entities: Dict[str, RaggedBufferF32] = {}
-    ids: List[Sequence[EntityID]] = []
-    action_masks: Dict[str, ActionMaskBatch] = {}
-    reward = []
-    done = []
-    end_of_episode_info: Dict[int, EpisodeStats] = {}
+    entities = a.entities.copy()
+    ids = a.ids.copy()
+    action_masks = a.action_masks.copy()
+    end_of_episode_info = a.end_of_episode_info.copy()
 
     # merge entities
     for k in a.entities.keys():
-        entities[k].extend(a.entities[k])
         entities[k].extend(b.entities[k])
 
     # merge ids
-    ids.extend(a.ids)
     ids.extend(b.ids)
 
     # merge masks
     for k in a.action_masks.keys():
-        action_masks[k].extend(a.action_masks[k])
         action_masks[k].extend(b.action_masks[k])
 
     reward = np.concatenate((a.reward, b.reward))
     done = np.concatenate((a.done, b.done))
 
-    end_of_episode_info.update(a.end_of_episode_info)
     end_of_episode_info.update(b.end_of_episode_info)
 
     return ObsBatch(

@@ -311,7 +311,8 @@ def test_batch_obs_categorical_action() -> None:
         obs_batch.action_masks["choose_inventory_item"], CategoricalActionMaskBatch
     )
 
-    assert isinstance(obs_batch.action_masks["move"].masks, np.ndarray)
+    assert obs_batch.action_masks["move"].masks is not None
+    assert obs_batch.action_masks["choose_inventory_item"].masks is not None
 
     assert np.all(obs_batch.action_masks["move"].actors.size1() == np.array([2, 3, 0]))
     assert np.all(obs_batch.action_masks["move"].masks.size1() == np.array([2, 3, 0]))
@@ -346,7 +347,7 @@ def test_merge_obs_entities() -> None:
                 lengths=np.array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0]),
             ),
         },
-        ids=[f"entity1_{i}" for i in range(10)] + [f"entity2_{i}" for i in range(10)],
+        ids=[["entity1_0"] * 10],
         action_masks={},
         reward=np.array([0] * 10, np.float32),
         done=np.array([False] * 10, np.bool_),
@@ -364,7 +365,7 @@ def test_merge_obs_entities() -> None:
                 lengths=np.array([0, 0, 1, 1, 0, 2, 3, 3, 0, 0]),
             ),
         },
-        ids=[f"entity1_{i}" for i in range(10)] + [f"entity2_{i}" for i in range(10)],
+        ids=[["entity2_0"] * 10],
         action_masks={},
         reward=np.array([0] * 10, np.float32),
         done=np.array([False] * 10, np.bool_),
