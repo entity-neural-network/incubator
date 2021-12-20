@@ -214,14 +214,14 @@ def merge_obs(a: ObsBatch, b: ObsBatch) -> ObsBatch:
     end_of_episode_info = a.end_of_episode_info.copy()
 
     # merge entities
-    for k in a.entities.keys():
+    for k in b.entities.keys():
         entities[k].extend(b.entities[k])
 
     # merge ids
     ids.extend(b.ids)
 
     # merge masks
-    for k in a.action_masks.keys():
+    for k in b.action_masks.keys():
         action_masks[k].extend(b.action_masks[k])
 
     reward = np.concatenate((a.reward, b.reward))
@@ -501,6 +501,18 @@ class MsgpackConnectionWrapper(object):
     Use msgpack instead of pickle to send and recieve data from workers.
     """
 
+    # For security reasons we don't want to deserialize classes that are not in this list.
+    whitelist = [
+        "ObsSpace",
+        "ObsBatch",
+        "CategoricalActionMaskBatch",
+        "SelectEntityActionMaskBatch",
+        "SelectEntityAction",
+        "CategoricalAction",
+        "Entity",
+        "EpisodeStats",
+    ]
+
     def __init__(self, conn: Connection) -> None:
         self._conn = conn
 
@@ -548,8 +560,14 @@ class MsgpackConnectionWrapper(object):
             elif dtype == int:
                 return RaggedBufferI64.from_flattened(flattened, lengths)
         elif "__classname__" in obj:
-            cls_name = globals()[obj["__classname__"]]
-            return cls_name(**obj["data"])
+            classname = obj["__classname__"]
+            if classname in cls.whitelist:
+                cls_name = globals()[classname]
+                return cls_name(**obj["data"])
+            else:
+                raise RuntimeError(
+                    f"Attempt to deserialize class {classname} outside whitelist."
+                )
         else:
             return obj
 
@@ -649,14 +667,8 @@ class ParallelEnvList(VecEnv):
         for remote in self.remotes:
             remote.send(("reset", obs_space))
 
-        observations = ObsBatch(
-            {},
-            [],
-            {},
-            np.array([]),
-            np.array([]),
-            {},
-        )
+        # Empty initialized observation batch
+        observations = batch_obs([], self.cls.obs_space(), self.cls.action_space())
 
         for remote in self.remotes:
             remote_obs_batch = remote.recv()
@@ -684,14 +696,8 @@ class ParallelEnvList(VecEnv):
         for remote, action in zip(self.remotes, remote_actions):
             remote.send(("act", (action, obs_space)))
 
-        observations = ObsBatch(
-            {},
-            [],
-            {},
-            np.array([]),
-            np.array([]),
-            {},
-        )
+        # Empty initialized observation batch
+        observations = batch_obs([], self.cls.obs_space(), self.cls.action_space())
 
         for remote in self.remotes:
             remote_obs_batch = remote.recv()
