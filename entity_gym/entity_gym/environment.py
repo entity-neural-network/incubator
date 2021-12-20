@@ -203,15 +203,10 @@ class ObsBatch:
     end_of_episode_info: Dict[int, EpisodeStats]
 
 
-def merge_obs(a: Optional[ObsBatch], b: ObsBatch) -> ObsBatch:
+def merge_obs(a: ObsBatch, b: ObsBatch) -> ObsBatch:
     """
     merges two obs_batches
     """
-
-    if a == None:
-        return b
-
-    assert isinstance(a, ObsBatch)
 
     assert (
         a.entities.keys() == b.entities.keys()
@@ -220,36 +215,32 @@ def merge_obs(a: Optional[ObsBatch], b: ObsBatch) -> ObsBatch:
         a.action_masks.keys() == b.action_masks.keys()
     ), "Malformed batches. batches must contain the same action mask keys to be merged"
 
-    entities = {}
-    ids: Sequence[Sequence[EntityID]] = []
-    action_masks: Dict[
-        str, Union[CategoricalActionMaskBatch, SelectEntityActionMaskBatch]
-    ] = {}
+    entities: Dict[str, RaggedBufferF32] = {}
+    ids: List[Sequence[EntityID]] = []
+    action_masks: Dict[str, ActionMaskBatch] = {}
     reward = []
     done = []
     end_of_episode_info: Dict[int, EpisodeStats] = {}
 
     # merge entities
     for k in a.entities.keys():
-        entities[k] = a.entities[k]
+        entities[k].extend(a.entities[k])
         entities[k].extend(b.entities[k])
 
     # merge ids
-    ids.extend(a.ids)  # type: ignore
-    ids.extend(b.ids)  # type: ignore
+    ids.extend(a.ids)
+    ids.extend(b.ids)
 
     # merge masks
     for k in a.action_masks.keys():
-        action_masks[k] = a.action_masks[k]
+        action_masks[k].extend(a.action_masks[k])
         action_masks[k].extend(b.action_masks[k])
 
     reward = np.concatenate((a.reward, b.reward))
     done = np.concatenate((a.done, b.done))
 
-    for k, v in a.end_of_episode_info.items():  # type: ignore
-        end_of_episode_info[k] = v  # type: ignore
-    for k, v in b.end_of_episode_info.items():  # type: ignore
-        end_of_episode_info[k] = v  # type: ignore
+    end_of_episode_info.update(a.end_of_episode_info)
+    end_of_episode_info.update(b.end_of_episode_info)
 
     return ObsBatch(
         entities,
@@ -269,9 +260,7 @@ def batch_obs(
     """
     entities = {}
     ids = []
-    action_masks: Dict[
-        str, Union[CategoricalActionMaskBatch, SelectEntityActionMaskBatch]
-    ] = {}
+    action_masks: Dict[str, ActionMaskBatch] = {}
     reward = []
     done = []
     end_of_episode_info = {}
@@ -417,7 +406,7 @@ class Environment(ABC):
         return self.__class__.filter_obs(self._act(action), obs_filter)
 
     def close(self) -> None:
-        raise NotImplementedError
+        pass
 
     @classmethod
     def filter_obs(cls, obs: Observation, obs_filter: ObsSpace) -> Observation:
@@ -590,11 +579,9 @@ def _worker(
         try:
             cmd, data = remote.recv()
             if cmd == "act":
-                # def act(self, action: Mapping[str, Action], obs_filter: ObsSpace) -> Observation:
                 observation = envs.act(data[0], data[1])
                 remote.send(observation)
             elif cmd == "reset":
-                # def reset(self, obs_filter: ObsSpace) -> Observation:
                 observation = envs.reset(data)
                 remote.send(observation)
             elif cmd == "close":
@@ -675,7 +662,15 @@ class ParallelEnvList(VecEnv):
         for remote in self.remotes:
             remote.send(("reset", obs_space))
 
-        observations: Optional[ObsBatch] = None
+        observations = ObsBatch(
+            {},
+            [],
+            {},
+            np.array([]),
+            np.array([]),
+            {},
+        )
+
         for remote in self.remotes:
             remote_obs_batch = remote.recv()
             observations = merge_obs(observations, remote_obs_batch)
@@ -702,9 +697,16 @@ class ParallelEnvList(VecEnv):
         for remote, action in zip(self.remotes, remote_actions):
             remote.send(("act", (action, obs_space)))
 
-        observations: Optional[ObsBatch] = None
+        observations = ObsBatch(
+            {},
+            [],
+            {},
+            np.array([]),
+            np.array([]),
+            {},
+        )
+
         for remote in self.remotes:
             remote_obs_batch = remote.recv()
             observations = merge_obs(observations, remote_obs_batch)
-        assert isinstance(observations, ObsBatch)
         return observations
