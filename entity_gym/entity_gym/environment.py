@@ -203,40 +203,26 @@ class ObsBatch:
     end_of_episode_info: Dict[int, EpisodeStats]
 
 
-def merge_obs(a: ObsBatch, b: ObsBatch) -> ObsBatch:
+def merge_obs(a: ObsBatch, b: ObsBatch) -> None:
     """
-    merges two obs_batches
+    Merges ObsBatch b into ObsBatch a
     """
-
-    entities = a.entities.copy()
-    ids = a.ids.copy()
-    action_masks = a.action_masks.copy()
-    end_of_episode_info = a.end_of_episode_info.copy()
 
     # merge entities
     for k in b.entities.keys():
-        entities[k].extend(b.entities[k])
+        a.entities[k].extend(b.entities[k])
 
     # merge ids
-    ids.extend(b.ids)
+    a.ids.extend(b.ids)
 
     # merge masks
     for k in b.action_masks.keys():
-        action_masks[k].extend(b.action_masks[k])
+        a.action_masks[k].extend(b.action_masks[k])
 
-    reward = np.concatenate((a.reward, b.reward))
-    done = np.concatenate((a.done, b.done))
+    a.reward = np.concatenate((a.reward, b.reward))
+    a.done = np.concatenate((a.done, b.done))
 
-    end_of_episode_info.update(b.end_of_episode_info)
-
-    return ObsBatch(
-        entities,
-        ids,
-        action_masks,
-        np.array(reward),
-        np.array(done),
-        end_of_episode_info,
-    )
+    a.end_of_episode_info.update(b.end_of_episode_info)
 
 
 def batch_obs(
@@ -672,7 +658,7 @@ class ParallelEnvList(VecEnv):
 
         for remote in self.remotes:
             remote_obs_batch = remote.recv()
-            observations = merge_obs(observations, remote_obs_batch)
+            merge_obs(observations, remote_obs_batch)
 
         assert isinstance(observations, ObsBatch)
         return observations
@@ -701,5 +687,5 @@ class ParallelEnvList(VecEnv):
 
         for remote in self.remotes:
             remote_obs_batch = remote.recv()
-            observations = merge_obs(observations, remote_obs_batch)
+            merge_obs(observations, remote_obs_batch)
         return observations
