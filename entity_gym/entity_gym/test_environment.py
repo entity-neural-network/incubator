@@ -14,7 +14,6 @@ from entity_gym.environment import (
     ActionSpace,
     Entity,
     batch_obs,
-    merge_obs,
 )
 import numpy as np
 from typing import Dict
@@ -372,7 +371,7 @@ def test_merge_obs_entities() -> None:
         end_of_episode_info={},
     )
 
-    merge_obs(obs_batch1, obs_batch2)
+    ObsBatch.merge_obs(obs_batch1, obs_batch2)
 
     assert np.all(
         obs_batch1.entities["entity1"].size1()
@@ -498,7 +497,7 @@ def test_merge_obs_actions_categorical() -> None:
         end_of_episode_info={},
     )
 
-    merge_obs(obs_batch1, obs_batch2)
+    ObsBatch.merge_obs(obs_batch1, obs_batch2)
 
     assert isinstance(obs_batch1.action_masks["action1"], CategoricalActionMaskBatch)
     assert isinstance(obs_batch1.action_masks["action2"], CategoricalActionMaskBatch)
@@ -615,7 +614,7 @@ def test_merge_obs_actions_select_entity() -> None:
         end_of_episode_info={},
     )
 
-    merge_obs(obs_batch1, obs_batch2)
+    ObsBatch.merge_obs(obs_batch1, obs_batch2)
 
     assert isinstance(obs_batch1.action_masks["action1"], SelectEntityActionMaskBatch)
     assert isinstance(obs_batch1.action_masks["action2"], SelectEntityActionMaskBatch)
