@@ -69,7 +69,7 @@ class GriddlyEnv(Environment):
         for action_name, entity_mask in entity_masks.items():
             action_masks[action_name] = DenseCategoricalActionMask(
                 actors=np.array(entity_mask["ActorIdx"]),
-                mask=np.array(entity_mask["Masks"], dtype=np.float32),
+                mask=np.array(entity_mask["Masks"]).astype(np.bool_),
             )
 
         return Observation(

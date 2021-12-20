@@ -55,7 +55,7 @@ class CategoricalActionHead(nn.Module):
         logits = self.proj(actor_embeds)
 
         # Apply masks from the environment
-        if mask.masks is not None:
+        if mask.masks is not None and mask.masks.size0() > 0:
             reshaped_masks = torch.tensor(
                 mask.masks.as_array().reshape(logits.shape)
             ).to(x.data.device)
