@@ -34,6 +34,7 @@ from entity_gym.environment import (
 )
 from entity_gym.envs import ENV_REGISTRY
 from enn_zoo.griddly import GRIDDLY_ENVS, create_env
+from enn_zoo.vizdoom import VIZDOOM_ENVS, create_vizdoom_env
 from enn_ppo.sample_recorder import SampleRecorder
 from enn_ppo.simple_trace import Tracer
 from rogue_net.actor import AutoActor
@@ -236,6 +237,9 @@ def train(args: argparse.Namespace) -> float:
     elif args.gym_id in GRIDDLY_ENVS:
         path, level = GRIDDLY_ENVS[args.gym_id]
         env_cls = create_env(yaml_file=path, level=level)
+    elif args.gym_id in VIZDOOM_ENVS:
+        scenario_config_path = VIZDOOM_ENVS[args.gym_id]
+        env_cls = create_vizdoom_env(config=scenario_config_path)
     else:
         raise KeyError(
             f"Unknown gym_id: {args.gym_id}\nAvailable environments: {list(ENV_REGISTRY.keys()) + list(GRIDDLY_ENVS.keys())}"
