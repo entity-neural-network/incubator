@@ -239,7 +239,7 @@ def train(args: argparse.Namespace) -> float:
         env_cls = create_env(yaml_file=path, level=level)
     elif args.gym_id in VIZDOOM_ENVS:
         scenario_config_path = VIZDOOM_ENVS[args.gym_id]
-        env_cls = create_vizdoom_env(config=scenario_config_path)
+        env_cls = create_vizdoom_env(config_file_path=scenario_config_path)
     else:
         raise KeyError(
             f"Unknown gym_id: {args.gym_id}\nAvailable environments: {list(ENV_REGISTRY.keys()) + list(GRIDDLY_ENVS.keys())}"

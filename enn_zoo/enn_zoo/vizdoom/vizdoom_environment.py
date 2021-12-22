@@ -1,4 +1,3 @@
-import os
 import numpy as np
 from typing import List, Dict, Type
 
@@ -16,13 +15,6 @@ from entity_gym.environment import (
     Observation,
     Action,
 )
-
-init_path = os.path.dirname(os.path.realpath(__file__))
-
-VIZDOOM_ENVS = {
-    "DoomHealthGathering": os.path.join(init_path, "scenarios/health_gathering.cfg"),
-    "DoomHealthGatheringSupreme": os.path.join(init_path, "scenarios/health_gathering_supreme.cfg"),
-}
 
 
 # Replace Delta buttons with these discrete steps
@@ -112,13 +104,15 @@ class DoomEntityEnvironment(Environment):
         self._action_space = {}
         # You can always execute all actions in all steps, so we create a static mask thing
         self._action_mask = {}
-        for action in self._doomgame.get_available_buttons():
+        self._available_buttons = self._doomgame.get_available_buttons()
+        assert len(self._available_buttons) > 0, "No available buttons to the agent. Double-check your config files."
+        for action in self._available_buttons:
             action = action.name
             if "DELTA" in action:
                 self._action_space[action] = CategoricalActionSpace(DELTA_SPEED_STEPS_STRS)
             else:
                 self._action_space[action] = CategoricalActionSpace(["off", "on"])
-            self._action_mask[action] = DenseCategoricalActionMask(actor=np.array([0]), mask=None)
+            self._action_mask[action] = DenseCategoricalActionMask(actors=np.array([0]), mask=None)
 
     def obs_space(self) -> ObsSpace:
         return self._observation_space
@@ -128,7 +122,7 @@ class DoomEntityEnvironment(Environment):
 
     def _build_state(self, state, reward, terminal):
         """Build Entity Gym state from ViZDoom state"""
-        game_variable_list = np.array(state.game_variables, dtype=np.float32)
+        game_variable_list = np.array([state.game_variables], dtype=np.float32)
         object_list = np.array(
             [
                 (o.position_x, o.position_y, o.position_z, ord(o.name[0])) for o in state.objects
@@ -150,10 +144,21 @@ class DoomEntityEnvironment(Environment):
             if terminal else None,
         )
 
+    def _enn_action_to_doom(self, action):
+        doom_action = [0 for _ in range(len(self._available_buttons))]
+        for i, button in enumerate(self._available_buttons):
+            # First select player (only a single one), then selects its action
+            button_action = action[button.name].actions[0][1]
+            if "DELTA" in button.name:
+                doom_action[i] = DELTA_SPEED_STEPS[button_action]
+            else:
+                doom_action[i] = button_action
+        return doom_action
+
     def _act(self, action):
         # TODO update
-        action = self.action_handler(action)
-        reward = self._doomgame.make_action(action, self._frame_skip)
+        doom_action = self._enn_action_to_doom(action)
+        reward = self._doomgame.make_action(doom_action, self._frame_skip)
         terminal = self._doomgame.is_episode_finished()
         self._episode_steps += 1
         self._sum_reward += reward
@@ -195,31 +200,3 @@ class DoomEntityEnvironment(Environment):
 
     def __del__(self):
         self._doomgame.close()
-
-
-def create_vizdoom_env(
-    config_file_path: str,
-) -> Type[DoomEntityEnvironment]:
-    """
-    In order to fit the API for the Environment, we need to pre-load the environment from the config file then pass in
-    observation space, action space.
-    Copied from the Griddly code.
-    """
-
-    env = DoomEntityEnvironment(config_file_path)
-    observation_space = env._observation_space
-    action_space = env._action_space
-
-    class InstantiatedDoomEntityEnvironment(DoomEntityEnvironment):
-        def __init__(self, frame_skip: int = 4):
-            super().__init__(config_file_path, frame_skip)
-
-        @classmethod
-        def obs_space(cls) -> ObsSpace:
-            return observation_space
-
-        @classmethod
-        def action_space(cls) -> Dict[str, ActionSpace]:
-            return action_space
-
-    return InstantiatedDoomEntityEnvironment
