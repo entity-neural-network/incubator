@@ -13,9 +13,9 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class TransformerConfig:
-    embd_pdrop: float = 0.1
-    resid_pdrop: float = 0.1
-    attn_pdrop: float = 0.1
+    embd_pdrop: float = 0.0
+    resid_pdrop: float = 0.0
+    attn_pdrop: float = 0.0
     n_layer: int = 1
     n_head: int = 1
     d_model: int = 64
