@@ -1,0 +1,49 @@
+SimpleXpV0(
+    project: "enn",
+    command: ["poetry", "run", "python", "-u", "enn_ppo/enn_ppo/train.py"],
+    build: [
+        From("nvcr.io/nvidia/pytorch:21.03-py3"),
+
+        Run("curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py | python -"),
+        Env("PATH", "/root/.poetry/bin:${PATH}"),
+
+        // Install Vulkan drivers (required by Griddly)
+        Run("wget -qO - http://packages.lunarg.com/lunarg-signing-key-pub.asc | apt-key add -"),
+        Run("wget -qO /etc/apt/sources.list.d/lunarg-vulkan-focal.list http://packages.lunarg.com/vulkan/lunarg-vulkan-focal.list"),
+        Run("apt-get update"),
+        Run("DEBIAN_FRONTEND=noninteractive apt-get install -y tzdata"),
+        Run("apt-get install vulkan-sdk -y"),
+
+        Repo(
+            paths: [
+                "pyproject.toml",
+                "poetry.lock",
+                "rogue_net/pyproject.toml",
+                "rogue_net/poetry.lock",
+                "rogue_net/rogue_net/__init__.py",
+                "enn_ppo/pyproject.toml",
+                "enn_ppo/poetry.lock",
+                "enn_ppo/enn_ppo/__init__.py",
+                "entity_gym/pyproject.toml",
+                "entity_gym/poetry.lock",
+                "entity_gym/entity_gym/__init__.py",
+                "enn_zoo/pyproject.toml",
+                "enn_zoo/poetry.lock",
+                "enn_zoo/enn_zoo/__init__.py",
+            ],
+            target_dir: "/root/enn-incubator",
+            cd: true,
+        ),
+        // First install fails because torch-scatter requires PyTorch to be installed already
+        Run("poetry install --no-interaction --no-root; exit 0"),
+        Run("poetry install --no-interaction --no-root"),
+        Run("poetry install --no-interaction"),
+        Repo(cd: true),
+    ],
+    gpu: 1,
+    gpu_mem: "10GB",
+    cpu_mem: "5GiB",
+    env_secrets: {
+        "WANDB_API_KEY": "wandb-api-key",
+    },
+)
