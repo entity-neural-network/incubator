@@ -104,8 +104,8 @@ class Actor(nn.Module):
             x = self.backbone(x, tbatch_index)
 
         return RaggedTensor(
-            x,
-            tindex_map,
+            x[tindex_map],
+            None,
             tbatch_index,
             tlengths,
         )

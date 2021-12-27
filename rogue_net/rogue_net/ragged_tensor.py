@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from typing import Optional
 import torch
 
 
@@ -20,7 +21,7 @@ class RaggedTensor:
 
     data: torch.Tensor
     """Flattened tensor combining batch and sequence dimension of shape (entities, features)"""
-    index_map: torch.Tensor
+    index_map: Optional[torch.Tensor]
     """Maps the index of entities sorted first by batch index then by entity type to their index in `data`"""
     batch_index: torch.Tensor
     """Gives the batch index of each entity in `data`"""

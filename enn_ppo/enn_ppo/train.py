@@ -491,13 +491,14 @@ def train(args: argparse.Namespace) -> float:
         for epoch in range(config.update_epochs):
             np.random.shuffle(b_inds)
             for start in range(0, config.batch_size, config.minibatch_size):
-                end = start + config.minibatch_size
-                mb_inds = b_inds[start:end]
+                with tracer.span("shuffle"):
+                    end = start + config.minibatch_size
+                    mb_inds = b_inds[start:end]
 
-                b_entities = entities[mb_inds]
-                b_action_masks = action_masks[mb_inds]
-                b_logprobs = logprobs[mb_inds]
-                b_actions = actions[mb_inds]
+                    b_entities = entities[mb_inds]
+                    b_action_masks = action_masks[mb_inds]
+                    b_logprobs = logprobs[mb_inds]
+                    b_actions = actions[mb_inds]
 
                 with tracer.span("forward"):
                     _, newlogprob, entropy, _, aux = agent.get_action_and_auxiliary(
@@ -540,14 +541,15 @@ def train(args: argparse.Namespace) -> float:
                         ).mean()
                     ]
 
-                mb_advantages = b_advantages[mb_inds]
-                if config.norm_adv:
-                    assert (
-                        len(mb_advantages) > 1
-                    ), "Can't normalize advantages with minibatch size 1"
-                    mb_advantages = (mb_advantages - mb_advantages.mean()) / (
-                        mb_advantages.std() + 1e-8
-                    )
+                with tracer.span("advantages"):
+                    mb_advantages = b_advantages[mb_inds]
+                    if config.norm_adv:
+                        assert (
+                            len(mb_advantages) > 1
+                        ), "Can't normalize advantages with minibatch size 1"
+                        mb_advantages = (mb_advantages - mb_advantages.mean()) / (
+                            mb_advantages.std() + 1e-8
+                        )
 
                 # TODO: we can elide the index op and get better performance when there is exactly one actor per action
                 # TODO: we can reuse the mb_advantages across all actions that have the same number of actors
@@ -604,19 +606,25 @@ def train(args: argparse.Namespace) -> float:
                     else:
                         v_loss = 0.5 * ((newvalue - b_returns[mb_inds]) ** 2).mean()
 
-                # TODO: what's correct way of combining entropy loss from multiple actions/actors on the same timestep?
-                entropy_loss = torch.cat([e for e in entropy.values()]).mean()
-                loss = (
-                    pg_loss - config.ent_coef * entropy_loss + v_loss * config.vf_coef
-                )
+                with tracer.span("loss"):
+                    # TODO: what's correct way of combining entropy loss from multiple actions/actors on the same timestep?
+                    entropy_loss = torch.cat([e for e in entropy.values()]).mean()
+                    loss = (
+                        pg_loss
+                        - config.ent_coef * entropy_loss
+                        + v_loss * config.vf_coef
+                    )
 
-                optimizer.zero_grad()
+                with tracer.span("zero_grad"):
+                    optimizer.zero_grad()
                 with tracer.span("backward"):
                     loss.backward()
-                gradnorm = nn.utils.clip_grad_norm_(
-                    agent.parameters(), config.max_grad_norm
-                )
-                optimizer.step()
+                with tracer.span("gradclip"):
+                    gradnorm = nn.utils.clip_grad_norm_(
+                        agent.parameters(), config.max_grad_norm
+                    )
+                with tracer.span("step"):
+                    optimizer.step()
 
             if config.target_kl is not None:
                 if approx_kl > config.target_kl:
