@@ -63,6 +63,8 @@ def parse_args(override_args: Optional[List[str]] = None) -> argparse.Namespace:
         help='seed of the experiment')
     parser.add_argument('--total-timesteps', type=int, default=25000,
         help='total timesteps of the experiments')
+    parser.add_argument('--max-train-time', type=int, default=None,
+        help='train for at most this many seconds')
     parser.add_argument('--torch-deterministic', type=lambda x:bool(strtobool(x)), default=True, nargs='?', const=True,
         help='if toggled, `torch.backends.cudnn.deterministic=False`')
     parser.add_argument('--cuda', type=lambda x:bool(strtobool(x)), default=True, nargs='?', const=True,
@@ -286,6 +288,9 @@ def train(args: argparse.Namespace) -> float:
 
     for update in range(1, num_updates + 1):
         tracer.start("update")
+        if args.max_train_time is not None and time.time() - start_time >= args.max_train_time:
+            print("Max train time reached, stopping training.")
+            break
 
         # Annealing the rate if instructed to do so.
         if args.anneal_lr:
