@@ -144,6 +144,7 @@ class HyperOptimizer:
     def __init__(
         self,
         params: List[Tuple[str, float, float]],
+        target_metric: str,
         parallelism: int = 6,
         steps: Optional[int] = None,
         time: Optional[int] = None,
@@ -177,6 +178,7 @@ class HyperOptimizer:
         self.best_result = None
         self.best_config: Optional[str] = None
         self.priority = priority
+        self.target_metric = target_metric
 
         self.params = params
         self.steps = steps
@@ -295,8 +297,8 @@ class HyperOptimizer:
             self.wandb.runs("entity-neural-network/enn-ppo", {"config.name": xp.name})
         )[0]
         returns = [
-            row["charts/episodic_return"]
-            for row in run.scan_history(keys=["charts/episodic_return"])
+            row[self.target_metric]
+            for row in run.scan_history(keys=[self.target_metric])
         ]
         if len(returns) == 0:
             result = -1
@@ -317,6 +319,7 @@ if __name__ == "__main__":
     parser.add_argument("--time", type=int)  # max training time in seconds
     parser.add_argument("--xps_per_trial", type=int, default=5)
     parser.add_argument("--priority", type=int, default=3)
+    parser.add_argument("--target-metric", type=str, default="charts/episodic_return")
     parser.add_argument("nargs", nargs="*")
     args = parser.parse_args()
     params = []
@@ -326,6 +329,7 @@ if __name__ == "__main__":
         params.append((path, float(center), float(_range)))
     HyperOptimizer(
         params,
+        args.target_metric,
         args.parallelism,
         int(args.steps) if args.steps is not None else None,
         args.time,
