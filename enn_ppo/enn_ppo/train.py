@@ -217,7 +217,8 @@ def train(args: argparse.Namespace) -> float:
 
         config = vars(args)
         if os.path.exists("/xprun/info/config.ron"):
-            import xprun # type: ignore
+            import xprun  # type: ignore
+
             xp_info = xprun.current_xp()
             config["name"] = xp_info.xp_def.name
             config["base_name"] = xp_info.xp_def.base_name
