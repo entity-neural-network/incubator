@@ -102,10 +102,10 @@ class RaggedAttention(nn.Module):
                 padpack_batch,
                 padpack_inverse_index,
             ) = padpack
-            x = x[torch.LongTensor(padpack_index, device=device)]
-            tpadpack_batch = torch.Tensor(padpack_batch, device=device)
+            x = x[torch.LongTensor(padpack_index).to(device)]
+            tpadpack_batch = torch.Tensor(padpack_batch).to(device)
             attn_mask = (
-                tpadpack_batch.unsqueeze(2) == tpadpack_batch.unsqueeze(1)
+                tpadpack_batch.unsqueeze(2) != tpadpack_batch.unsqueeze(1)
             ).unsqueeze(1)
 
         B, T, C = x.size()
@@ -137,7 +137,7 @@ class RaggedAttention(nn.Module):
         if padpack is None:
             return y.reshape(batch_index.size(0), -1)  # type: ignore
         else:
-            return y.reshape(y.size(0) * y.size(1), y.size(2))[torch.LongTensor(padpack_inverse_index, device=device)]  # type: ignore
+            return y.reshape(y.size(0) * y.size(1), y.size(2))[torch.LongTensor(padpack_inverse_index).to(device)]  # type: ignore
 
 
 class Block(nn.Module):
