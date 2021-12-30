@@ -46,7 +46,7 @@ class Pool(nn.Module):
         self.reduction_op = config.pooling
 
     def forward(
-        self, x: torch.Tensor, batch_index: torch.Tensor, rbatch_index: RaggedBufferI64
+        self, x: torch.Tensor, batch_index: torch.Tensor, shape: RaggedBufferI64
     ) -> torch.Tensor:
         x = self.prepool(x)
 
@@ -87,14 +87,14 @@ class RaggedAttention(nn.Module):
         self.n_head = config.n_head
 
     def forward(
-        self, x: torch.Tensor, batch_index: torch.Tensor, rbatch_index: RaggedBufferI64
+        self, x: torch.Tensor, batch_index: torch.Tensor, shape: RaggedBufferI64
     ) -> torch.Tensor:
         # For more details on the implementation, see: https://github.com/entity-neural-network/incubator/pull/119
         device = x.device
-        padpack = rbatch_index.padpack()
+        padpack = shape.padpack()
 
         if padpack is None:
-            x = x.reshape(rbatch_index.size0(), rbatch_index.size1(0), -1)
+            x = x.reshape(shape.size0(), shape.size1(0), -1)
             attn_mask = None
         else:
             (
@@ -157,9 +157,9 @@ class Block(nn.Module):
         )
 
     def forward(
-        self, x: torch.Tensor, batch_index: torch.Tensor, rbatch_index: RaggedBufferI64
+        self, x: torch.Tensor, batch_index: torch.Tensor, shape: RaggedBufferI64
     ) -> torch.Tensor:
-        x = x + self.attn(self.ln1(x), batch_index, rbatch_index)
+        x = x + self.attn(self.ln1(x), batch_index, shape)
         x = x + self.mlp(self.ln2(x))
         return x
 
@@ -187,9 +187,9 @@ class Transformer(nn.Module):
             module.weight.data.fill_(1.0)
 
     def forward(
-        self, x: torch.Tensor, batch_index: torch.Tensor, rbatch_index: RaggedBufferI64
+        self, x: torch.Tensor, batch_index: torch.Tensor, shape: RaggedBufferI64
     ) -> torch.Tensor:
         x = self.drop(x)
         for block in self.blocks:
-            x = block(x, batch_index, rbatch_index)
+            x = block(x, batch_index, shape)
         return x
