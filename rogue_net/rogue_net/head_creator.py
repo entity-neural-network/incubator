@@ -51,7 +51,7 @@ class CategoricalActionHead(nn.Module):
         actors = torch.tensor((mask.actors + index_offsets).as_array()).to(
             x.data.device
         )
-        actor_embeds = x.data[x.index_map[actors]]
+        actor_embeds = x.data[actors]
         logits = self.proj(actor_embeds)
 
         # Apply masks from the environment
@@ -98,7 +98,7 @@ class PaddedSelectEntityActionHead(nn.Module):
 
         actor_lengths = mask.actors.size1()
         actors = torch.tensor((mask.actors + index_offsets).as_array(), device=device)
-        actor_embeds = x.data[x.index_map[actors]]
+        actor_embeds = x.data[actors]
         queries = self.query_proj(actor_embeds).squeeze(1)
         max_actors = actor_lengths.max()
         # TODO: can omit rows that are only padding
@@ -119,7 +119,7 @@ class PaddedSelectEntityActionHead(nn.Module):
 
         actee_lengths = mask.actees.size1()
         actees = torch.tensor((mask.actees + index_offsets).as_array(), device=device)
-        actee_embeds = x.data[x.index_map[actees]]
+        actee_embeds = x.data[actees]
         keys = self.key_proj(actee_embeds).squeeze(1)
         max_actees = actee_lengths.max()
         padded_keys = torch.ones(

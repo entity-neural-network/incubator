@@ -74,27 +74,25 @@ class Actor(nn.Module):
             batch_index = np.concatenate(
                 [entity.indices(0).as_array().flatten() for entity in entities.values()]
             )
-            index_map = (
-                ragged_buffer.cat(
-                    [
-                        entity.flat_indices() + index_offsets[name]
-                        for name, entity in entities.items()
-                    ],
-                    dim=1,
-                )
-                .as_array()
-                .flatten()
+            index_map = ragged_buffer.cat(
+                [
+                    entity.flat_indices() + index_offsets[name]
+                    for name, entity in entities.items()
+                ],
+                dim=1,
             )
-            tindex_map = torch.tensor(index_map).to(self.device())
+            tindex_map = torch.tensor(index_map.as_array().flatten()).to(self.device())
             tbatch_index = torch.tensor(batch_index).to(self.device())
             tlengths = torch.tensor(lengths).to(self.device())
 
+        x = x[tindex_map]
+        tbatch_index = tbatch_index[tindex_map]
+
         with tracer.span("backbone"):
-            x = self.backbone(x, tbatch_index)
+            x = self.backbone(x, tbatch_index, index_map)
 
         return RaggedTensor(
             x,
-            tindex_map,
             tbatch_index,
             tlengths,
         )
@@ -180,13 +178,21 @@ class AutoActor(Actor):
         d_qk: int = 16,
         auxiliary_heads: Optional[nn.ModuleDict] = None,
         n_layer: int = 1,
+        pooling_op: Optional[str] = None,
     ):
+        assert pooling_op in (None, "mean", "max", "meanmax")
         self.d_model = d_model
         super().__init__(
             obs_space,
             embedding_creator.create_embeddings(obs_space, d_model),
             action_space,
-            Transformer(TransformerConfig(d_model=d_model, n_layer=n_layer)),
+            Transformer(
+                TransformerConfig(
+                    d_model=d_model,
+                    n_layer=n_layer,
+                    pooling=pooling_op,  # type: ignore
+                )
+            ),
             head_creator.create_action_heads(action_space, d_model, d_qk),
             auxiliary_heads=auxiliary_heads,
         )

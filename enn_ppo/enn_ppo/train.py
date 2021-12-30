@@ -87,6 +87,9 @@ def parse_args(override_args: Optional[List[str]] = None) -> argparse.Namespace:
         help='the size queries and keys in action heads')
     parser.add_argument('--n-layer', type=int, default=1,
         help='the number of layers of the network')
+    parser.add_argument('--pooling-op', type=str, default=None,
+        help='if set, use pooling op instead of multi-head attention. Options: mean, max, meanmax')
+
 
     # Algorithm specific arguments
     parser.add_argument('--num-envs', type=int, default=4,
@@ -194,12 +197,19 @@ class PPOActor(AutoActor):
         d_model: int = 64,
         d_qk: int = 16,
         n_layer: int = 1,
+        pooling_op: Optional[str] = None,
     ):
         auxiliary_heads = nn.ModuleDict(
             {"value": head_creator.create_value_head(d_model)}
         )
         super().__init__(
-            obs_space, action_space, d_model, d_qk, auxiliary_heads, n_layer=n_layer
+            obs_space,
+            action_space,
+            d_model,
+            d_qk,
+            auxiliary_heads,
+            n_layer=n_layer,
+            pooling_op=pooling_op,
         )
 
     def get_value(
@@ -261,9 +271,15 @@ def train(args: argparse.Namespace) -> float:
         sample_recorder = SampleRecorder(args.capture_samples, action_space, obs_space)
 
     agent = PPOActor(
-        obs_space, action_space, d_model=args.d_model, n_layer=args.n_layer
+        obs_space,
+        action_space,
+        d_model=args.d_model,
+        n_layer=args.n_layer,
+        pooling_op=args.pooling_op,
     ).to(device)
     optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5)
+    if args.track:
+        wandb.watch(agent)
 
     # ALGO Logic: Storage setup
     rewards = torch.zeros((args.num_steps, args.num_envs)).to(device)
