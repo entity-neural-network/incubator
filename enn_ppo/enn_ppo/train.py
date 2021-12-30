@@ -63,6 +63,8 @@ def parse_args(override_args: Optional[List[str]] = None) -> argparse.Namespace:
         help='seed of the experiment')
     parser.add_argument('--total-timesteps', type=int, default=25000,
         help='total timesteps of the experiments')
+    parser.add_argument('--max-train-time', type=int, default=None,
+        help='train for at most this many seconds')
     parser.add_argument('--torch-deterministic', type=lambda x:bool(strtobool(x)), default=True, nargs='?', const=True,
         help='if toggled, `torch.backends.cudnn.deterministic=False`')
     parser.add_argument('--cuda', type=lambda x:bool(strtobool(x)), default=True, nargs='?', const=True,
@@ -79,6 +81,8 @@ def parse_args(override_args: Optional[List[str]] = None) -> argparse.Namespace:
         help='if set, write the samples to this file')
     parser.add_argument('--processes', type=int, default=1,
         help='The number of processes to use to collect env data. The envs are split as equally as possible across the processes')
+    parser.add_argument('--trial', type=int, default=None,
+        help='trial number of experiment spawned by hyperparameter tuner')
     
     # Network architecture
     parser.add_argument('--d-model', type=int, default=64,
@@ -223,11 +227,23 @@ def train(args: argparse.Namespace) -> float:
     if args.track:
         import wandb
 
+        config = vars(args)
+        if os.path.exists("/xprun/info/config.ron"):
+            import xprun  # type: ignore
+
+            xp_info = xprun.current_xp()
+            config["name"] = xp_info.xp_def.name
+            config["base_name"] = xp_info.xp_def.base_name
+            config["id"] = xp_info.id
+            if args.trial is not None:
+                args.seed = int(xp_info.xp_def.name.split("-")[-1])
+            run_name = xp_info.xp_def.name
+
         wandb.init(
             project=args.wandb_project_name,
             entity=args.wandb_entity,
             sync_tensorboard=True,
-            config=vars(args),
+            config=config,
             name=run_name,
             save_code=True,
         )
@@ -304,10 +320,20 @@ def train(args: argparse.Namespace) -> float:
 
     for update in range(1, num_updates + 1):
         tracer.start("update")
+        if (
+            args.max_train_time is not None
+            and time.time() - start_time >= args.max_train_time
+        ):
+            print("Max train time reached, stopping training.")
+            break
 
         # Annealing the rate if instructed to do so.
         if args.anneal_lr:
             frac = 1.0 - (update - 1.0) / num_updates
+            if args.max_train_time is not None:
+                frac = min(
+                    frac, max(0, 1.0 - (time.time() - start_time) / args.max_train_time)
+                )
             lrnow = frac * args.learning_rate
             optimizer.param_groups[0]["lr"] = lrnow
 
