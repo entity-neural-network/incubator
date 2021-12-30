@@ -31,13 +31,13 @@ class HyperParam:
     constraint: Optional[Callable[[Dict[str, float]], Tuple[float, float]]] = None
     transform: Optional[Callable[[Dict[str, float], float], float]] = None
 
-    def suggest(
+    def suggest(  # type: ignore
         self,
         trial: optuna.trial.Trial,
         center: float,
         range: float,
         other_vals: Dict[str, float],
-    ) -> Tuple[str, float]:  # type: ignore
+    ) -> Tuple[str, float]:
         min_value, max_value = self.min_value, self.max_value
         if self.constraint is not None:
             _min_value, _max_value = self.constraint(other_vals)
