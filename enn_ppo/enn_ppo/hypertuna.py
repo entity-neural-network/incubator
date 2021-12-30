@@ -33,11 +33,11 @@ class HyperParam:
 
     def suggest(
         self,
-        trial: optuna.trial.Trial,  # type: ignore
+        trial: optuna.trial.Trial,
         center: float,
         range: float,
         other_vals: Dict[str, float],
-    ) -> Tuple[str, float]:
+    ) -> Tuple[str, float]:  # type: ignore
         min_value, max_value = self.min_value, self.max_value
         if self.constraint is not None:
             _min_value, _max_value = self.constraint(other_vals)
