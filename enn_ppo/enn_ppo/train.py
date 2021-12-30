@@ -95,6 +95,8 @@ def parse_args(override_args: Optional[List[str]] = None) -> argparse.Namespace:
         help='the number of steps to run in each environment per policy rollout')
     parser.add_argument('--anneal-lr', type=lambda x:bool(strtobool(x)), default=True, nargs='?', const=True,
         help="Toggle learning rate annealing for policy and value networks")
+    parser.add_argument('--anneal-entropy', type=lambda x:bool(strtobool(x)), default=False, nargs='?', const=True,
+        help="Toggle entropy coefficient annealing")
     parser.add_argument('--gae', type=lambda x:bool(strtobool(x)), default=True, nargs='?', const=True,
         help='Use GAE for advantage computation')
     parser.add_argument('--gamma', type=float, default=0.99,
@@ -594,8 +596,13 @@ def train(args: argparse.Namespace) -> float:
                         v_loss = 0.5 * ((newvalue - b_returns[mb_inds]) ** 2).mean()
 
                 # TODO: what's correct way of combining entropy loss from multiple actions/actors on the same timestep?
+                if args.anneal_entropy:
+                    frac = 1.0 - (update - 1.0) / num_updates
+                    ent_coef = frac * args.ent_coef
+                else:
+                    ent_coef = args.ent_coef
                 entropy_loss = torch.cat([e for e in entropy.values()]).mean()
-                loss = pg_loss - args.ent_coef * entropy_loss + v_loss * args.vf_coef
+                loss = pg_loss - ent_coef * entropy_loss + v_loss * args.vf_coef
 
                 optimizer.zero_grad()
                 with tracer.span("backward"):
@@ -620,6 +627,7 @@ def train(args: argparse.Namespace) -> float:
         writer.add_scalar(
             "charts/learning_rate", optimizer.param_groups[0]["lr"], global_step
         )
+        writer.add_scalar("charts/entropy_coef", ent_coef, global_step)
         writer.add_scalar("losses/value_loss", v_loss.item(), global_step)
         writer.add_scalar("losses/policy_loss", pg_loss.item(), global_step)
         writer.add_scalar("losses/entropy", entropy_loss.item(), global_step)
