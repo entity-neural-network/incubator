@@ -89,6 +89,7 @@ class RaggedAttention(nn.Module):
     def forward(
         self, x: torch.Tensor, batch_index: torch.Tensor, rbatch_index: RaggedBufferI64
     ) -> torch.Tensor:
+        # For more details on the implementation, see: https://github.com/entity-neural-network/incubator/pull/119
         device = x.device
         padpack = rbatch_index.padpack()
 
@@ -167,9 +168,7 @@ class Transformer(nn.Module):
     def __init__(self, config: TransformerConfig) -> None:
         super().__init__()
 
-        # self.pos_emb = nn.Parameter(torch.zeros(1, config.block_size, config.d_model))
         self.drop = nn.Dropout(config.embd_pdrop)
-        # transformer
         self.blocks = nn.Sequential(*[Block(config) for _ in range(config.n_layer)])
 
         self.apply(self._init_weights)
@@ -190,9 +189,6 @@ class Transformer(nn.Module):
     def forward(
         self, x: torch.Tensor, batch_index: torch.Tensor, rbatch_index: RaggedBufferI64
     ) -> torch.Tensor:
-        # position_embeddings = self.pos_emb[
-        #    :, :t, :
-        # ]  # each position maps to a (learnable) vector
         x = self.drop(x)
         for block in self.blocks:
             x = block(x, batch_index, rbatch_index)
