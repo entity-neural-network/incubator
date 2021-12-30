@@ -14,8 +14,6 @@ import numpy as np
 
 from enum import Enum
 
-from hyperstate.hyperstate import _typed_load
-
 
 class SamplingStrategy(Enum):
     OMINUS = 0
@@ -35,7 +33,7 @@ class HyperParam:
 
     def suggest(
         self,
-        trial: optuna.trial.Trial,
+        trial: optuna.trial.Trial,  # type: ignore
         center: float,
         range: float,
         other_vals: Dict[str, float],
@@ -193,7 +191,7 @@ class HyperOptimizer:
             xp.containers[0].command.append(f"--max-train-time={self.time}")
         return xp
 
-    def sample_xp(self, trial: optuna.trial.Trial) -> Any:
+    def sample_xp(self, trial: optuna.trial.Trial) -> Any:  # type: ignore
         xp = self.base_xp_config(self.trial)
         args: Dict[str, float] = {}
         for path, center, range in self.params:
@@ -237,7 +235,7 @@ class HyperOptimizer:
         print(f"Best result: {self.best_result}")
         print(f"Best config: {self.best_config}")
 
-    def run_trial(self, xp: Any, trial: optuna.trial.Trial, trial_id: int) -> None:
+    def run_trial(self, xp: Any, trial: optuna.trial.Trial, trial_id: int) -> None:  # type: ignore
         threads = []
         for i in range(self.xps_per_trial):
             with self.lock:
