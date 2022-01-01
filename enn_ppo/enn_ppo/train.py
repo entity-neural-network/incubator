@@ -2,6 +2,7 @@
 import argparse
 from dataclasses import dataclass, field
 import os
+from pathlib import Path
 import random
 import time
 from distutils.util import strtobool
@@ -239,6 +240,26 @@ class PPOActor(AutoActor):
 
 def train(args: argparse.Namespace) -> float:
     run_name = f"{args.gym_id}__{args.exp_name}__{args.seed}__{int(time.time())}"
+    config = vars(args)
+    if os.path.exists("/xprun/info/config.ron"):
+        import xprun  # type: ignore
+
+        xp_info = xprun.current_xp()
+        config["name"] = xp_info.xp_def.name
+        config["base_name"] = xp_info.xp_def.base_name
+        config["id"] = xp_info.id
+        if args.trial is not None:
+            args.seed = int(xp_info.xp_def.name.split("-")[-1])
+        run_name = xp_info.xp_def.name
+        out_dir: Optional[str] = os.path.join(
+            "/mnt/xprun",
+            xp_info.xp_def.project,
+            xp_info.sanitized_name + "-" + xp_info.id,
+        )
+        Path(out_dir).mkdir(parents=True, exist_ok=True)
+    else:
+        out_dir = None
+
     if args.track:
         import wandb
 
@@ -300,12 +321,18 @@ def train(args: argparse.Namespace) -> float:
     action_space = env_cls.action_space()
     if args.capture_samples:
         sample_recorder = SampleRecorder(args.capture_samples, action_space, obs_space)
+        if out_dir is None:
+            sample_file = args.capture_samples
+        else:
+            sample_file = os.path.join(out_dir, args.capture_samples)
+        sample_recorder = SampleRecorder(sample_file, action_space, obs_space)
     if args.translate:
         translate: Optional[TranslatePositions] = TranslatePositions(
             obs_space=obs_space, **json.loads(args.translate)
         )
     else:
         translate = None
+
     if args.relpos_encoding:
         relpos_encoding: Optional[RelposEncodingConfig] = RelposEncodingConfig(
             d_head=args.d_model // args.n_head,
@@ -529,9 +556,6 @@ def train(args: argparse.Namespace) -> float:
 
         tracer.end("rollout")
 
-        def dictcat(x: Dict[str, torch.Tensor]) -> torch.Tensor:
-            return torch.cat(list(x.values()))
-
         # Optimizaing the policy and value network
         tracer.start("optimize")
         b_inds = np.arange(args.batch_size)
@@ -732,6 +756,7 @@ def train(args: argparse.Namespace) -> float:
 
     # envs.close()
     if args.capture_samples:
+        print("Recorded samples to: ", sample_recorder.path)
         sample_recorder.close()
     writer.close()
 
