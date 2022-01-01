@@ -38,7 +38,7 @@ from entity_gym.environment import (
 )
 from entity_gym.envs import ENV_REGISTRY
 from enn_zoo.griddly import GRIDDLY_ENVS, create_env
-from enn_ppo.sample_recorder import SampleRecorder
+from enn_ppo.sample_recorder import SampleRecorder, Sample
 from enn_ppo.simple_trace import Tracer
 from rogue_net.relpos_encoding import RelposEncodingConfig
 from rogue_net.actor import AutoActor
@@ -256,7 +256,7 @@ def train(args: argparse.Namespace) -> float:
             xp_info.xp_def.project,
             xp_info.sanitized_name + "-" + xp_info.id,
         )
-        Path(out_dir).mkdir(parents=True, exist_ok=True)
+        Path(str(out_dir)).mkdir(parents=True, exist_ok=True)
     else:
         out_dir = None
 
@@ -430,9 +430,13 @@ def train(args: argparse.Namespace) -> float:
             if args.capture_samples:
                 with tracer.span("record_samples"):
                     sample_recorder.record(
-                        next_obs,
-                        step=curr_step,
-                        episode=episodes,
+                        Sample(
+                            next_obs,
+                            step=curr_step,
+                            episode=episodes,
+                            actions=action,
+                            probs=logprob,
+                        )
                     )
 
             # Join all actions with corresponding `EntityID`s

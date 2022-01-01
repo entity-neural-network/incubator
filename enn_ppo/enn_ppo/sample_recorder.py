@@ -8,11 +8,41 @@ from entity_gym.environment import (
     ragged_buffer_decode,
     ragged_buffer_encode,
 )
+from ragged_buffer import RaggedBufferF32, RaggedBufferI64
 
 import tqdm
 import numpy as np
 import msgpack
 import msgpack_numpy
+
+
+@dataclass
+class Sample:
+    obs: ObsBatch
+    step: List[int]
+    episode: List[int]
+    actions: Dict[str, RaggedBufferI64]
+    probs: Dict[str, RaggedBufferF32]
+
+    def serialize(self) -> bytes:
+        return msgpack_numpy.dumps(  # type: ignore
+            {
+                "obs": self.obs,
+                "step": self.step,
+                "episode": self.episode,
+                "actions": self.actions,
+                "probs": self.probs,
+            },
+            default=ragged_buffer_encode,
+        )
+
+    @classmethod
+    def deserialize(cls, data: bytes) -> "Sample":
+        return Sample(
+            **msgpack_numpy.loads(
+                data, object_hook=ragged_buffer_decode, strict_map_key=False
+            )
+        )
 
 
 class SampleRecorder:
@@ -27,10 +57,11 @@ class SampleRecorder:
         self.file = open(path, "wb")
         # TODO: write header and obs space and act space
 
-    def record(self, obs: ObsBatch, step: List[int], episode: List[int]) -> None:
-        bytes = msgpack_numpy.dumps(
-            {"obs": obs, "step": step, "episode": episode}, default=ragged_buffer_encode
-        )
+    def record(
+        self,
+        sample: Sample,
+    ) -> None:
+        bytes = sample.serialize()
         # Write 8 bytes unsigned int for the size of the serialized sample
         self.file.write(np.uint64(len(bytes)).tobytes())
         self.file.write(bytes)
@@ -43,11 +74,11 @@ class SampleRecorder:
 class Trace:
     action_space: Dict[str, int]
     obs_space: ObsSpace
-    samples: List[Tuple[ObsBatch, List[int], List[int]]]
+    samples: List[Sample]
 
     @classmethod
     def deserialize(cls, data: bytes, progress_bar: bool = False) -> "Trace":
-        samples: List[Tuple[ObsBatch, List[int], List[int]]] = []
+        samples: List[Sample] = []
         if progress_bar:
             pbar = tqdm.tqdm(total=len(data))
 
@@ -55,12 +86,7 @@ class Trace:
         while offset < len(data):
             size = int(np.frombuffer(data[offset : offset + 8], dtype=np.uint64)[0])
             offset += 8
-            sample = msgpack_numpy.loads(
-                data[offset : offset + size],
-                object_hook=ragged_buffer_decode,
-                strict_map_key=False,
-            )
-            samples.append((sample["obs"], sample["step"], sample["episode"]))
+            samples.append(Sample.deserialize(data[offset : offset + size]))
             offset += size
             if progress_bar:
                 pbar.update(size + 8)
