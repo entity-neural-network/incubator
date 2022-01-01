@@ -13,6 +13,7 @@ def test_multi_armed_bandit() -> None:
             "--d-model=16",
             "--learning-rate=0.05",
             "--n-layer=0",
+            "--processes=2",
         ]
     )
     meanrew = train.train(args)

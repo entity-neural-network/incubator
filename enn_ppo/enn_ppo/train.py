@@ -371,26 +371,11 @@ def train(args: argparse.Namespace) -> float:
             logprobs.extend(logprob)
             if args.capture_samples:
                 with tracer.span("record_samples"):
-                    # TODO: fix
-                    """
-                    for i, o in enumerate(next_obs):
-                        sample_recorder.record(
-                            Sample(
-                                entities=o.entities,
-                                action_masks={
-                                    n: a.actors for n, a in o.action_masks.items()
-                                },
-                                # TODO: capture full logprobs, not just chosen action
-                                probabilities={
-                                    n: l.cpu().numpy() for n, l in logprob[i].items()
-                                },
-                                # TODO: actually want to capture returns, need to move after rollout
-                                reward=o.reward,
-                                step=curr_step[i],
-                                episode=episodes[i],
-                            )
-                        )
-                    """
+                    sample_recorder.record(
+                        next_obs,
+                        step=curr_step,
+                        episode=episodes,
+                    )
 
             # Join all actions with corresponding `EntityID`s
             with tracer.span("join_actions"):
@@ -439,17 +424,14 @@ def train(args: argparse.Namespace) -> float:
                 total_episodic_length += eoei.length
                 total_episodes += 1
 
-            # TODO: reenable
-            """
             if args.capture_samples:
-                for i, o in enumerate(next_obs):
-                    if o.done:
+                for i, done in enumerate(next_obs.done):
+                    if done:
                         episodes[i] = next_episode
                         next_episode += 1
                         curr_step[i] = 0
                     else:
                         curr_step[i] += 1
-            """
 
         if total_episodes > 0:
             avg_return = total_episodic_return / total_episodes

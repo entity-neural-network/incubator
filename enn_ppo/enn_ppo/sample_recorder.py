@@ -1,55 +1,18 @@
 from dataclasses import dataclass, asdict
-from typing import Dict, List, Mapping
+from typing import Dict, List, Mapping, Tuple
 
-from entity_gym.environment import ActionSpace, ObsSpace
+from entity_gym.environment import (
+    ActionSpace,
+    ObsBatch,
+    ObsSpace,
+    ragged_buffer_decode,
+    ragged_buffer_encode,
+)
 
 import tqdm
 import numpy as np
 import msgpack
 import msgpack_numpy
-
-
-def _numpy_array_equal(a: np.ndarray, b: np.ndarray) -> bool:
-    return a.shape == b.shape and bool(np.all(a == b))
-
-
-@dataclass(eq=False)
-class Sample:
-    entities: Dict[str, np.ndarray]
-    action_masks: Mapping[str, np.ndarray]
-    probabilities: Mapping[str, np.ndarray]
-    reward: float
-    step: int
-    episode: int
-
-    def serialize(self) -> bytes:
-        return msgpack.packb(asdict(self), default=msgpack_numpy.encode)  # type: ignore
-
-    @classmethod
-    def deserialize(cls, data: bytes) -> "Sample":
-        return Sample(**msgpack.unpackb(data, object_hook=msgpack_numpy.decode))
-
-    def __eq__(self, other: object) -> bool:
-        if not isinstance(other, Sample):
-            return False
-        if self.entities.keys() != other.entities.keys():
-            return False
-        for key in self.entities.keys():
-            if not _numpy_array_equal(self.entities[key], other.entities[key]):
-                return False
-        if self.action_masks.keys() != other.action_masks.keys():
-            return False
-        for key in self.action_masks.keys():
-            if not _numpy_array_equal(self.action_masks[key], other.action_masks[key]):
-                return False
-        if self.probabilities.keys() != other.probabilities.keys():
-            return False
-        for key in self.probabilities.keys():
-            if not _numpy_array_equal(
-                self.probabilities[key], other.probabilities[key]
-            ):
-                return False
-        return self.reward == other.reward and self.episode == other.episode
 
 
 class SampleRecorder:
@@ -64,8 +27,10 @@ class SampleRecorder:
         self.file = open(path, "wb")
         # TODO: write header and obs space and act space
 
-    def record(self, sample: Sample) -> None:
-        bytes = sample.serialize()
+    def record(self, obs: ObsBatch, step: List[int], episode: List[int]) -> None:
+        bytes = msgpack_numpy.dumps(
+            {"obs": obs, "step": step, "episode": episode}, default=ragged_buffer_encode
+        )
         # Write 8 bytes unsigned int for the size of the serialized sample
         self.file.write(np.uint64(len(bytes)).tobytes())
         self.file.write(bytes)
@@ -78,11 +43,11 @@ class SampleRecorder:
 class Trace:
     action_space: Dict[str, int]
     obs_space: ObsSpace
-    samples: List[Sample]
+    samples: List[Tuple[ObsBatch, List[int], List[int]]]
 
     @classmethod
     def deserialize(cls, data: bytes, progress_bar: bool = False) -> "Trace":
-        samples = []
+        samples: List[Tuple[ObsBatch, List[int], List[int]]] = []
         if progress_bar:
             pbar = tqdm.tqdm(total=len(data))
 
@@ -90,8 +55,12 @@ class Trace:
         while offset < len(data):
             size = int(np.frombuffer(data[offset : offset + 8], dtype=np.uint64)[0])
             offset += 8
-            sample = Sample.deserialize(data[offset : offset + size])
-            samples.append(sample)
+            sample = msgpack_numpy.loads(
+                data[offset : offset + size],
+                object_hook=ragged_buffer_decode,
+                strict_map_key=False,
+            )
+            samples.append((sample["obs"], sample["step"], sample["episode"]))
             offset += size
             if progress_bar:
                 pbar.update(size + 8)
