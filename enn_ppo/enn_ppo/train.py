@@ -96,7 +96,8 @@ def parse_args(override_args: Optional[List[str]] = None) -> argparse.Namespace:
         help='if set, use pooling op instead of multi-head attention. Options: mean, max, meanmax')
     parser.add_argument('--translate', type=str, default=None,
         help='if set, translate positions to be centered on a given entity. Example: --translate=\'{"reference_entity": "SnakeHead", "position_features": ["x", "y"]}\'')
-
+    parser.add_argument('--positional-encoding', type=lambda x:bool(strtobool(x)), default=False, nargs='?', const=True,
+        help='if toggled, use positional encoding')
 
     # Algorithm specific arguments
     parser.add_argument('--num-envs', type=int, default=4,
@@ -206,6 +207,7 @@ class PPOActor(AutoActor):
         n_layer: int = 1,
         pooling_op: Optional[str] = None,
         feature_transforms: Optional[TranslatePositions] = None,
+        positional_encoding: bool = False,
     ):
         auxiliary_heads = nn.ModuleDict(
             {"value": head_creator.create_value_head(d_model)}
@@ -219,6 +221,7 @@ class PPOActor(AutoActor):
             n_layer=n_layer,
             pooling_op=pooling_op,
             feature_transforms=feature_transforms,
+            use_positional_encoding=positional_encoding,
         )
 
     def get_value(
@@ -304,6 +307,7 @@ def train(args: argparse.Namespace) -> float:
         n_layer=args.n_layer,
         pooling_op=args.pooling_op,
         feature_transforms=translate,
+        positional_encoding=args.positional_encoding,
     ).to(device)
     optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5)
     if args.track:
