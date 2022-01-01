@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Optional, Tuple
 import argparse
 import optuna
-import xprun # type: ignore
+import xprun  # type: ignore
 import math
 import time
 import random
