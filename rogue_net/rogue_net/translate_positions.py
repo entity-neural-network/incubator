@@ -10,7 +10,10 @@ class TranslatePositions:
         self, reference_entity: str, position_features: List[str], obs_space: ObsSpace
     ):
         self.feature_indices = {
-            entity_name: [entity.features.index(feature_name) for feature_name in position_features]
+            entity_name: [
+                entity.features.index(feature_name)
+                for feature_name in position_features
+            ]
             for entity_name, entity in obs_space.entities.items()
             if entity_name != reference_entity
             and all(
