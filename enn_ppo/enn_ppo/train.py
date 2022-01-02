@@ -624,7 +624,11 @@ def train(args: argparse.Namespace) -> float:
                     frac = 1.0 - (update - 1.0) / num_updates
                     if args.max_train_time is not None:
                         frac = min(
-                            frac, max(0, 1.0 - (time.time() - start_time) / args.max_train_time)
+                            frac,
+                            max(
+                                0,
+                                1.0 - (time.time() - start_time) / args.max_train_time,
+                            ),
                         )
                     ent_coef = frac * args.ent_coef
                 else:
