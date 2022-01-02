@@ -129,9 +129,9 @@ class GymMicrorts(Environment):
                 "Base": Entity(["x", "y"]),
                 "Barracks": Entity(["x", "y"]),
                 "Worker": Entity(["x", "y"]),
-                # "Light": Entity(["x", "y"]),
-                # "Heavy": Entity(["x", "y"]),
-                # "Ranged": Entity(["x", "y"]),
+                "Light": Entity(["x", "y"]),
+                "Heavy": Entity(["x", "y"]),
+                "Ranged": Entity(["x", "y"]),
             }
         )
 
@@ -161,15 +161,7 @@ class GymMicrorts(Environment):
             response = self.client.gameStep([], 0)
         self.client.render(False)
         return Observation(
-            entities={
-                "Resource": np.array(response.observation[0]).astype(np.float32),
-                "Base": np.array(response.observation[1]).astype(np.float32),
-                # "Barracks": np.array(response.observation[2]).astype(np.float32),
-                "Worker": np.array(response.observation[3]).astype(np.float32),
-                # "Light": np.array(response.observation[4]).astype(np.float32),
-                # "Heavy": np.array(response.observation[5]).astype(np.float32),
-                # "Ranged": np.array(response.observation[6]).astype(np.float32),
-            },
+            entities=self.generate_entities(response),
             ids=np.array(response.observation[7]),
             action_masks={
                 "move": DenseCategoricalActionMask(
@@ -191,18 +183,10 @@ class GymMicrorts(Environment):
     def _observe(self, done: bool = False, player: int = 0) -> Observation:
         response = self.client.reset(0)
         self.client.render(False)
-        print(np.array(response.observation[7]))
-        print(np.array(response.observation[8]))
+
+
         return Observation(
-            entities={
-                "Resource": np.array(response.observation[0]).astype(np.float32),
-                "Base": np.array(response.observation[1]).astype(np.float32),
-                # "Barracks": np.array(response.observation[2]).astype(np.float32),
-                "Worker": np.array(response.observation[3]).astype(np.float32),
-                # "Light": np.array(response.observation[4]).astype(np.float32),
-                # "Heavy": np.array(response.observation[5]).astype(np.float32),
-                # "Ranged": np.array(response.observation[6]).astype(np.float32),
-            },
+            entities=self.generate_entities(response),
             ids=np.array(response.observation[7]),
             action_masks={
                 "move": DenseCategoricalActionMask(
@@ -220,3 +204,29 @@ class GymMicrorts(Environment):
             if response.done[0]
             else None,
         )
+
+    def generate_entities(self, response):
+        entities = {}
+        resource = np.array(response.observation[0]).astype(np.float32)
+        base = np.array(response.observation[1]).astype(np.float32)
+        barracks = np.array(response.observation[2]).astype(np.float32)
+        worker = np.array(response.observation[3]).astype(np.float32)
+        light = np.array(response.observation[4]).astype(np.float32)
+        heavy = np.array(response.observation[5]).astype(np.float32)
+        ranged = np.array(response.observation[6]).astype(np.float32)
+        if len(resource) > 0:
+            entities["Resource"] = resource
+        if len(base) > 0:
+            entities["Base"] = base
+        if len(barracks) > 0:
+            entities["Barracks"] = barracks
+        if len(worker) > 0:
+            entities["Worker"] = worker
+        if len(light) > 0:
+            entities["Light"] = light
+        if len(heavy) > 0:
+            entities["Heavy"] = heavy
+        if len(ranged) > 0:
+            entities["Ranged"] = ranged
+        
+        return entities
