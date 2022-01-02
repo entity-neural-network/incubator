@@ -41,6 +41,7 @@ from enn_ppo.sample_recorder import SampleRecorder
 from enn_ppo.simple_trace import Tracer
 from rogue_net.actor import AutoActor
 from rogue_net import head_creator
+from rogue_net.translate_positions import TranslatePositions
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -93,6 +94,8 @@ def parse_args(override_args: Optional[List[str]] = None) -> argparse.Namespace:
         help='the number of layers of the network')
     parser.add_argument('--pooling-op', type=str, default=None,
         help='if set, use pooling op instead of multi-head attention. Options: mean, max, meanmax')
+    parser.add_argument('--translate', type=str, default=None,
+        help='if set, translate positions to be centered on a given entity. Example: --translate=\'{"reference_entity": "SnakeHead", "position_features": ["x", "y"]}\'')
 
 
     # Algorithm specific arguments
@@ -202,6 +205,7 @@ class PPOActor(AutoActor):
         d_qk: int = 16,
         n_layer: int = 1,
         pooling_op: Optional[str] = None,
+        feature_transforms: Optional[TranslatePositions] = None,
     ):
         auxiliary_heads = nn.ModuleDict(
             {"value": head_creator.create_value_head(d_model)}
@@ -214,6 +218,7 @@ class PPOActor(AutoActor):
             auxiliary_heads,
             n_layer=n_layer,
             pooling_op=pooling_op,
+            feature_transforms=feature_transforms,
         )
 
     def get_value(
@@ -285,6 +290,12 @@ def train(args: argparse.Namespace) -> float:
     action_space = env_cls.action_space()
     if args.capture_samples:
         sample_recorder = SampleRecorder(args.capture_samples, action_space, obs_space)
+    if args.translate:
+        translate: Optional[TranslatePositions] = TranslatePositions(
+            obs_space=obs_space, **json.loads(args.translate)
+        )
+    else:
+        translate = None
 
     agent = PPOActor(
         obs_space,
@@ -292,6 +303,7 @@ def train(args: argparse.Namespace) -> float:
         d_model=args.d_model,
         n_layer=args.n_layer,
         pooling_op=args.pooling_op,
+        feature_transforms=translate,
     ).to(device)
     optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5)
     if args.track:

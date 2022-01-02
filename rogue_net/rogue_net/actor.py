@@ -1,4 +1,4 @@
-from typing import Dict, List, Mapping, Optional, Tuple, Type, TypeVar
+from typing import Dict, Mapping, Optional, Tuple, Type, TypeVar
 
 from entity_gym.environment import (
     ActionMaskBatch,
@@ -9,6 +9,7 @@ from enn_ppo.simple_trace import Tracer
 import numpy as np
 import ragged_buffer
 from rogue_net.ragged_tensor import RaggedTensor
+from rogue_net.translate_positions import TranslatePositions
 import torch
 import torch.nn as nn
 import torch_scatter
@@ -40,6 +41,7 @@ class Actor(nn.Module):
         backbone: nn.Module,
         action_heads: nn.ModuleDict,
         auxiliary_heads: Optional[nn.ModuleDict] = None,
+        feature_transforms: Optional[TranslatePositions] = None,
     ):
         super(Actor, self).__init__()
 
@@ -50,6 +52,7 @@ class Actor(nn.Module):
         self.backbone = backbone
         self.action_heads = action_heads
         self.auxiliary_heads = auxiliary_heads
+        self.feature_transforms = feature_transforms
 
     def device(self) -> torch.device:
         return next(self.parameters()).device
@@ -61,10 +64,16 @@ class Actor(nn.Module):
         index_offsets = {}
         index_offset = 0
 
+        if self.feature_transforms:
+            self.feature_transforms.apply(entities)
+        tentities = {
+            name: torch.tensor(feats.as_array()).to(self.device())
+            for name, feats in entities.items()
+        }
         for entity, embedding in self.embedding.items():
             # We may have environment states that do not contain every possible entity
-            if entity in entities:
-                batch = torch.tensor(entities[entity].as_array()).to(self.device())
+            if entity in tentities:
+                batch = tentities[entity]
                 entity_embeds.append(embedding(batch))
                 index_offsets[entity] = index_offset
                 index_offset += batch.size(0)
@@ -179,6 +188,7 @@ class AutoActor(Actor):
         auxiliary_heads: Optional[nn.ModuleDict] = None,
         n_layer: int = 1,
         pooling_op: Optional[str] = None,
+        feature_transforms: Optional[TranslatePositions] = None,
     ):
         assert pooling_op in (None, "mean", "max", "meanmax")
         self.d_model = d_model
@@ -195,4 +205,5 @@ class AutoActor(Actor):
             ),
             head_creator.create_action_heads(action_space, d_model, d_qk),
             auxiliary_heads=auxiliary_heads,
+            feature_transforms=feature_transforms,
         )
