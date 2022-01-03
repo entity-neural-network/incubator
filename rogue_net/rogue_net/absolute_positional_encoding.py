@@ -8,13 +8,14 @@ from entity_gym.environment import ObsSpace
 
 @dataclass(frozen=True)
 class AbsolutePositionalEncodingConfig:
-    d_model: int
-    position_extent: List[Tuple[int, int]]
-    positional_features: List[str]
+    extent: List[Tuple[int, int]]
+    position_features: List[str]
     obs_space: ObsSpace
+    d_model: int
+    erase: bool = False
 
     def __post_init__(self) -> None:
-        assert len(self.position_extent) == len(self.positional_features)
+        assert len(self.extent) == len(self.position_features)
 
 
 class AbsolutePositionalEncoding(nn.Module):
@@ -24,8 +25,9 @@ class AbsolutePositionalEncoding(nn.Module):
     ) -> None:
         super().__init__()
         self.d_model = config.d_model
-        self.position_extent = config.position_extent
-        self.positional_features = config.positional_features
+        self.position_extent = config.extent
+        self.positional_features = config.position_features
+        self.erase = config.erase
         # TODO: also need offset if extent doesn't start at 0
         strides = []
         positions = 1
@@ -40,7 +42,7 @@ class AbsolutePositionalEncoding(nn.Module):
             entity_name: torch.LongTensor(
                 [
                     entity.features.index(feature_name)
-                    for feature_name in config.positional_features
+                    for feature_name in config.position_features
                 ]
             )
             for entity_name, entity in config.obs_space.entities.items()
@@ -50,6 +52,8 @@ class AbsolutePositionalEncoding(nn.Module):
         result = {}
         for entity_name, features in x.items():
             positions = features[:, self.position_feature_indices[entity_name]]
+            if self.erase:
+                features[:, self.position_feature_indices[entity_name]].fill_(0.0)
             indices = torch.tensordot(
                 positions,
                 # TODO: only send to device once

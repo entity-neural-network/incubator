@@ -202,7 +202,7 @@ class AutoActor(Actor):
         n_layer: int = 1,
         pooling_op: Optional[str] = None,
         feature_transforms: Optional[TranslatePositions] = None,
-        use_positional_encoding: bool = False,
+        positional_encoding: Optional[AbsolutePositionalEncodingConfig] = None,
     ):
         assert pooling_op in (None, "mean", "max", "meanmax")
         self.d_model = d_model
@@ -220,11 +220,7 @@ class AutoActor(Actor):
             head_creator.create_action_heads(action_space, d_model, d_qk),
             auxiliary_heads=auxiliary_heads,
             feature_transforms=feature_transforms,
-            positional_encoding=AbsolutePositionalEncoding(
-                AbsolutePositionalEncodingConfig(
-                    d_model, [(0, 10), (0, 10)], ["x", "y"], obs_space
-                )
-            )
-            if use_positional_encoding
+            positional_encoding=AbsolutePositionalEncoding(positional_encoding)
+            if positional_encoding
             else None,
         )

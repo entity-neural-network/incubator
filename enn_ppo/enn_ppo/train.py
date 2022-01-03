@@ -39,6 +39,7 @@ from entity_gym.envs import ENV_REGISTRY
 from enn_zoo.griddly import GRIDDLY_ENVS, create_env
 from enn_ppo.sample_recorder import SampleRecorder
 from enn_ppo.simple_trace import Tracer
+from rogue_net.absolute_positional_encoding import AbsolutePositionalEncodingConfig
 from rogue_net.actor import AutoActor
 from rogue_net import head_creator
 from rogue_net.translate_positions import TranslatePositions
@@ -96,8 +97,8 @@ def parse_args(override_args: Optional[List[str]] = None) -> argparse.Namespace:
         help='if set, use pooling op instead of multi-head attention. Options: mean, max, meanmax')
     parser.add_argument('--translate', type=str, default=None,
         help='if set, translate positions to be centered on a given entity. Example: --translate=\'{"reference_entity": "SnakeHead", "position_features": ["x", "y"]}\'')
-    parser.add_argument('--positional-encoding', type=lambda x:bool(strtobool(x)), default=False, nargs='?', const=True,
-        help='if toggled, use positional encoding')
+    parser.add_argument('--positional-encoding', type=str, default=None,
+        help='configuration for learned absolute positional encoding. Example: --positional-encoding=\'{"extent": [[0, 10], [0, 10]], "position_features": ["x", "y"]}\'')
 
     # Algorithm specific arguments
     parser.add_argument('--num-envs', type=int, default=4,
@@ -207,7 +208,7 @@ class PPOActor(AutoActor):
         n_layer: int = 1,
         pooling_op: Optional[str] = None,
         feature_transforms: Optional[TranslatePositions] = None,
-        positional_encoding: bool = False,
+        positional_encoding: Optional[AbsolutePositionalEncodingConfig] = None,
     ):
         auxiliary_heads = nn.ModuleDict(
             {"value": head_creator.create_value_head(d_model)}
@@ -221,7 +222,7 @@ class PPOActor(AutoActor):
             n_layer=n_layer,
             pooling_op=pooling_op,
             feature_transforms=feature_transforms,
-            use_positional_encoding=positional_encoding,
+            positional_encoding=positional_encoding,
         )
 
     def get_value(
@@ -299,6 +300,16 @@ def train(args: argparse.Namespace) -> float:
         )
     else:
         translate = None
+    if args.positional_encoding:
+        positional_encoding: Optional[
+            AbsolutePositionalEncodingConfig
+        ] = AbsolutePositionalEncodingConfig(
+            d_model=args.d_model,
+            obs_space=obs_space,
+            **json.loads(args.positional_encoding),
+        )
+    else:
+        positional_encoding = None
 
     agent = PPOActor(
         obs_space,
@@ -307,7 +318,7 @@ def train(args: argparse.Namespace) -> float:
         n_layer=args.n_layer,
         pooling_op=args.pooling_op,
         feature_transforms=translate,
-        positional_encoding=args.positional_encoding,
+        positional_encoding=positional_encoding,
     ).to(device)
     optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5)
     if args.track:
@@ -320,7 +331,6 @@ def train(args: argparse.Namespace) -> float:
     episodes = list(range(args.num_envs))
     curr_step = [0] * args.num_envs
     next_episode = args.num_envs
-    last_log_step = 0
 
     # TRY NOT TO MODIFY: start the game
     global_step = 0
