@@ -240,8 +240,8 @@ def train(args: argparse.Namespace) -> float:
             config["name"] = xp_info.xp_def.name
             config["base_name"] = xp_info.xp_def.base_name
             config["id"] = xp_info.id
-            if args.trial is not None:
-                args.seed = int(xp_info.xp_def.name.split("-")[-1])
+            if xp_info.xp_def.index is not None:
+                args.seed = xp_info.xp_def.index
             run_name = xp_info.xp_def.name
 
         wandb.init(
