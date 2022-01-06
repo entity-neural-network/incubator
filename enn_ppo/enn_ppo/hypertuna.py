@@ -1,6 +1,8 @@
 from collections import defaultdict
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Optional, Tuple
+import datetime
+from distutils.util import strtobool
 import argparse
 import optuna
 import xprun  # type: ignore
@@ -143,18 +145,21 @@ class HyperOptimizer:
         self,
         params: List[Tuple[str, float, float]],
         target_metric: str,
+        xp_name: str,
         parallelism: int = 6,
         steps: Optional[int] = None,
         time: Optional[int] = None,
         xps_per_trial: int = 1,
         priority: int = 3,
         extra_args: Optional[List[str]] = None,
+        average_frac: float = 0.5,
+        track: bool = False,
     ):
         self.xprun = xprun.Client()
         self.wandb = wandb.Api()
         self.trial = 0
         self.time = time
-        self.xp_name = f"optuna-{random.randint(0, 0xffffff):06x}"
+        self.xp_name = xp_name
         xp = xprun.build_xpdef(
             "xprun/train.ron",
             ignore_dirty=False,
@@ -177,6 +182,8 @@ class HyperOptimizer:
         self.best_config: Optional[str] = None
         self.priority = priority
         self.target_metric = target_metric
+        self.average_frac = average_frac
+        self.track = track
 
         self.params = params
         self.steps = steps
@@ -191,7 +198,7 @@ class HyperOptimizer:
             xp.containers[0].command.append(f"--max-train-time={self.time}")
         return xp
 
-    def sample_xp(self, trial: optuna.trial.Trial) -> Any:
+    def sample_xp(self, trial: optuna.trial.Trial) -> Tuple[Any, Dict[str, float]]:
         xp = self.base_xp_config(self.trial)
         args: Dict[str, float] = {}
         for path, center, range in self.params:
@@ -199,7 +206,7 @@ class HyperOptimizer:
             args[path] = value
             xp.containers[0].command.append(f"--{arg}")
         self.trial += 1
-        return xp
+        return xp, args
 
     def run(self, n_trials: int) -> None:
         default_params = {}
@@ -218,7 +225,7 @@ class HyperOptimizer:
                 while self.running_xps >= self.parallelism or self.outstanding_xps > 0:
                     self.cvar.wait()
             trial = self.study.ask()
-            xp = self.sample_xp(trial)
+            xp, args = self.sample_xp(trial)
             self.outstanding_xps += self.xps_per_trial
             thread = threading.Thread(
                 target=self.run_trial,
@@ -226,6 +233,7 @@ class HyperOptimizer:
                     xp,
                     trial,
                     trial_id,
+                    args,
                 ),
             )
             thread.start()
@@ -235,7 +243,13 @@ class HyperOptimizer:
         print(f"Best result: {self.best_result}")
         print(f"Best config: {self.best_config}")
 
-    def run_trial(self, xp: Any, trial: optuna.trial.Trial, trial_id: int) -> None:
+    def run_trial(
+        self,
+        xp: Any,
+        trial: optuna.trial.Trial,
+        trial_id: int,
+        args: Dict[str, float],
+    ) -> None:
         threads = []
         for i in range(self.xps_per_trial):
             with self.lock:
@@ -263,6 +277,12 @@ class HyperOptimizer:
         with self.lock:
             self.study.tell(trial, result)
             print(f"Trial {trial_id}: {result}")
+            if self.track:
+                args[self.target_metric] = result
+                wandb.log(
+                    args,
+                    step=trial_id,
+                )
             if self.best_result is None or result > self.best_result:
                 self.best_result = result
                 command = xp.containers[0].command
@@ -301,7 +321,8 @@ class HyperOptimizer:
         if len(returns) == 0:
             result = -1
         else:
-            result = np.array(returns[len(returns) // 2 :]).mean()
+            datapoints = max(1, int(len(returns) * self.average_frac))
+            result = np.array(returns[-datapoints:]).mean()
         with self.lock:
             self.running_xps -= 1
             self.trial_results[trial].append(result)
@@ -317,9 +338,33 @@ if __name__ == "__main__":
     parser.add_argument("--time", type=int)  # max training time in seconds
     parser.add_argument("--xps_per_trial", type=int, default=5)
     parser.add_argument("--priority", type=int, default=3)
+    parser.add_argument("--run-name", type=str, default=None)
+    parser.add_argument(
+        "--track",
+        type=lambda x: bool(strtobool(x)),
+        default=False,
+        nargs="?",
+        const=True,
+        help="if toggled, this experiment will be tracked with Weights and Biases",
+    )
+    parser.add_argument(
+        "--average-frac", type=float, default=0.2
+    )  # Datapoints from the last average-frac% steps are used to compute final metric
     parser.add_argument("--target-metric", type=str, default="charts/episodic_return")
     parser.add_argument("nargs", nargs="*")
     args = parser.parse_args()
+
+    run_name = args.run_name or f"optuna-{random.randint(0, 0xffffff):06x}"
+
+    if args.track:
+        wandb.init(
+            project="enn-ppo-hypertuna",
+            entity="entity-neural-network",
+            config=vars(args),
+            name=args.run_name,
+            save_code=True,
+        )
+
     params = []
     for param in args.params:
         path, r = param.split("=")
@@ -328,12 +373,14 @@ if __name__ == "__main__":
     HyperOptimizer(
         params,
         args.target_metric,
+        run_name,
         args.parallelism,
         int(args.steps) if args.steps is not None else None,
         args.time,
         xps_per_trial=args.xps_per_trial,
         priority=args.priority,
         extra_args=args.nargs,
+        track=args.track,
     ).run(args.n_trials)
 
 """
