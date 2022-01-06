@@ -149,6 +149,7 @@ class HyperOptimizer:
         xps_per_trial: int = 1,
         priority: int = 3,
         extra_args: Optional[List[str]] = None,
+        average_frac: float = 0.5,
     ):
         self.xprun = xprun.Client()
         self.wandb = wandb.Api()
@@ -177,6 +178,7 @@ class HyperOptimizer:
         self.best_config: Optional[str] = None
         self.priority = priority
         self.target_metric = target_metric
+        self.average_frac = average_frac
 
         self.params = params
         self.steps = steps
@@ -301,7 +303,10 @@ class HyperOptimizer:
         if len(returns) == 0:
             result = -1
         else:
-            result = np.array(returns[len(returns) // 2 :]).mean()
+            datapoints = max(1, int(len(returns) * self.average_frac))
+            result = np.array(
+                returns[-datapoints:]
+            ).mean()
         with self.lock:
             self.running_xps -= 1
             self.trial_results[trial].append(result)
@@ -317,6 +322,9 @@ if __name__ == "__main__":
     parser.add_argument("--time", type=int)  # max training time in seconds
     parser.add_argument("--xps_per_trial", type=int, default=5)
     parser.add_argument("--priority", type=int, default=3)
+    parser.add_argument(
+        "--average-frac", type=int, default=50
+    )  # Datapoints from the last average-frac% steps are used to compute final metric
     parser.add_argument("--target-metric", type=str, default="charts/episodic_return")
     parser.add_argument("nargs", nargs="*")
     args = parser.parse_args()
