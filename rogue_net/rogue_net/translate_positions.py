@@ -2,7 +2,6 @@ from dataclasses import dataclass
 from typing import Dict, List, Mapping
 from entity_gym.environment import ObsSpace
 from ragged_buffer import RaggedBufferF32
-import torch
 
 
 class TranslatePositions:

@@ -8,6 +8,10 @@ from entity_gym.environment import (
 from enn_ppo.simple_trace import Tracer
 import numpy as np
 import ragged_buffer
+from rogue_net.relpos_encoding import (
+    RelposEncoding,
+    RelposEncodingConfig,
+)
 from rogue_net.ragged_tensor import RaggedTensor
 from rogue_net.translate_positions import TranslatePositions
 import torch
@@ -42,6 +46,7 @@ class Actor(nn.Module):
         action_heads: nn.ModuleDict,
         auxiliary_heads: Optional[nn.ModuleDict] = None,
         feature_transforms: Optional[TranslatePositions] = None,
+        relpos_encoding: Optional[RelposEncoding] = None,
     ):
         super(Actor, self).__init__()
 
@@ -53,6 +58,7 @@ class Actor(nn.Module):
         self.action_heads = action_heads
         self.auxiliary_heads = auxiliary_heads
         self.feature_transforms = feature_transforms
+        self.relpos_encoding = True
 
     def device(self) -> torch.device:
         return next(self.parameters()).device
@@ -63,21 +69,28 @@ class Actor(nn.Module):
         entity_embeds = []
         index_offsets = {}
         index_offset = 0
+        entity_type = []
 
         if self.feature_transforms:
             entities = {name: feats.clone() for name, feats in entities.items()}
             self.feature_transforms.apply(entities)
         tentities = {
-            name: torch.tensor(feats.as_array()).to(self.device())
-            for name, feats in entities.items()
+            entity: torch.tensor(features.as_array()).to(self.device())
+            for entity, features in entities.items()
         }
-        for entity, embedding in self.embedding.items():
+
+        for i, (entity, embedding) in enumerate(self.embedding.items()):
             # We may have environment states that do not contain every possible entity
-            if entity in tentities:
+            if entity in entities:
                 batch = tentities[entity]
-                entity_embeds.append(embedding(batch))
+                emb = embedding(batch)
+                entity_embeds.append(emb)
+                entity_type.append(
+                    torch.full((emb.size(0), 1), float(i)).to(self.device())
+                )
                 index_offsets[entity] = index_offset
                 index_offset += batch.size(0)
+
         x = torch.cat(entity_embeds)
         with tracer.span("ragged_metadata"):
             lengths = sum([entity.size1() for entity in entities.values()])
@@ -96,10 +109,13 @@ class Actor(nn.Module):
             tlengths = torch.tensor(lengths).to(self.device())
 
         x = x[tindex_map]
+        entity_types = torch.cat(entity_type)[tindex_map]
         tbatch_index = tbatch_index[tindex_map]
 
         with tracer.span("backbone"):
-            x = self.backbone(x, tbatch_index, index_map)
+            x = self.backbone(
+                x, tbatch_index, index_map, tentities, tindex_map, entity_types
+            )
 
         return RaggedTensor(
             x,
@@ -185,11 +201,13 @@ class AutoActor(Actor):
         obs_space: ObsSpace,
         action_space: Dict[str, ActionSpace],
         d_model: int,
+        n_head: int,
         d_qk: int = 16,
         auxiliary_heads: Optional[nn.ModuleDict] = None,
         n_layer: int = 1,
         pooling_op: Optional[str] = None,
         feature_transforms: Optional[TranslatePositions] = None,
+        relpos_encoding: Optional[RelposEncodingConfig] = None,
     ):
         assert pooling_op in (None, "mean", "max", "meanmax")
         self.d_model = d_model
@@ -200,11 +218,16 @@ class AutoActor(Actor):
             Transformer(
                 TransformerConfig(
                     d_model=d_model,
+                    n_head=n_head,
                     n_layer=n_layer,
                     pooling=pooling_op,  # type: ignore
+                    relpos_encoding=relpos_encoding,
                 )
             ),
             head_creator.create_action_heads(action_space, d_model, d_qk),
             auxiliary_heads=auxiliary_heads,
             feature_transforms=feature_transforms,
+            relpos_encoding=RelposEncoding(relpos_encoding)
+            if relpos_encoding
+            else None,
         )
