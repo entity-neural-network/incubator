@@ -26,7 +26,7 @@ class TranslatePositions:
         ]
         self.reference_entity = reference_entity
 
-    def apply(self, entities: Mapping[str, RaggedBufferF32]) -> None:
+    def apply(self, entities: Dict[str, RaggedBufferF32]) -> None:
         if self.reference_entity not in entities:
             return
         reference_entity = entities[self.reference_entity]

@@ -65,6 +65,7 @@ class Actor(nn.Module):
         index_offset = 0
 
         if self.feature_transforms:
+            entities = {name: feats.clone() for name, feats in entities.items()}
             self.feature_transforms.apply(entities)
         tentities = {
             name: torch.tensor(feats.as_array()).to(self.device())
