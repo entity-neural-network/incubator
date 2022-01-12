@@ -6,17 +6,18 @@ from contextlib import contextmanager
 
 
 class Tracer:
-    def __init__(self) -> None:
+    def __init__(self, cuda: bool = torch.cuda.is_available()) -> None:
         self.start_time: List[float] = []
         self.callstack: List[str] = []
         self.total_time: DefaultDict[str, float] = defaultdict(float)
+        self.cuda = cuda
 
     def start(self, name: str) -> None:
         self.callstack.append(name)
         self.start_time.append(time.time())
 
     def end(self, name: str) -> None:
-        if torch.cuda.is_available():
+        if self.cuda:
             torch.cuda.synchronize()
         self.total_time[self.stack] += time.time() - self.start_time.pop()
         actual_name = self.callstack.pop()

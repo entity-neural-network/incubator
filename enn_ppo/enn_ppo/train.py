@@ -269,15 +269,15 @@ def train(args: argparse.Namespace) -> float:
         % ("\n".join([f"|{key}|{value}|" for key, value in vars(args).items()])),
     )
 
-    tracer = Tracer()
-
     # TRY NOT TO MODIFY: seeding
     random.seed(args.seed)
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
     torch.backends.cudnn.deterministic = args.torch_deterministic
 
-    device = torch.device("cuda" if torch.cuda.is_available() and args.cuda else "cpu")
+    cuda = torch.cuda.is_available() and args.cuda
+    device = torch.device("cuda" if cuda else "cpu")
+    tracer = Tracer(cuda=cuda)
 
     if args.gym_id in ENV_REGISTRY:
         env_cls = ENV_REGISTRY[args.gym_id]

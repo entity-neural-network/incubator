@@ -118,3 +118,33 @@ def test_cherry_pick() -> None:
     )
     meanrew = train.train(args)
     print(f"Final mean reward: {meanrew}")
+
+
+def test_relpos_encoding() -> None:
+    # poetry run python enn_ppo/enn_ppo/train.py --gym-id=FloorIsLava --total-timesteps=5000 --num-envs=64 --processes=1 --d-model=16 --n-layer=2 --num-steps=2 --num-minibatches=4 --ent-coef=0.3 --anneal-entropy --cuda=False --relpos-encoding='{"extent": [1, 1], "position_features": ["x", "y"]}' --learning-rate=0.01
+    args = train.parse_args(
+        [
+            "--gym-id=FloorIsLava",
+            "--total-timesteps=5000",
+            "--num-envs=64",
+            "--processes=1",
+            "--d-model=16",
+            "--n-layer=2",
+            "--num-steps=2",
+            "--num-minibatches=4",
+            "--ent-coef=0.3",
+            "--anneal-entropy",
+            "--cuda=False",
+            "--learning-rate=0.01",
+            '--relpos-encoding={"extent": [1, 1], "position_features": ["x", "y"], "per_entity_values": true}',
+        ]
+    )
+
+    meanrew = train.train(args)
+    print(f"Final mean reward: {meanrew}")
+    assert meanrew >= 0.99
+
+    args.relpos_encoding = None
+    meanrew = train.train(args)
+    print(f"Final mean reward: {meanrew}")
+    assert meanrew < 0.2
