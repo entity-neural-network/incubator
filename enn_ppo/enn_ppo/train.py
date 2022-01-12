@@ -115,6 +115,8 @@ def parse_args(override_args: Optional[List[str]] = None) -> argparse.Namespace:
         help='the lambda for the general advantage estimation')
     parser.add_argument('--num-minibatches', type=int, default=4,
         help='the number of mini-batches')
+    parser.add_argument('--microbatch-size', type=int, default=None,
+        help='if set, use gradient accumulation to split up batches into smaller microbatches')
     parser.add_argument('--update-epochs', type=int, default=4,
         help="the K epochs to update the policy")
     parser.add_argument('--norm-adv', type=lambda x:bool(strtobool(x)), default=True, nargs='?', const=True,
@@ -521,136 +523,148 @@ def train(args: argparse.Namespace) -> float:
             np.random.shuffle(b_inds)
             for start in range(0, args.batch_size, args.minibatch_size):
                 end = start + args.minibatch_size
-                mb_inds = b_inds[start:end]
-
-                b_entities = entities[mb_inds]
-                b_action_masks = action_masks[mb_inds]
-                b_logprobs = logprobs[mb_inds]
-                b_actions = actions[mb_inds]
-
-                with tracer.span("forward"):
-                    _, newlogprob, entropy, _, aux = agent.get_action_and_auxiliary(
-                        b_entities,
-                        b_action_masks,
-                        prev_actions=b_actions,
-                        tracer=tracer,
-                    )
-                    newvalue = aux["value"]
-
-                with tracer.span("ratio"):
-                    logratio = {
-                        k: newlogprob[k]
-                        - torch.tensor(b_logprobs[k].as_array()).to(device)
-                        for k in newlogprob.keys()
-                    }
-                    ratio = {k: l.exp() for k, l in logratio.items()}
-
-                with torch.no_grad(), tracer.span("kl"):
-                    # calculate approx_kl http://joschu.net/blog/kl-approx.html
-                    # old_approx_kl = (-logratio).mean()
-                    # TODO: mean across everything rather than nested mean? or do summation over different actions?
-                    approx_kl = torch.tensor(
-                        [
-                            ((_ratio - 1) - _logratio).mean()
-                            for (_ratio, _logratio) in zip(
-                                ratio.values(), logratio.values()
-                            )
-                        ]
-                    ).mean()
-                    clipfracs += [
-                        torch.tensor(
-                            [
-                                ((_ratio - 1.0).abs() > args.clip_coef)
-                                .float()
-                                .mean()
-                                .item()
-                                for _ratio in ratio.values()
-                            ]
-                        ).mean()
-                    ]
-
-                mb_advantages = b_advantages[mb_inds]
-                if args.norm_adv:
-                    assert (
-                        len(mb_advantages) > 1
-                    ), "Can't normalize advantages with minibatch size 1"
-                    mb_advantages = (mb_advantages - mb_advantages.mean()) / (
-                        mb_advantages.std() + 1e-8
-                    )
-
-                # TODO: we can elide the index op and get better performance when there is exactly one actor per action
-                # TODO: we can reuse the mb_advantages across all actions that have the same number of actors
-                # TODO: what's the correct way of combining loss from multiple actions/actors on the same timestep? should we split the advantages across actions/actors?
-                with tracer.span("broadcast_advantages"):
-                    # Brodcast the advantage value from each timestep to all actors/actions on that timestep
-                    bc_mb_advantages = {
-                        action_name: mb_advantages[
-                            torch.tensor(
-                                _b_logprobs.indices(dim=0).as_array().flatten()
-                            ).to(device),
-                        ]
-                        for action_name, _b_logprobs in b_logprobs.items()
-                    }
-
-                # Policy loss
-                with tracer.span("policy_loss"):
-                    pg_loss1 = torch.cat(
-                        [
-                            -_advantages * _ratio.flatten()
-                            for _advantages, _ratio in zip(
-                                bc_mb_advantages.values(), ratio.values()
-                            )
-                        ]
-                    )
-                    pg_loss2 = torch.cat(
-                        [
-                            -_advantages
-                            * torch.clamp(
-                                _ratio.flatten(), 1 - args.clip_coef, 1 + args.clip_coef
-                            )
-                            for _advantages, _ratio in zip(
-                                bc_mb_advantages.values(), ratio.values()
-                            )
-                        ]
-                    )
-                    pg_loss = torch.max(pg_loss1, pg_loss2).mean()
-
-                # Value loss
-                with tracer.span("value_loss"):
-                    newvalue = newvalue.view(-1)
-                    if args.clip_vloss:
-                        v_loss_unclipped = (newvalue - b_returns[mb_inds]) ** 2
-                        v_clipped = b_values[mb_inds] + torch.clamp(
-                            newvalue - b_values[mb_inds],
-                            -args.clip_coef,
-                            args.clip_coef,
-                        )
-                        v_loss_clipped = (v_clipped - b_returns[mb_inds]) ** 2
-                        v_loss_max = torch.max(v_loss_unclipped, v_loss_clipped)
-                        v_loss = 0.5 * v_loss_max.mean()
-                    else:
-                        v_loss = 0.5 * ((newvalue - b_returns[mb_inds]) ** 2).mean()
-
-                # TODO: what's correct way of combining entropy loss from multiple actions/actors on the same timestep?
-                if args.anneal_entropy:
-                    frac = 1.0 - (update - 1.0) / num_updates
-                    if args.max_train_time is not None:
-                        frac = min(
-                            frac,
-                            max(
-                                0,
-                                1.0 - (time.time() - start_time) / args.max_train_time,
-                            ),
-                        )
-                    ent_coef = frac * args.ent_coef
-                else:
-                    ent_coef = args.ent_coef
-                entropy_loss = torch.cat([e for e in entropy.values()]).mean()
-                loss = pg_loss - ent_coef * entropy_loss + v_loss * args.vf_coef
+                microbatch_size = (
+                    args.microbatch_size
+                    if args.microbatch_size is not None
+                    else args.minibatch_size
+                )
 
                 optimizer.zero_grad()
-                with tracer.span("backward"):
-                    loss.backward()
+                for _start in range(start, end, microbatch_size):
+                    _end = _start + microbatch_size
+                    mb_inds = b_inds[_start:_end]
+
+                    b_entities = entities[mb_inds]
+                    b_action_masks = action_masks[mb_inds]
+                    b_logprobs = logprobs[mb_inds]
+                    b_actions = actions[mb_inds]
+
+                    with tracer.span("forward"):
+                        _, newlogprob, entropy, _, aux = agent.get_action_and_auxiliary(
+                            b_entities,
+                            b_action_masks,
+                            prev_actions=b_actions,
+                            tracer=tracer,
+                        )
+                        newvalue = aux["value"]
+
+                    with tracer.span("ratio"):
+                        logratio = {
+                            k: newlogprob[k]
+                            - torch.tensor(b_logprobs[k].as_array()).to(device)
+                            for k in newlogprob.keys()
+                        }
+                        ratio = {k: l.exp() for k, l in logratio.items()}
+
+                    with torch.no_grad(), tracer.span("kl"):
+                        # calculate approx_kl http://joschu.net/blog/kl-approx.html
+                        # old_approx_kl = (-logratio).mean()
+                        # TODO: mean across everything rather than nested mean? or do summation over different actions?
+                        approx_kl = torch.tensor(
+                            [
+                                ((_ratio - 1) - _logratio).mean()
+                                for (_ratio, _logratio) in zip(
+                                    ratio.values(), logratio.values()
+                                )
+                            ]
+                        ).mean()
+                        clipfracs += [
+                            torch.tensor(
+                                [
+                                    ((_ratio - 1.0).abs() > args.clip_coef)
+                                    .float()
+                                    .mean()
+                                    .item()
+                                    for _ratio in ratio.values()
+                                ]
+                            ).mean()
+                        ]
+
+                    mb_advantages = b_advantages[mb_inds]
+                    if args.norm_adv:
+                        assert (
+                            len(mb_advantages) > 1
+                        ), "Can't normalize advantages with minibatch size 1"
+                        mb_advantages = (mb_advantages - mb_advantages.mean()) / (
+                            mb_advantages.std() + 1e-8
+                        )
+
+                    # TODO: we can elide the index op and get better performance when there is exactly one actor per action
+                    # TODO: we can reuse the mb_advantages across all actions that have the same number of actors
+                    # TODO: what's the correct way of combining loss from multiple actions/actors on the same timestep? should we split the advantages across actions/actors?
+                    with tracer.span("broadcast_advantages"):
+                        # Brodcast the advantage value from each timestep to all actors/actions on that timestep
+                        bc_mb_advantages = {
+                            action_name: mb_advantages[
+                                torch.tensor(
+                                    _b_logprobs.indices(dim=0).as_array().flatten()
+                                ).to(device),
+                            ]
+                            for action_name, _b_logprobs in b_logprobs.items()
+                        }
+
+                    # Policy loss
+                    with tracer.span("policy_loss"):
+                        pg_loss1 = torch.cat(
+                            [
+                                -_advantages * _ratio.flatten()
+                                for _advantages, _ratio in zip(
+                                    bc_mb_advantages.values(), ratio.values()
+                                )
+                            ]
+                        )
+                        pg_loss2 = torch.cat(
+                            [
+                                -_advantages
+                                * torch.clamp(
+                                    _ratio.flatten(),
+                                    1 - args.clip_coef,
+                                    1 + args.clip_coef,
+                                )
+                                for _advantages, _ratio in zip(
+                                    bc_mb_advantages.values(), ratio.values()
+                                )
+                            ]
+                        )
+                        pg_loss = torch.max(pg_loss1, pg_loss2).mean()
+
+                    # Value loss
+                    with tracer.span("value_loss"):
+                        newvalue = newvalue.view(-1)
+                        if args.clip_vloss:
+                            v_loss_unclipped = (newvalue - b_returns[mb_inds]) ** 2
+                            v_clipped = b_values[mb_inds] + torch.clamp(
+                                newvalue - b_values[mb_inds],
+                                -args.clip_coef,
+                                args.clip_coef,
+                            )
+                            v_loss_clipped = (v_clipped - b_returns[mb_inds]) ** 2
+                            v_loss_max = torch.max(v_loss_unclipped, v_loss_clipped)
+                            v_loss = 0.5 * v_loss_max.mean()
+                        else:
+                            v_loss = 0.5 * ((newvalue - b_returns[mb_inds]) ** 2).mean()
+
+                    # TODO: what's correct way of combining entropy loss from multiple actions/actors on the same timestep?
+                    if args.anneal_entropy:
+                        frac = 1.0 - (update - 1.0) / num_updates
+                        if args.max_train_time is not None:
+                            frac = min(
+                                frac,
+                                max(
+                                    0,
+                                    1.0
+                                    - (time.time() - start_time) / args.max_train_time,
+                                ),
+                            )
+                        ent_coef = frac * args.ent_coef
+                    else:
+                        ent_coef = args.ent_coef
+                    entropy_loss = torch.cat([e for e in entropy.values()]).mean()
+                    loss = pg_loss - ent_coef * entropy_loss + v_loss * args.vf_coef
+                    loss *= microbatch_size / args.minibatch_size
+
+                    with tracer.span("backward"):
+                        loss.backward()
                 gradnorm = nn.utils.clip_grad_norm_(
                     agent.parameters(), args.max_grad_norm
                 )
