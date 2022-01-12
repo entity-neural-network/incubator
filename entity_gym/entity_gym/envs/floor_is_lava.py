@@ -57,12 +57,15 @@ class FloorIsLava(Environment):
         x = random.randint(-width, width)
         y = random.randint(-width, width)
         self.player = Player(x, y)
-        self.lava = random.sample([
-            Lava(x + i, y + j)
-            for i in range(-1, 2)
-            for j in range(-1, 2)
-            if not (i == 0 and j == 0)
-        ], random.randint(1, 8))
+        self.lava = random.sample(
+            [
+                Lava(x + i, y + j)
+                for i in range(-1, 2)
+                for j in range(-1, 2)
+                if not (i == 0 and j == 0)
+            ],
+            random.randint(1, 8),
+        )
         safe = random.randint(0, len(self.lava) - 1)
         self.high_ground = HighGround(self.lava[safe].x, self.lava[safe].y)
         self.lava.pop(safe)
