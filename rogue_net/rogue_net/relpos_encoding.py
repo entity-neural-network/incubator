@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Dict, List, Mapping, Optional, Tuple
+from typing import Dict, List, Mapping, Optional, Tuple, overload
 import torch.nn as nn
 import torch
 from ragged_buffer import RaggedBufferI64
@@ -26,17 +26,17 @@ class RelposEncoding(nn.Module):
     ) -> None:
         super().__init__()
         self.d_head = config.d_head
-        self.position_extent = config.extent
         self.positional_features = config.position_features
         self.n_entity = len(config.obs_space.entities)
         self.per_entity_values = config.per_entity_values
         strides = []
         positions = 1
-        for extent in self.position_extent:
+        for extent in config.extent:
             strides.append(float(positions))
             positions *= 2 * extent + 1
         self.positions = positions
-        self.strides = torch.tensor(strides).unsqueeze(0)
+        self.register_buffer("strides", torch.tensor(strides).unsqueeze(0))
+        self.register_buffer("extent", torch.tensor(config.extent).view(1, 1, 1, -1))
         # TODO: tune embedding init scale
         self.keys = nn.Embedding(self.positions, self.d_head)
         self.values = nn.Embedding(
@@ -88,15 +88,15 @@ class RelposEncoding(nn.Module):
         # Batch x Seq x Seq x Pos relative positions
         relative_positions = tpos.unsqueeze(1) - tpos.unsqueeze(2)
 
-        # TODO: different position extents on each dimension
-        clamped_positions = relative_positions.clamp(
-            min=-self.position_extent[0], max=self.position_extent[0]
+        clamped_positions = torch.max(
+            torch.min(
+                self.extent,  # type: ignore
+                relative_positions,
+            ),
+            -self.extent,  # type: ignore
         )
-        positive_positions = clamped_positions + self.position_extent[0]
-        # TODO: only send to device once
-        indices = (
-            (positive_positions * self.strides.to(index_map.device)).sum(dim=-1).long()
-        )
+        positive_positions = clamped_positions + self.extent
+        indices = (positive_positions * self.strides).sum(dim=-1).long()
 
         # Batch x Seq x Seq x d_model
         keys = self.keys(indices)
