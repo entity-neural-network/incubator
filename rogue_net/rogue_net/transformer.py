@@ -239,7 +239,9 @@ class Transformer(nn.Module):
                 tpadpack_index = None
             else:
                 tpadpack_index = torch.LongTensor(padpack[0]).to(device)
-            relkeysvals = self.relpos_encoding.keys_values(
+            relkeysvals: Optional[
+                Tuple[torch.Tensor, torch.Tensor]
+            ] = self.relpos_encoding.keys_values(
                 input_feats,
                 index_map,
                 tpadpack_index,
