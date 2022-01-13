@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass
-from typing import Literal, Optional, Union
+from typing import Dict, Literal, Mapping, Optional, Tuple, Union
 import math
 from numpy import dtype
 from ragged_buffer import RaggedBufferI64
@@ -10,6 +10,7 @@ import torch_scatter
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
+from rogue_net.relpos_encoding import RelposEncoding, RelposEncodingConfig
 
 logger = logging.getLogger(__name__)
 
@@ -20,9 +21,10 @@ class TransformerConfig:
     resid_pdrop: float = 0.0
     attn_pdrop: float = 0.0
     n_layer: int = 1
-    n_head: int = 1
+    n_head: int = 2
     d_model: int = 64
     pooling: Optional[Literal["mean", "max", "meanmax"]] = None
+    relpos_encoding: Optional[RelposEncodingConfig] = None
 
 
 class Pool(nn.Module):
@@ -87,12 +89,17 @@ class RaggedAttention(nn.Module):
         self.n_head = config.n_head
 
     def forward(
-        self, x: torch.Tensor, batch_index: torch.Tensor, shape: RaggedBufferI64
+        self,
+        x: torch.Tensor,
+        batch_index: torch.Tensor,
+        shape: RaggedBufferI64,
+        relkeysvals: Optional[Tuple[torch.Tensor, torch.Tensor, torch.Tensor]] = None,
     ) -> torch.Tensor:
         # For more details on the implementation, see: https://github.com/entity-neural-network/incubator/pull/119
         device = x.device
         padpack = shape.padpack()
 
+        # TODO: only compute indices once
         if padpack is None:
             x = x.reshape(shape.size0(), shape.size1(0), -1)
             attn_mask = None
@@ -123,11 +130,29 @@ class RaggedAttention(nn.Module):
 
         # full self-attention; Self-attend: (B, nh, T, hs) x (B, nh, hs, T) -> (B, nh, T, T)
         att = (q @ k.transpose(-2, -1)) * (1.0 / math.sqrt(k.size(-1)))
+
+        # Relative positional encoding (keys)
+        if relkeysvals is not None:
+            relkeys = relkeysvals[0]  #       (B, T, T, hs)
+            # Broadcast and sum over last dimension (dot product of queries with relative keys)
+            # TODO: check
+            relatt = torch.einsum("bhsd,bstd->bhst", q, relkeys) * (
+                1.0 / math.sqrt(k.size(-1))
+            )  # (B, nh, T, T)
+            att += relatt
+
         if attn_mask is not None:
             att = att.masked_fill(attn_mask, -1e9)
         att = F.softmax(att, dim=-1)
         att = self.attn_drop(att)
         y = att @ v  # (B, nh, T, T) x (B, nh, T, hs) -> (B, nh, T, hs)
+
+        # Relative positional encoding (values)
+        if relkeysvals is not None:
+            relvals = relkeysvals[1]  #       (B, T_query, T_target, hs)
+            rely = torch.einsum("bhst,bstd->bhsd", att, relvals)  # (B, nh, T, T)
+            y += rely
+
         y = (
             y.transpose(1, 2).contiguous().view(B, T, C)
         )  # re-assemble all head outputs side by side
@@ -157,9 +182,13 @@ class Block(nn.Module):
         )
 
     def forward(
-        self, x: torch.Tensor, batch_index: torch.Tensor, shape: RaggedBufferI64
+        self,
+        x: torch.Tensor,
+        batch_index: torch.Tensor,
+        shape: RaggedBufferI64,
+        relkeysvals: Optional[Tuple[torch.Tensor, torch.Tensor, torch.Tensor]] = None,
     ) -> torch.Tensor:
-        x = x + self.attn(self.ln1(x), batch_index, shape)
+        x = x + self.attn(self.ln1(x), batch_index, shape, relkeysvals)
         x = x + self.mlp(self.ln2(x))
         return x
 
@@ -170,6 +199,12 @@ class Transformer(nn.Module):
 
         self.drop = nn.Dropout(config.embd_pdrop)
         self.blocks = nn.Sequential(*[Block(config) for _ in range(config.n_layer)])
+        if config.relpos_encoding is not None:
+            self.relpos_encoding: Optional[RelposEncoding] = RelposEncoding(
+                config.relpos_encoding
+            )
+        else:
+            self.relpos_encoding = None
 
         self.apply(self._init_weights)
 
@@ -187,9 +222,35 @@ class Transformer(nn.Module):
             module.weight.data.fill_(1.0)
 
     def forward(
-        self, x: torch.Tensor, batch_index: torch.Tensor, shape: RaggedBufferI64
+        self,
+        x: torch.Tensor,
+        batch_index: torch.Tensor,
+        shape: RaggedBufferI64,
+        input_feats: Mapping[str, torch.Tensor],
+        index_map: torch.Tensor,
+        entity_type: torch.Tensor,
     ) -> torch.Tensor:
         x = self.drop(x)
+
+        if self.relpos_encoding is not None:
+            device = x.device
+            padpack = shape.padpack()
+            if padpack is None:
+                tpadpack_index = None
+            else:
+                tpadpack_index = torch.LongTensor(padpack[0]).to(device)
+            relkeysvals: Optional[
+                Tuple[torch.Tensor, torch.Tensor]
+            ] = self.relpos_encoding.keys_values(
+                input_feats,
+                index_map,
+                tpadpack_index,
+                shape,
+                entity_type,
+            )
+        else:
+            relkeysvals = None
+
         for block in self.blocks:
-            x = block(x, batch_index, shape)
+            x = block(x, batch_index, shape, relkeysvals)
         return x

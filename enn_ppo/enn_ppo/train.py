@@ -39,6 +39,7 @@ from entity_gym.envs import ENV_REGISTRY
 from enn_zoo.griddly import GRIDDLY_ENVS, create_env
 from enn_ppo.sample_recorder import SampleRecorder
 from enn_ppo.simple_trace import Tracer
+from rogue_net.relpos_encoding import RelposEncodingConfig
 from rogue_net.actor import AutoActor
 from rogue_net import head_creator
 from rogue_net.translate_positions import TranslatePositions
@@ -88,6 +89,8 @@ def parse_args(override_args: Optional[List[str]] = None) -> argparse.Namespace:
     # Network architecture
     parser.add_argument('--d-model', type=int, default=64,
         help='the hidden size of the network layers')
+    parser.add_argument('--n-head', type=int, default=1,
+        help='the number of attention heads')
     parser.add_argument('--d-qk', type=int, default=64,
         help='the size queries and keys in action heads')
     parser.add_argument('--n-layer', type=int, default=1,
@@ -96,7 +99,8 @@ def parse_args(override_args: Optional[List[str]] = None) -> argparse.Namespace:
         help='if set, use pooling op instead of multi-head attention. Options: mean, max, meanmax')
     parser.add_argument('--translate', type=str, default=None,
         help='if set, translate positions to be centered on a given entity. Example: --translate=\'{"reference_entity": "SnakeHead", "position_features": ["x", "y"]}\'')
-
+    parser.add_argument('--relpos-encoding', type=str, default=None,
+        help='configuration for relative positional encoding. Example: --relpos-encoding=\'{"extent": [10, 10], "position_features": ["x", "y"]}\'')
 
     # Algorithm specific arguments
     parser.add_argument('--num-envs', type=int, default=4,
@@ -204,10 +208,12 @@ class PPOActor(AutoActor):
         obs_space: ObsSpace,
         action_space: Dict[str, ActionSpace],
         d_model: int = 64,
+        n_head: int = 1,
         d_qk: int = 16,
         n_layer: int = 1,
         pooling_op: Optional[str] = None,
         feature_transforms: Optional[TranslatePositions] = None,
+        relpos_encoding: Optional[RelposEncodingConfig] = None,
     ):
         auxiliary_heads = nn.ModuleDict(
             {"value": head_creator.create_value_head(d_model)}
@@ -216,11 +222,13 @@ class PPOActor(AutoActor):
             obs_space,
             action_space,
             d_model,
+            n_head,
             d_qk,
             auxiliary_heads,
             n_layer=n_layer,
             pooling_op=pooling_op,
             feature_transforms=feature_transforms,
+            relpos_encoding=relpos_encoding,
         )
 
     def get_value(
@@ -261,15 +269,15 @@ def train(args: argparse.Namespace) -> float:
         % ("\n".join([f"|{key}|{value}|" for key, value in vars(args).items()])),
     )
 
-    tracer = Tracer()
-
     # TRY NOT TO MODIFY: seeding
     random.seed(args.seed)
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
     torch.backends.cudnn.deterministic = args.torch_deterministic
 
-    device = torch.device("cuda" if torch.cuda.is_available() and args.cuda else "cpu")
+    cuda = torch.cuda.is_available() and args.cuda
+    device = torch.device("cuda" if cuda else "cpu")
+    tracer = Tracer(cuda=cuda)
 
     if args.gym_id in ENV_REGISTRY:
         env_cls = ENV_REGISTRY[args.gym_id]
@@ -298,14 +306,24 @@ def train(args: argparse.Namespace) -> float:
         )
     else:
         translate = None
+    if args.relpos_encoding:
+        relpos_encoding: Optional[RelposEncodingConfig] = RelposEncodingConfig(
+            d_head=args.d_model // args.n_head,
+            obs_space=obs_space,
+            **json.loads(args.relpos_encoding),
+        )
+    else:
+        relpos_encoding = None
 
     agent = PPOActor(
         obs_space,
         action_space,
         d_model=args.d_model,
+        n_head=args.n_head,
         n_layer=args.n_layer,
         pooling_op=args.pooling_op,
         feature_transforms=translate,
+        relpos_encoding=relpos_encoding,
     ).to(device)
     optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5)
     if args.track:
@@ -318,7 +336,6 @@ def train(args: argparse.Namespace) -> float:
     episodes = list(range(args.num_envs))
     curr_step = [0] * args.num_envs
     next_episode = args.num_envs
-    last_log_step = 0
 
     # TRY NOT TO MODIFY: start the game
     global_step = 0
