@@ -9,9 +9,9 @@ If you plan to work on an issue, let us know in the issue thread so we can avoid
 ## Dev Setup
 
 ```bash
-poetry install # torch-scatter installation will fail, simply run again
-poetry install # fix torch-scatter installation
-poetry install -E griddly
+poetry install
+poetry run pip install torch==1.10.0+cu113 -f https://download.pytorch.org/whl/cu113/torch_stable.html
+poetry run pip install torch-scatter -f https://data.pyg.org/whl/torch-1.10.0+cu113.html
 ```
 
 Then you can run the scripts under the poetry environment in two ways: `poetry run` or `poetry shell`. 
