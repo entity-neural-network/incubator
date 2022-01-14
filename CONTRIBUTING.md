@@ -2,7 +2,7 @@
 
 👍🎉 Thank you for taking the time to contribute! 🎉👍
 
-To get an overview of some of this projects motivation and goals, you can take a look at [Neural Network Architectures for Structured State](https://docs.google.com/document/d/1Q87zeY7Z4u9cU0oLoH-BPQZDBQd4tHLWiEkj5YDSGw4)
+To get an overview of some of this project's motivation and goals, you can take a look at [Neural Network Architectures for Structured State](https://docs.google.com/document/d/1Q87zeY7Z4u9cU0oLoH-BPQZDBQd4tHLWiEkj5YDSGw4).
 Feel free to open an issue or pull request if you have any questions or suggestions.
 You can also [join our Discord](https://discord.gg/rrwSkmCp) and ask questions there.
 If you plan to work on an issue, let us know in the issue thread so we can avoid duplicate work.
