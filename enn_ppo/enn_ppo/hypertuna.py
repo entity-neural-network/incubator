@@ -460,20 +460,16 @@ if __name__ == "__main__":
     ).run(args.n_trials)
 
 """
-poetry run python enn_ppo/enn_ppo/hypertuna.py --steps=1e9 --time=60 --n_trials=100 --xps_per_trial=3 \
-        --params \
-            learning-rate=0.003:100 \
-            num-envs=256:4 \
-            processes=4:4 \
-            d-model=64:16 \
-#            d-qk=32:8 \
-            n-layer=2:8 \
-            num-steps=16:32 \
-            gamma=0.99:100 \
-            num-minibatches=8:8 \
-            ent-coef=0.01:100 \
-            vf-coef=0.5:4 \
-#            max-grad-norm=0.5:10 \
-         -- --gym-id=CherryPick --track --env-kwargs='{"num_cherries": 32}'
-#        -- --track --gym-id=MultiSnake '--env-kwargs={"num_snakes": 1, "max_snake_length": 6}'
+poetry run python enn_ppo/enn_ppo/hypertuna.py --track --adaptive-trials --steps=1e9 --time=1200 --n_trials=10 --xps_per_trial=15 --priority=3 --target-metric=charts/episodic_return --parallelism=6 --average-frac=0.05 --max-microbatch-size=4096 \
+                                                            --params \
+                                                                num-envs=128:8 \
+                                                                num-steps=32:8 \
+                                                                n-layer=2:2 \
+                                                                n-head=2:2 \
+                                                                learning-rate=0.005:100 \
+                                                                gamma=0.99:10 \
+                                                                minibatch-size=8192:8 \
+                                                                ent-coef=0.05:100 \
+                                                                d-model=32:4 \
+                                                             -- --gym-id=MultiSnake --track --env-kwargs='{"num_snakes": 2, "max_snake_length": 11}' --processes=16 --max-grad-norm=10 --anneal-entropy=True --relpos-encoding='{"extent": [10, 10], "position_features": ["x", "y"]}'
 """
