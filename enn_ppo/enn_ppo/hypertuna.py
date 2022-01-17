@@ -30,7 +30,9 @@ class HyperParam:
     sampling_strategy: SamplingStrategy
     min_value: float = -float("inf")
     max_value: float = float("inf")
-    constraint: Optional[Callable[[Dict[str, float]], Tuple[float, float]]] = None
+    constraint: Optional[
+        Callable[[Dict[str, float]], Tuple[Optional[float], Optional[float]]]
+    ] = None
     transform: Optional[Callable[[Dict[str, float], float], float]] = None
 
     def suggest(
@@ -43,8 +45,8 @@ class HyperParam:
         min_value, max_value = self.min_value, self.max_value
         if self.constraint is not None:
             _min_value, _max_value = self.constraint(other_vals)
-            min_value = max(min_value, _min_value)
-            max_value = min(max_value, _max_value)
+            min_value = max(min_value, _min_value or min_value)
+            max_value = min(max_value, _max_value or max_value)
         if self.sampling_strategy == SamplingStrategy.OMINUS:
             min_value = max((1 - center) / range, min_value)
             max_value = min((1 - center) * range, max_value)
@@ -102,6 +104,11 @@ hyper_params = {
         path="d-model",
         sampling_strategy=SamplingStrategy.POWER_OF_TWO,
     ),
+    "n-head": HyperParam(
+        path="n-head",
+        sampling_strategy=SamplingStrategy.POWER_OF_TWO,
+        constraint=lambda x: (1, x.get("d-model")),
+    ),
     "d-qk": HyperParam(
         path="d-qk",
         sampling_strategy=SamplingStrategy.POWER_OF_TWO,
@@ -154,6 +161,9 @@ class HyperOptimizer:
         extra_args: Optional[List[str]] = None,
         average_frac: float = 0.5,
         track: bool = False,
+        max_microbatch_size: Optional[int] = None,
+        # Only run more than 1 trial if first trial is within variance of best result
+        adaptive_trials: bool = False,
     ):
         self.xprun = xprun.Client()
         self.wandb = wandb.Api()
@@ -179,11 +189,17 @@ class HyperOptimizer:
         self.xps_per_trial = xps_per_trial
         self.trial_results: Dict[int, List[float]] = defaultdict(list)
         self.best_result = None
+        self.best_result_se = None
         self.best_config: Optional[str] = None
         self.priority = priority
         self.target_metric = target_metric
         self.average_frac = average_frac
         self.track = track
+        self.max_microbatch_size = max_microbatch_size
+        self.adaptive_trials = adaptive_trials
+
+        self.last_logged_trial_id = -1
+        self.log_in_future: List[Tuple[int, Dict[str, float]]] = []
 
         self.params = params
         self.steps = steps
@@ -205,19 +221,38 @@ class HyperOptimizer:
             arg, value = hyper_params[path].suggest(trial, center, range, args)
             args[path] = value
             xp.containers[0].command.append(f"--{arg}")
+        if self.max_microbatch_size is not None:
+            if "minibatch-size" in args:
+                # minibatch-size is actually transformed value of num-minibatches
+                minibatch_size = (
+                    args["num-envs"] * args["num-steps"] // args["minibatch-size"]
+                )
+            else:
+                minibatch_size = self.max_microbatch_size
+
+            xp.containers[0].command.append(
+                f"--microbatch-size={min(self.max_microbatch_size, minibatch_size)}"
+            )
         self.trial += 1
         return xp, args
 
     def run(self, n_trials: int) -> None:
-        default_params = {}
+        default_params: Dict[str, float] = {}
+        args: Dict[str, float] = {}
         for name, center, _ in self.params:
             if hyper_params[name].sampling_strategy == SamplingStrategy.POWER_OF_TWO:
                 center = int(math.log2(center))
             elif hyper_params[name].sampling_strategy == SamplingStrategy.OMINUS:
                 center = 1 - center
             oname = hyper_params[name].optuna_name()
+            transform = hyper_params[name].transform
+            if transform is not None:
+                print(args)
+                center = transform(args, center)
             default_params[oname] = center
+            args[name] = center
         self.study.enqueue_trial(default_params)
+
         threads = []
         for trial_id in range(n_trials):
             # Wait until we have a free slot
@@ -226,7 +261,9 @@ class HyperOptimizer:
                     self.cvar.wait()
             trial = self.study.ask()
             xp, args = self.sample_xp(trial)
-            self.outstanding_xps += self.xps_per_trial
+            self.outstanding_xps += (
+                self.xps_per_trial if trial_id == 0 or not self.adaptive_trials else 1
+            )
             thread = threading.Thread(
                 target=self.run_trial,
                 args=(
@@ -251,40 +288,75 @@ class HyperOptimizer:
         args: Dict[str, float],
     ) -> None:
         threads = []
-        for i in range(self.xps_per_trial):
+        max_remaining_xps = self.xps_per_trial
+        next_xps = (
+            1 if self.adaptive_trials and not trial_id == 0 else self.xps_per_trial
+        )
+        xpid = 0
+        while max_remaining_xps > 0:
+            max_remaining_xps -= next_xps
+            for _ in range(next_xps):
+                with self.lock:
+                    while self.running_xps >= self.parallelism:
+                        self.cvar.wait()
+                    self.running_xps += 1
+                    self.outstanding_xps -= 1
+                    _xp = deepcopy(xp)
+                    if self.xps_per_trial > 1:
+                        _xp.containers[0].command.append(f"--trial={trial_id}")
+                        _xp.name = f"{_xp.name}-{xpid}"
+                    thread = threading.Thread(
+                        target=self.run_xp,
+                        args=(
+                            _xp,
+                            trial_id,
+                        ),
+                    )
+                    thread.start()
+                    threads.append(thread)
+                    self.cvar.notify()
+                xpid += 1
+            for thread in threads:
+                thread.join()
             with self.lock:
-                while self.running_xps >= self.parallelism:
-                    self.cvar.wait()
-                self.running_xps += 1
-                self.outstanding_xps -= 1
-                _xp = deepcopy(xp)
-                if self.xps_per_trial > 1:
-                    _xp.containers[0].command.append(f"--trial={trial_id}")
-                    _xp.name = f"{_xp.name}-{i}"
-                thread = threading.Thread(
-                    target=self.run_xp,
-                    args=(
-                        _xp,
-                        trial_id,
-                    ),
+                result = np.array(self.trial_results[trial_id]).mean()
+                result_se = (
+                    np.array(self.trial_results[trial_id]).std()
+                    if len(self.trial_results[trial_id]) > 1
+                    else self.best_result_se
                 )
-                thread.start()
-                threads.append(thread)
-                self.cvar.notify()
-        for thread in threads:
-            thread.join()
-        result = np.array(self.trial_results[trial_id]).mean()
+                if (
+                    self.best_result is not None
+                    and result + result_se + self.best_result_se < self.best_result
+                ):
+                    break
+                elif max_remaining_xps > 0:
+                    next_xps = min(next_xps * 2, max_remaining_xps)
+                    self.outstanding_xps += next_xps
+                    print(
+                        f"{result} + {result_se} + {self.best_result_se} > {self.best_result}, starting {next_xps} more for trial {trial_id}"
+                    )
+
         with self.lock:
             self.study.tell(trial, result)
             print(f"Trial {trial_id}: {result}")
             if self.track:
                 args[self.target_metric] = result
-                wandb.log(
-                    args,
-                    step=trial_id,
-                )
+                self.log_in_future.append((trial_id, args))
+                # Wandb doesn't like step going backwards
+                for _trial_id, _args in sorted(self.log_in_future):
+                    if (
+                        self.last_logged_trial_id is None
+                        or self.last_logged_trial_id + 1 == _trial_id
+                    ):
+                        wandb.log(
+                            _args,
+                            step=_trial_id,
+                        )
+                        self.last_logged_trial_id = _trial_id
             if self.best_result is None or result > self.best_result:
                 self.best_result = result
+                self.best_result_se = result_se
                 command = xp.containers[0].command
                 self.best_config = command
                 print(f"New best config:\n{' '.join(command)}")
@@ -339,6 +411,8 @@ if __name__ == "__main__":
     parser.add_argument("--xps_per_trial", type=int, default=5)
     parser.add_argument("--priority", type=int, default=3)
     parser.add_argument("--run-name", type=str, default=None)
+    parser.add_argument("--max-microbatch-size", type=int, default=None)
+    parser.add_argument("--adaptive-trials", action="store_true")
     parser.add_argument(
         "--track",
         type=lambda x: bool(strtobool(x)),
@@ -381,23 +455,21 @@ if __name__ == "__main__":
         priority=args.priority,
         extra_args=args.nargs,
         track=args.track,
+        max_microbatch_size=args.max_microbatch_size,
+        adaptive_trials=args.adaptive_trials,
     ).run(args.n_trials)
 
 """
-poetry run python enn_ppo/enn_ppo/hypertuna.py --steps=1e9 --time=60 --n_trials=100 --xps_per_trial=3 \
-        --params \
-            learning-rate=0.003:100 \
-            num-envs=256:4 \
-            processes=4:4 \
-            d-model=64:16 \
-#            d-qk=32:8 \
-            n-layer=2:8 \
-            num-steps=16:32 \
-            gamma=0.99:100 \
-            num-minibatches=8:8 \
-            ent-coef=0.01:100 \
-            vf-coef=0.5:4 \
-#            max-grad-norm=0.5:10 \
-         -- --gym-id=CherryPick --track --env-kwargs='{"num_cherries": 32}'
-#        -- --track --gym-id=MultiSnake '--env-kwargs={"num_snakes": 1, "max_snake_length": 6}'
+poetry run python enn_ppo/enn_ppo/hypertuna.py --track --adaptive-trials --steps=1e9 --time=1200 --n_trials=10 --xps_per_trial=15 --priority=3 --target-metric=charts/episodic_return --parallelism=6 --average-frac=0.05 --max-microbatch-size=4096 \
+                                                            --params \
+                                                                num-envs=128:8 \
+                                                                num-steps=32:8 \
+                                                                n-layer=2:2 \
+                                                                n-head=2:2 \
+                                                                learning-rate=0.005:100 \
+                                                                gamma=0.99:10 \
+                                                                minibatch-size=8192:8 \
+                                                                ent-coef=0.05:100 \
+                                                                d-model=32:4 \
+                                                             -- --gym-id=MultiSnake --track --env-kwargs='{"num_snakes": 2, "max_snake_length": 11}' --processes=16 --max-grad-norm=10 --anneal-entropy=True --relpos-encoding='{"extent": [10, 10], "position_features": ["x", "y"]}'
 """

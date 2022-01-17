@@ -44,15 +44,15 @@ XpV0(
                     cd: true,
                 ),
 
-                // First install fails because torch-scatter requires PyTorch to be installed already
-                Run("poetry install --no-interaction --no-root; exit 0"),
-                Run("poetry install --no-interaction"),
-
                 // Build xprun from source
-                Repo(url: "git@github.com:cswinter/xprun.git", rev: "c9d22e2", target_dir: "/root"),
+                Repo(url: "git@github.com:cswinter/xprun.git", rev: "c248812", target_dir: "/root"),
                 Run("poetry run pip install maturin==0.12.6"),
                 Run("poetry run maturin build --cargo-extra-args=--features=python --manifest-path=/root/xprun/Cargo.toml"),
                 Run("poetry run pip install /root/xprun/target/wheels/xprun-0.1.0-cp38-cp38-manylinux_2_31_x86_64.whl"),
+
+                Run("poetry install"),
+                Run("poetry run pip install torch==1.10.0+cu113 -f https://download.pytorch.org/whl/cu113/torch_stable.html"),
+                Run("poetry run pip install torch-scatter -f https://data.pyg.org/whl/torch-1.10.0+cu113.html"),
 
                 Repo(cd: true),
             ],
