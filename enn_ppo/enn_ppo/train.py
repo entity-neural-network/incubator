@@ -13,6 +13,7 @@ from typing import (
     List,
     Mapping,
     Optional,
+    Sequence,
     Type,
     TypeVar,
     Union,
@@ -22,11 +23,13 @@ import json
 import numpy as np
 import numpy.typing as npt
 from entity_gym.environment import (
+    Action,
     ActionMaskBatch,
     ActionSpace,
     CategoricalAction,
     CategoricalActionSpace,
     DenseSelectEntityActionMask,
+    EntityID,
     EnvList,
     VecEnv,
     Environment,
@@ -38,7 +41,7 @@ from entity_gym.environment import (
 )
 from entity_gym.envs import ENV_REGISTRY
 from enn_zoo.griddly import GRIDDLY_ENVS, create_env
-from enn_ppo.sample_recorder import SampleRecorder, Sample
+from entity_gym.sample_recorder import SampleRecorder, Sample, SampleRecordingVecEnv
 from enn_ppo.simple_trace import Tracer
 from rogue_net.relpos_encoding import RelposEncodingConfig
 from rogue_net.actor import AutoActor
@@ -320,12 +323,11 @@ def train(args: argparse.Namespace) -> float:
     obs_space = env_cls.obs_space()
     action_space = env_cls.action_space()
     if args.capture_samples:
-        sample_recorder = SampleRecorder(args.capture_samples, action_space, obs_space)
         if out_dir is None:
             sample_file = args.capture_samples
         else:
             sample_file = os.path.join(out_dir, args.capture_samples)
-        sample_recorder = SampleRecorder(sample_file, action_space, obs_space)
+        envs = SampleRecordingVecEnv(envs, sample_file)
     if args.translate:
         translate: Optional[TranslatePositions] = TranslatePositions(
             obs_space=obs_space, **json.loads(args.translate)
@@ -360,9 +362,6 @@ def train(args: argparse.Namespace) -> float:
     rewards = torch.zeros((args.num_steps, args.num_envs)).to(device)
     dones = torch.zeros((args.num_steps, args.num_envs)).to(device)
     values = torch.zeros((args.num_steps, args.num_envs)).to(device)
-    episodes = list(range(args.num_envs))
-    curr_step = [0] * args.num_envs
-    next_episode = args.num_envs
 
     # TRY NOT TO MODIFY: start the game
     global_step = 0
@@ -427,52 +426,11 @@ def train(args: argparse.Namespace) -> float:
                 values[step] = aux["value"].flatten()
             actions.extend(action)
             logprobs.extend(logprob)
-            if args.capture_samples:
-                with tracer.span("record_samples"):
-                    sample_recorder.record(
-                        Sample(
-                            next_obs,
-                            step=curr_step,
-                            episode=episodes,
-                            actions=action,
-                            probs=logprob,
-                        )
-                    )
 
-            # Join all actions with corresponding `EntityID`s
             with tracer.span("join_actions"):
-                _actions = []
-                for i, ids in enumerate(next_obs.ids):
-                    _action_dict: Dict[
-                        str, Union[CategoricalAction, SelectEntityAction]
-                    ] = {}
-                    for action_name, ragged_action_buffer in action.items():
-                        mask = next_obs.action_masks[action_name]
-                        _acts = ragged_action_buffer[i]
-                        _as = action_space[action_name]
-                        if isinstance(_as, CategoricalActionSpace):
-                            actor_action = [
-                                (ids[actor_idx], _act)
-                                for actor_idx, _act in zip(
-                                    mask.actors[i].as_array().reshape(-1),
-                                    _acts.as_array().reshape(-1),
-                                )
-                            ]
-                            _action_dict[action_name] = CategoricalAction(actor_action)
-                        elif isinstance(_as, SelectEntityActionSpace):
-                            assert isinstance(
-                                mask, SelectEntityActionMaskBatch
-                            ), f"Expected SelectEntityActionMaskBatch, got {type(mask)}"
-                            actees = mask.actees[i].as_array().flatten()
-                            actor_action = [
-                                (ids[actor_idx], ids[actees[actee_idx]])
-                                for actor_idx, actee_idx in zip(
-                                    mask.actors[i].as_array().reshape(-1),
-                                    _acts.as_array().reshape(-1),
-                                )
-                            ]
-                            _action_dict[action_name] = SelectEntityAction(actor_action)
-                    _actions.append(_action_dict)
+                _actions = join_actions(
+                    action, next_obs.action_masks, action_space, next_obs.ids
+                )
 
             # TRY NOT TO MODIFY: execute the game and log data.
             with tracer.span("step"):
@@ -485,15 +443,6 @@ def train(args: argparse.Namespace) -> float:
                 total_episodic_return += eoei.total_reward
                 total_episodic_length += eoei.length
                 total_episodes += 1
-
-            if args.capture_samples:
-                for i, done in enumerate(next_obs.done):
-                    if done:
-                        episodes[i] = next_episode
-                        next_episode += 1
-                        curr_step[i] = 0
-                    else:
-                        curr_step[i] += 1
 
         if total_episodes > 0:
             avg_return = total_episodic_return / total_episodes
@@ -758,13 +707,50 @@ def train(args: argparse.Namespace) -> float:
         for callstack, timing in traces.items():
             writer.add_scalar(f"trace/{callstack}", timing, global_step)
 
-    # envs.close()
-    if args.capture_samples:
-        print("Recorded samples to: ", sample_recorder.path)
-        sample_recorder.close()
+    envs.close()
     writer.close()
 
     return rewards.mean().item()
+
+
+def join_actions(
+    actions: Mapping[str, RaggedBufferI64],
+    masks: Mapping[str, ActionMaskBatch],
+    action_space: Mapping[str, ActionSpace],
+    entity_ids: List[Sequence[EntityID]],
+) -> Sequence[Mapping[str, Action]]:
+    """Join all actions with corresponding `EntityID`s"""
+    _actions = []
+    for i, ids in enumerate(entity_ids):
+        _action_dict: Dict[str, Union[CategoricalAction, SelectEntityAction]] = {}
+        for action_name, ragged_action_buffer in actions.items():
+            mask = masks[action_name]
+            _acts = ragged_action_buffer[i]
+            _as = action_space[action_name]
+            if isinstance(_as, CategoricalActionSpace):
+                actor_action = [
+                    (ids[actor_idx], _act)
+                    for actor_idx, _act in zip(
+                        mask.actors[i].as_array().reshape(-1),
+                        _acts.as_array().reshape(-1),
+                    )
+                ]
+                _action_dict[action_name] = CategoricalAction(actor_action)
+            elif isinstance(_as, SelectEntityActionSpace):
+                assert isinstance(
+                    mask, SelectEntityActionMaskBatch
+                ), f"Expected SelectEntityActionMaskBatch, got {type(mask)}"
+                actees = mask.actees[i].as_array().flatten()
+                actor_action = [
+                    (ids[actor_idx], ids[actees[actee_idx]])
+                    for actor_idx, actee_idx in zip(
+                        mask.actors[i].as_array().reshape(-1),
+                        _acts.as_array().reshape(-1),
+                    )
+                ]
+                _action_dict[action_name] = SelectEntityAction(actor_action)
+        _actions.append(_action_dict)
+    return _actions
 
 
 if __name__ == "__main__":

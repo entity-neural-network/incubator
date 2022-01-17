@@ -1,10 +1,13 @@
-from dataclasses import dataclass, asdict
-from typing import Dict, List, Mapping, Tuple
+from dataclasses import dataclass
+from typing import Dict, List, Mapping, Optional, Sequence, Type
 
 from entity_gym.environment import (
+    Action,
     ActionSpace,
+    Environment,
     ObsBatch,
     ObsSpace,
+    VecEnv,
     ragged_buffer_decode,
     ragged_buffer_encode,
 )
@@ -12,7 +15,6 @@ from ragged_buffer import RaggedBufferF32, RaggedBufferI64
 
 import tqdm
 import numpy as np
-import msgpack
 import msgpack_numpy
 
 
@@ -21,7 +23,7 @@ class Sample:
     obs: ObsBatch
     step: List[int]
     episode: List[int]
-    actions: Dict[str, RaggedBufferI64]
+    actions: Sequence[Mapping[str, Action]]
     probs: Dict[str, RaggedBufferF32]
 
     def serialize(self) -> bytes:
@@ -68,6 +70,62 @@ class SampleRecorder:
 
     def close(self) -> None:
         self.file.close()
+
+
+class SampleRecordingVecEnv(VecEnv):
+    def __init__(self, inner: VecEnv, out_path: str) -> None:
+        self.inner = inner
+        self.out_path = out_path
+        self.sample_recorder = SampleRecorder(
+            out_path, inner.env_cls().action_space(), inner.env_cls().obs_space()
+        )
+        self.last_obs: Optional[ObsBatch] = None
+        self.episodes = list(range(len(inner)))
+        self.curr_step = [0] * len(inner)
+        self.next_episode = len(inner)
+
+    def reset(self, obs_config: ObsSpace) -> ObsBatch:
+        self.curr_step = [0] * len(self)
+        self.last_obs = self.record_obs(self.inner.reset(obs_config))
+        return self.last_obs
+
+    def record_obs(self, obs: ObsBatch) -> ObsBatch:
+        for i, done in enumerate(obs.done):
+            if done:
+                self.episodes[i] = self.next_episode
+                self.next_episode += 1
+                self.curr_step[i] = 0
+            else:
+                self.curr_step[i] += 1
+        self.last_obs = obs
+        return obs
+
+    def act(
+        self, actions: Sequence[Mapping[str, Action]], obs_filter: ObsSpace
+    ) -> ObsBatch:
+        # with tracer.span("record_samples"):
+        assert self.last_obs is not None
+        self.sample_recorder.record(
+            Sample(
+                self.last_obs,
+                step=list(self.curr_step),
+                episode=list(self.episodes),
+                actions=actions,
+                probs={},  # TODO
+            )
+        )
+        return self.record_obs(self.inner.act(actions, obs_filter))
+
+    def env_cls(cls) -> Type[Environment]:
+        return super().env_cls()
+
+    def __len__(self) -> int:
+        return len(self.inner)
+
+    def close(self) -> None:
+        self.sample_recorder.close()
+        print("Recorded samples to: ", self.sample_recorder.path)
+        self.inner.close()
 
 
 @dataclass
