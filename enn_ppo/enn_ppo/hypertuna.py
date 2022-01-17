@@ -288,13 +288,13 @@ class HyperOptimizer:
         args: Dict[str, float],
     ) -> None:
         threads = []
-        outstanding_xps = self.xps_per_trial
+        max_remaining_xps = self.xps_per_trial
         next_xps = (
             1 if self.adaptive_trials and not trial_id == 0 else self.xps_per_trial
         )
         xpid = 0
-        while outstanding_xps > 0:
-            outstanding_xps -= next_xps
+        while max_remaining_xps > 0:
+            max_remaining_xps -= next_xps
             for _ in range(next_xps):
                 with self.lock:
                     while self.running_xps >= self.parallelism:
@@ -330,9 +330,9 @@ class HyperOptimizer:
                     and result + result_se + self.best_result_se < self.best_result
                 ):
                     break
-                elif outstanding_xps > 0:
-                    next_xps = min(next_xps * 2, outstanding_xps)
-                    outstanding_xps -= next_xps
+                elif max_remaining_xps > 0:
+                    next_xps = min(next_xps * 2, max_remaining_xps)
+                    self.outstanding_xps += next_xps
                     print(
                         f"{result} + {result_se} + {self.best_result_se} > {self.best_result}, starting {next_xps} more for trial {trial_id}"
                     )
