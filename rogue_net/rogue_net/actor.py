@@ -139,15 +139,17 @@ class Actor(nn.Module):
         tracer: Tracer,
         prev_actions: Optional[Dict[str, RaggedBufferI64]] = None,
     ) -> Tuple[
-        Dict[str, RaggedBufferI64],
-        Dict[str, torch.Tensor],
-        Dict[str, torch.Tensor],
-        Dict[str, npt.NDArray[np.int64]],
-        Dict[str, torch.Tensor],
+        Dict[str, RaggedBufferI64],  # actions
+        Dict[str, torch.Tensor],  # action probabilities
+        Dict[str, torch.Tensor],  # entropy
+        Dict[str, npt.NDArray[np.int64]],  # number of actors in each frame
+        Dict[str, torch.Tensor],  # auxiliary head values
+        Dict[str, torch.Tensor],  # full logits
     ]:
         actions = {}
         probs: Dict[str, torch.Tensor] = {}
         entropies: Dict[str, torch.Tensor] = {}
+        logits: Dict[str, torch.Tensor] = {}
         with tracer.span("batch_and_embed"):
             x = self.batch_and_embed(entities, tracer)
 
@@ -161,7 +163,7 @@ class Actor(nn.Module):
         )
         actor_counts: Dict[str, np.ndarray] = {}
         for action_name, action_head in self.action_heads.items():
-            action, count, logprob, entropy = action_head(
+            action, count, logprob, entropy, logit = action_head(
                 x,
                 index_offsets,
                 action_masks[action_name],
@@ -171,6 +173,9 @@ class Actor(nn.Module):
             actions[action_name] = action
             probs[action_name] = logprob
             entropies[action_name] = entropy
+            if logit is not None:
+                logits[action_name] = logit
+
         tracer.end("action_heads")
 
         tracer.start("auxiliary_heads")
@@ -192,6 +197,7 @@ class Actor(nn.Module):
             entropies,
             actor_counts,
             auxiliary_values,
+            logits,
         )
 
 

@@ -2,6 +2,7 @@
 import argparse
 from dataclasses import dataclass, field
 import os
+from pathlib import Path
 import random
 import time
 from distutils.util import strtobool
@@ -12,6 +13,7 @@ from typing import (
     List,
     Mapping,
     Optional,
+    Sequence,
     Type,
     TypeVar,
     Union,
@@ -21,11 +23,13 @@ import json
 import numpy as np
 import numpy.typing as npt
 from entity_gym.environment import (
+    Action,
     ActionMaskBatch,
     ActionSpace,
     CategoricalAction,
     CategoricalActionSpace,
     DenseSelectEntityActionMask,
+    EntityID,
     EnvList,
     VecEnv,
     Environment,
@@ -37,7 +41,7 @@ from entity_gym.environment import (
 )
 from entity_gym.envs import ENV_REGISTRY
 from enn_zoo.griddly import GRIDDLY_ENVS, create_env
-from enn_ppo.sample_recorder import SampleRecorder
+from entity_gym.sample_recorder import SampleRecorder, Sample, SampleRecordingVecEnv
 from enn_ppo.simple_trace import Tracer
 from rogue_net.relpos_encoding import RelposEncodingConfig
 from rogue_net.actor import AutoActor
@@ -81,6 +85,8 @@ def parse_args(override_args: Optional[List[str]] = None) -> argparse.Namespace:
         help='weather to capture videos of the agent performances (check out `videos` folder)')
     parser.add_argument('--capture-samples', type=str, default=None,
         help='if set, write the samples to this file')
+    parser.add_argument('--capture-logits', type=lambda x:bool(strtobool(x)), default=False, nargs='?', const=True,
+        help='If --capture-samples is set, record full logits of the agent')
     parser.add_argument('--processes', type=int, default=1,
         help='The number of processes to use to collect env data. The envs are split as equally as possible across the processes')
     parser.add_argument('--trial', type=int, default=None,
@@ -239,12 +245,32 @@ class PPOActor(AutoActor):
 
 def train(args: argparse.Namespace) -> float:
     run_name = f"{args.gym_id}__{args.exp_name}__{args.seed}__{int(time.time())}"
+    config = vars(args)
+    if os.path.exists("/xprun/info/config.ron"):
+        import xprun  # type: ignore
+
+        xp_info = xprun.current_xp()
+        config["name"] = xp_info.xp_def.name
+        config["base_name"] = xp_info.xp_def.base_name
+        config["id"] = xp_info.id
+        if args.trial is not None:
+            args.seed = int(xp_info.xp_def.name.split("-")[-1])
+        run_name = xp_info.xp_def.name
+        out_dir: Optional[str] = os.path.join(
+            "/mnt/xprun",
+            xp_info.xp_def.project,
+            xp_info.sanitized_name + "-" + xp_info.id,
+        )
+        Path(str(out_dir)).mkdir(parents=True, exist_ok=True)
+    else:
+        out_dir = None
+
     if args.track:
         import wandb
 
         config = vars(args)
         if os.path.exists("/xprun/info/config.ron"):
-            import xprun  # type: ignore
+            import xprun
 
             xp_info = xprun.current_xp()
             config["name"] = xp_info.xp_def.name
@@ -299,13 +325,18 @@ def train(args: argparse.Namespace) -> float:
     obs_space = env_cls.obs_space()
     action_space = env_cls.action_space()
     if args.capture_samples:
-        sample_recorder = SampleRecorder(args.capture_samples, action_space, obs_space)
+        if out_dir is None:
+            sample_file = args.capture_samples
+        else:
+            sample_file = os.path.join(out_dir, args.capture_samples)
+        envs = SampleRecordingVecEnv(envs, sample_file)
     if args.translate:
         translate: Optional[TranslatePositions] = TranslatePositions(
             obs_space=obs_space, **json.loads(args.translate)
         )
     else:
         translate = None
+
     if args.relpos_encoding:
         relpos_encoding: Optional[RelposEncodingConfig] = RelposEncodingConfig(
             d_head=args.d_model // args.n_head,
@@ -333,9 +364,6 @@ def train(args: argparse.Namespace) -> float:
     rewards = torch.zeros((args.num_steps, args.num_envs)).to(device)
     dones = torch.zeros((args.num_steps, args.num_envs)).to(device)
     values = torch.zeros((args.num_steps, args.num_envs)).to(device)
-    episodes = list(range(args.num_envs))
-    curr_step = [0] * args.num_envs
-    next_episode = args.num_envs
 
     # TRY NOT TO MODIFY: start the game
     global_step = 0
@@ -391,6 +419,7 @@ def train(args: argparse.Namespace) -> float:
                     _,
                     actor_counts,
                     aux,
+                    logits,
                 ) = agent.get_action_and_auxiliary(
                     next_obs.entities, next_obs.action_masks, tracer=tracer
                 )
@@ -400,52 +429,28 @@ def train(args: argparse.Namespace) -> float:
                 values[step] = aux["value"].flatten()
             actions.extend(action)
             logprobs.extend(logprob)
-            if args.capture_samples:
-                with tracer.span("record_samples"):
-                    sample_recorder.record(
-                        next_obs,
-                        step=curr_step,
-                        episode=episodes,
-                    )
 
-            # Join all actions with corresponding `EntityID`s
             with tracer.span("join_actions"):
-                _actions = []
-                for i, ids in enumerate(next_obs.ids):
-                    _action_dict: Dict[
-                        str, Union[CategoricalAction, SelectEntityAction]
-                    ] = {}
-                    for action_name, ragged_action_buffer in action.items():
-                        mask = next_obs.action_masks[action_name]
-                        _acts = ragged_action_buffer[i]
-                        _as = action_space[action_name]
-                        if isinstance(_as, CategoricalActionSpace):
-                            actor_action = [
-                                (ids[actor_idx], _act)
-                                for actor_idx, _act in zip(
-                                    mask.actors[i].as_array().reshape(-1),
-                                    _acts.as_array().reshape(-1),
-                                )
-                            ]
-                            _action_dict[action_name] = CategoricalAction(actor_action)
-                        elif isinstance(_as, SelectEntityActionSpace):
-                            assert isinstance(
-                                mask, SelectEntityActionMaskBatch
-                            ), f"Expected SelectEntityActionMaskBatch, got {type(mask)}"
-                            actees = mask.actees[i].as_array().flatten()
-                            actor_action = [
-                                (ids[actor_idx], ids[actees[actee_idx]])
-                                for actor_idx, actee_idx in zip(
-                                    mask.actors[i].as_array().reshape(-1),
-                                    _acts.as_array().reshape(-1),
-                                )
-                            ]
-                            _action_dict[action_name] = SelectEntityAction(actor_action)
-                    _actions.append(_action_dict)
+                _actions = join_actions(
+                    action, next_obs.action_masks, action_space, next_obs.ids
+                )
 
             # TRY NOT TO MODIFY: execute the game and log data.
             with tracer.span("step"):
-                next_obs = envs.act(_actions, obs_space)
+                if isinstance(envs, SampleRecordingVecEnv):
+                    if args.capture_logits:
+                        ragged_logits: Optional[
+                            Dict[str, RaggedBufferF32]
+                        ] = tensor_dict_to_ragged(
+                            RaggedBufferF32,
+                            {k: v.squeeze(1) for k, v in logits.items()},
+                            actor_counts,
+                        )
+                    else:
+                        ragged_logits = None
+                    next_obs = envs.act(_actions, obs_space, logprob, ragged_logits)
+                else:
+                    next_obs = envs.act(_actions, obs_space)
             with tracer.span("reward_done_to_device"):
                 rewards[step] = torch.tensor(next_obs.reward).to(device).view(-1)
                 next_done = torch.tensor(next_obs.done).to(device).view(-1)
@@ -454,15 +459,6 @@ def train(args: argparse.Namespace) -> float:
                 total_episodic_return += eoei.total_reward
                 total_episodic_length += eoei.length
                 total_episodes += 1
-
-            if args.capture_samples:
-                for i, done in enumerate(next_obs.done):
-                    if done:
-                        episodes[i] = next_episode
-                        next_episode += 1
-                        curr_step[i] = 0
-                    else:
-                        curr_step[i] += 1
 
         if total_episodes > 0:
             avg_return = total_episodic_return / total_episodes
@@ -529,9 +525,6 @@ def train(args: argparse.Namespace) -> float:
 
         tracer.end("rollout")
 
-        def dictcat(x: Dict[str, torch.Tensor]) -> torch.Tensor:
-            return torch.cat(list(x.values()))
-
         # Optimizaing the policy and value network
         tracer.start("optimize")
         b_inds = np.arange(args.batch_size)
@@ -557,7 +550,14 @@ def train(args: argparse.Namespace) -> float:
                     b_actions = actions[mb_inds]
 
                     with tracer.span("forward"):
-                        _, newlogprob, entropy, _, aux = agent.get_action_and_auxiliary(
+                        (
+                            _,
+                            newlogprob,
+                            entropy,
+                            _,
+                            aux,
+                            _,
+                        ) = agent.get_action_and_auxiliary(
                             b_entities,
                             b_action_masks,
                             prev_actions=b_actions,
@@ -730,12 +730,50 @@ def train(args: argparse.Namespace) -> float:
         for callstack, timing in traces.items():
             writer.add_scalar(f"trace/{callstack}", timing, global_step)
 
-    # envs.close()
-    if args.capture_samples:
-        sample_recorder.close()
+    envs.close()
     writer.close()
 
     return rewards.mean().item()
+
+
+def join_actions(
+    actions: Mapping[str, RaggedBufferI64],
+    masks: Mapping[str, ActionMaskBatch],
+    action_space: Mapping[str, ActionSpace],
+    entity_ids: List[Sequence[EntityID]],
+) -> Sequence[Mapping[str, Action]]:
+    """Join all actions with corresponding `EntityID`s"""
+    _actions = []
+    for i, ids in enumerate(entity_ids):
+        _action_dict: Dict[str, Union[CategoricalAction, SelectEntityAction]] = {}
+        for action_name, ragged_action_buffer in actions.items():
+            mask = masks[action_name]
+            _acts = ragged_action_buffer[i]
+            _as = action_space[action_name]
+            if isinstance(_as, CategoricalActionSpace):
+                actor_action = [
+                    (ids[actor_idx], _act)
+                    for actor_idx, _act in zip(
+                        mask.actors[i].as_array().reshape(-1),
+                        _acts.as_array().reshape(-1),
+                    )
+                ]
+                _action_dict[action_name] = CategoricalAction(actor_action)
+            elif isinstance(_as, SelectEntityActionSpace):
+                assert isinstance(
+                    mask, SelectEntityActionMaskBatch
+                ), f"Expected SelectEntityActionMaskBatch, got {type(mask)}"
+                actees = mask.actees[i].as_array().flatten()
+                actor_action = [
+                    (ids[actor_idx], ids[actees[actee_idx]])
+                    for actor_idx, actee_idx in zip(
+                        mask.actors[i].as_array().reshape(-1),
+                        _acts.as_array().reshape(-1),
+                    )
+                ]
+                _action_dict[action_name] = SelectEntityAction(actor_action)
+        _actions.append(_action_dict)
+    return _actions
 
 
 if __name__ == "__main__":
