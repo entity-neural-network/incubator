@@ -85,6 +85,8 @@ def parse_args(override_args: Optional[List[str]] = None) -> argparse.Namespace:
         help='weather to capture videos of the agent performances (check out `videos` folder)')
     parser.add_argument('--capture-samples', type=str, default=None,
         help='if set, write the samples to this file')
+    parser.add_argument('--capture-logits', type=lambda x:bool(strtobool(x)), default=False, nargs='?', const=True,
+        help='If --capture-samples is set, record full logits of the agent')
     parser.add_argument('--processes', type=int, default=1,
         help='The number of processes to use to collect env data. The envs are split as equally as possible across the processes')
     parser.add_argument('--trial', type=int, default=None,
@@ -417,6 +419,7 @@ def train(args: argparse.Namespace) -> float:
                     _,
                     actor_counts,
                     aux,
+                    logits,
                 ) = agent.get_action_and_auxiliary(
                     next_obs.entities, next_obs.action_masks, tracer=tracer
                 )
@@ -434,7 +437,20 @@ def train(args: argparse.Namespace) -> float:
 
             # TRY NOT TO MODIFY: execute the game and log data.
             with tracer.span("step"):
-                next_obs = envs.act(_actions, obs_space)
+                if isinstance(envs, SampleRecordingVecEnv):
+                    if args.capture_logits:
+                        ragged_logits: Optional[
+                            Dict[str, RaggedBufferF32]
+                        ] = tensor_dict_to_ragged(
+                            RaggedBufferF32,
+                            {k: v.squeeze(1) for k, v in logits.items()},
+                            actor_counts,
+                        )
+                    else:
+                        ragged_logits = None
+                    next_obs = envs.act(_actions, obs_space, logprob, ragged_logits)
+                else:
+                    next_obs = envs.act(_actions, obs_space)
             with tracer.span("reward_done_to_device"):
                 rewards[step] = torch.tensor(next_obs.reward).to(device).view(-1)
                 next_done = torch.tensor(next_obs.done).to(device).view(-1)
@@ -534,7 +550,14 @@ def train(args: argparse.Namespace) -> float:
                     b_actions = actions[mb_inds]
 
                     with tracer.span("forward"):
-                        _, newlogprob, entropy, _, aux = agent.get_action_and_auxiliary(
+                        (
+                            _,
+                            newlogprob,
+                            entropy,
+                            _,
+                            aux,
+                            _,
+                        ) = agent.get_action_and_auxiliary(
                             b_entities,
                             b_action_masks,
                             prev_actions=b_actions,

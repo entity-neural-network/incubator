@@ -26,7 +26,13 @@ class ActionHead(nn.Module):
         index_offsets: RaggedBufferI64,
         mask: ActionMaskBatch,
         prev_actions: Optional[RaggedBufferI64],
-    ) -> Tuple[RaggedBufferI64, torch.Tensor, torch.Tensor, torch.Tensor]:
+    ) -> Tuple[
+        RaggedBufferI64,
+        torch.Tensor,
+        torch.Tensor,
+        torch.Tensor,
+        torch.Tensor,
+    ]:
         raise NotImplementedError()
 
 
@@ -43,7 +49,9 @@ class CategoricalActionHead(nn.Module):
         index_offsets: RaggedBufferI64,
         mask: ActionMaskBatch,
         prev_actions: Optional[RaggedBufferI64],
-    ) -> Tuple[torch.Tensor, npt.NDArray[np.int64], torch.Tensor, torch.Tensor]:
+    ) -> Tuple[
+        torch.Tensor, npt.NDArray[np.int64], torch.Tensor, torch.Tensor, torch.Tensor
+    ]:
         assert isinstance(
             mask, CategoricalActionMaskBatch
         ), f"Expected CategoricalActionMaskBatch, got {type(mask)}"
@@ -68,7 +76,7 @@ class CategoricalActionHead(nn.Module):
             action = torch.tensor(prev_actions.as_array()).to(x.data.device)
         logprob = dist.log_prob(action)
         entropy = dist.entropy()
-        return action, lengths, logprob, entropy
+        return action, lengths, logprob, entropy, logits
 
 
 class PaddedSelectEntityActionHead(nn.Module):
@@ -90,7 +98,9 @@ class PaddedSelectEntityActionHead(nn.Module):
         index_offsets: RaggedBufferI64,
         mask: ActionMaskBatch,
         prev_actions: Optional[RaggedBufferI64],
-    ) -> Tuple[torch.Tensor, npt.NDArray[np.int64], torch.Tensor, torch.Tensor]:
+    ) -> Tuple[
+        torch.Tensor, npt.NDArray[np.int64], torch.Tensor, torch.Tensor, torch.Tensor
+    ]:
         assert isinstance(
             mask, SelectEntityActionMaskBatch
         ), f"Expected SelectEntityActionMaskBatch, got {type(mask)}"
@@ -162,6 +172,7 @@ class PaddedSelectEntityActionHead(nn.Module):
             actor_lengths,
             logprob.flatten()[qindices].view(-1, 1),
             entropy.flatten()[qindices].view(-1, 1),
+            logits,
         )
 
 

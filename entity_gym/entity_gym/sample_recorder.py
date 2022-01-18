@@ -25,6 +25,7 @@ class Sample:
     episode: List[int]
     actions: Sequence[Mapping[str, Action]]
     probs: Dict[str, RaggedBufferF32]
+    logits: Optional[Dict[str, RaggedBufferF32]]
 
     def serialize(self) -> bytes:
         return msgpack_numpy.dumps(  # type: ignore
@@ -34,6 +35,7 @@ class Sample:
                 "episode": self.episode,
                 "actions": self.actions,
                 "probs": self.probs,
+                "logits": self.logits,
             },
             default=ragged_buffer_encode,
         )
@@ -101,8 +103,14 @@ class SampleRecordingVecEnv(VecEnv):
         return obs
 
     def act(
-        self, actions: Sequence[Mapping[str, Action]], obs_filter: ObsSpace
+        self,
+        actions: Sequence[Mapping[str, Action]],
+        obs_filter: ObsSpace,
+        probs: Optional[Dict[str, RaggedBufferF32]] = None,
+        logits: Optional[Dict[str, RaggedBufferF32]] = None,
     ) -> ObsBatch:
+        if probs is None:
+            probs = {}
         # with tracer.span("record_samples"):
         assert self.last_obs is not None
         self.sample_recorder.record(
@@ -111,7 +119,8 @@ class SampleRecordingVecEnv(VecEnv):
                 step=list(self.curr_step),
                 episode=list(self.episodes),
                 actions=actions,
-                probs={},  # TODO
+                probs=probs,
+                logits=logits,
             )
         )
         return self.record_obs(self.inner.act(actions, obs_filter))
