@@ -28,20 +28,18 @@ from entity_gym.environment import (
     ActionSpace,
     CategoricalAction,
     CategoricalActionSpace,
-    DenseSelectEntityActionMask,
     EntityID,
-    EnvList,
     VecEnv,
-    Environment,
-    ParallelEnvList,
     ObsSpace,
     SelectEntityAction,
     SelectEntityActionMaskBatch,
     SelectEntityActionSpace,
 )
-from entity_gym.envs import ENV_REGISTRY
+from entity_gym.environment.env_list import EnvList
+from entity_gym.environment.parallel_env_list import ParallelEnvList
+from entity_gym.examples import ENV_REGISTRY
 from enn_zoo.griddly import GRIDDLY_ENVS, create_env
-from entity_gym.sample_recorder import SampleRecorder, Sample, SampleRecordingVecEnv
+from entity_gym.serialization import SampleRecordingVecEnv
 from enn_ppo.simple_trace import Tracer
 from rogue_net.relpos_encoding import RelposEncodingConfig
 from rogue_net.actor import AutoActor
