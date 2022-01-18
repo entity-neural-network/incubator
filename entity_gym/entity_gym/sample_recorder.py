@@ -171,10 +171,16 @@ class Trace:
                 pbar.update(size + 8)
         return Trace(None, None, samples)  # type: ignore
 
-    def episodes(self, include_incomplete: bool = False) -> List[Episode]:
+    def episodes(
+        self, include_incomplete: bool = False, progress_bar: bool = False
+    ) -> List[Episode]:
         episodes = {}
         prev_episodes: Optional[List[int]] = None
-        for sample in tqdm.tqdm(self.samples):
+        if progress_bar:
+            samples = tqdm.tqdm(self.samples)
+        else:
+            samples = self.samples
+        for sample in samples:
             for i, e in enumerate(sample.episode):
                 if e not in episodes:
                     episodes[e] = Episode(e, 0, {}, {}, {}, {}, 0.0)
