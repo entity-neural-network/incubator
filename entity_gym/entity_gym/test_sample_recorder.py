@@ -68,7 +68,8 @@ def test_serde_sample() -> None:
                 )
             ),
         },
-        actions={},
+        logits=None,
+        actions=[],
         step=[13],
         episode=[4213],
     )
