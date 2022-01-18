@@ -1,4 +1,4 @@
-name: Tests
+name: Test
 
 on:
   push:
@@ -7,6 +7,7 @@ on:
     branches: [ main ]
 jobs:
   build:
+    name: test
     runs-on: ubuntu-latest
     strategy:
       matrix:
