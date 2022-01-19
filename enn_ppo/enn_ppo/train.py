@@ -14,11 +14,13 @@ from typing import (
     Mapping,
     Optional,
     Sequence,
+    Tuple,
     Type,
     TypeVar,
     Union,
 )
 import json
+from entity_gym.environment.vec_env import ObsBatch
 
 import numpy as np
 import numpy.typing as npt
@@ -34,6 +36,7 @@ from entity_gym.environment import (
     SelectEntityAction,
     SelectEntityActionMaskBatch,
     SelectEntityActionSpace,
+    Environment,
 )
 from entity_gym.environment.env_list import EnvList
 from entity_gym.environment.parallel_env_list import ParallelEnvList
@@ -90,6 +93,16 @@ def parse_args(override_args: Optional[List[str]] = None) -> argparse.Namespace:
     parser.add_argument('--trial', type=int, default=None,
         help='trial number of experiment spawned by hyperparameter tuner')
     
+    # Evals
+    parser.add_argument('--eval-interval', type=int, default=None,
+        help='number of global steps between evaluations')
+    parser.add_argument('--eval-steps', type=int, default=None,
+        help='number of sequential steps to evaluate for')
+    parser.add_argument('--eval-num-envs', type=int, default=None,
+        help='number of parallel environments in eval')
+    parser.add_argument('--eval-env-kwargs', type=str, default=None,
+        help='JSON dictionary with keyword arguments for the eval environment')
+
     # Network architecture
     parser.add_argument('--d-model', type=int, default=64,
         help='the hidden size of the network layers')
@@ -241,6 +254,227 @@ class PPOActor(AutoActor):
         return self.get_auxiliary_head(entities, "value", tracer)
 
 
+class Rollout:
+    def __init__(
+        self,
+        envs: VecEnv,
+        obs_space: ObsSpace,
+        action_space: Mapping[str, ActionSpace],
+        agent: PPOActor,
+        device: torch.device,
+        tracer: Tracer,
+    ) -> None:
+        self.envs = envs
+        self.obs_space = obs_space
+        self.action_space = action_space
+        self.device = device
+        self.agent = agent
+        self.tracer = tracer
+
+        self.global_step = 0
+        self.next_obs: Optional[ObsBatch] = None
+        self.next_done: Optional[torch.Tensor] = None
+        self.rewards = torch.zeros(0)
+        self.dones = torch.zeros(0)
+        self.values = torch.zeros(0)
+        self.entities: RaggedBatchDict[np.float32] = RaggedBatchDict(RaggedBufferF32)
+        self.action_masks = RaggedActionDict()
+        self.actions = RaggedBatchDict(RaggedBufferI64)
+        self.logprobs = RaggedBatchDict(RaggedBufferF32)
+
+    def run(
+        self, steps: int, record_samples: bool
+    ) -> Tuple[ObsBatch, torch.Tensor, Dict[str, float]]:
+        """
+        Run the agent for a number of steps. Returns next_obs, next_done, and a dictionary of statistics.
+        """
+        if record_samples:
+            if self.rewards.shape != (steps, len(self.envs)):
+                self.rewards = torch.zeros((steps, len(self.envs))).to(self.device)
+                self.dones = torch.zeros((steps, len(self.envs))).to(self.device)
+                self.values = torch.zeros((steps, len(self.envs))).to(self.device)
+            self.entities.clear()
+            self.action_masks.clear()
+            self.actions.clear()
+            self.logprobs.clear()
+
+        total_episodic_return = 0.0
+        total_episodic_length = 0
+        total_episodes = 0
+
+        if self.next_obs is None or self.next_done is None:
+            next_obs = self.envs.reset(self.obs_space)
+            next_done = torch.zeros(len(self.envs)).to(self.device)
+        else:
+            next_obs = self.next_obs
+            next_done = self.next_done
+
+        for step in range(steps):
+            self.global_step += len(self.envs)
+
+            if record_samples:
+                self.entities.extend(next_obs.entities)
+                self.action_masks.extend(next_obs.action_masks)
+                self.dones[step] = next_done
+
+            with torch.no_grad(), self.tracer.span("forward"):
+                (
+                    action,
+                    probs_tensor,
+                    _,
+                    actor_counts,
+                    aux,
+                    logits,
+                ) = self.agent.get_action_and_auxiliary(
+                    next_obs.entities, next_obs.action_masks, tracer=self.tracer
+                )
+                logprob = tensor_dict_to_ragged(
+                    RaggedBufferF32, probs_tensor, actor_counts
+                )
+            if record_samples:
+                self.values[step] = aux["value"].flatten()
+                self.actions.extend(action)
+                self.logprobs.extend(logprob)
+
+            with self.tracer.span("join_actions"):
+                _actions = join_actions(
+                    action, next_obs.action_masks, self.action_space, next_obs.ids
+                )
+
+            with self.tracer.span("step"):
+                if isinstance(self.envs, SampleRecordingVecEnv):
+                    if args.capture_logits:
+                        ragged_logits: Optional[
+                            Dict[str, RaggedBufferF32]
+                        ] = tensor_dict_to_ragged(
+                            RaggedBufferF32,
+                            {k: v.squeeze(1) for k, v in logits.items()},
+                            actor_counts,
+                        )
+                    else:
+                        ragged_logits = None
+                    next_obs = self.envs.act(
+                        _actions, self.obs_space, logprob, ragged_logits
+                    )
+                else:
+                    next_obs = self.envs.act(_actions, self.obs_space)
+
+            if record_samples:
+                with self.tracer.span("reward_done_to_device"):
+                    self.rewards[step] = (
+                        torch.tensor(next_obs.reward).to(self.device).view(-1)
+                    )
+                    next_done = torch.tensor(next_obs.done).to(self.device).view(-1)
+
+            for eoei in next_obs.end_of_episode_info.values():
+                total_episodic_return += eoei.total_reward
+                total_episodic_length += eoei.length
+                total_episodes += 1
+
+        self.next_obs = next_obs
+        self.next_done = next_done
+
+        metrics = {}
+        if total_episodes > 0:
+            avg_return = total_episodic_return / total_episodes
+            avg_length = total_episodic_length / total_episodes
+            metrics["charts/episodic_return"] = avg_return
+            metrics["charts/episodic_length"] = avg_length
+            metrics["charts/episodes"] = total_episodes
+            metrics["meanrew"] = self.rewards.mean().item()
+        return next_obs, next_done, metrics
+
+
+def returns_and_advantages(
+    agent: PPOActor,
+    next_obs: ObsBatch,
+    next_done: torch.Tensor,
+    rewards: torch.Tensor,
+    dones: torch.Tensor,
+    values: torch.Tensor,
+    gae: float,
+    gamma: float,
+    gae_lambda: float,
+    device: torch.device,
+    tracer: Tracer,
+) -> Tuple[torch.Tensor, torch.Tensor]:
+    # bootstrap value if not done
+    next_value = agent.get_value(next_obs.entities, tracer).reshape(1, -1)
+    num_steps = values.size(0)
+    if gae:
+        advantages = torch.zeros_like(rewards).to(device)
+        lastgaelam = 0
+        for t in reversed(range(num_steps)):
+            if t == num_steps - 1:
+                nextnonterminal = 1.0 - next_done.float()
+                nextvalues = next_value
+            else:
+                nextnonterminal = 1.0 - dones[t + 1]
+                nextvalues = values[t + 1]
+            delta = rewards[t] + gamma * nextvalues * nextnonterminal - values[t]
+            advantages[t] = lastgaelam = (
+                delta + gamma * gae_lambda * nextnonterminal * lastgaelam
+            )
+        returns = advantages + values
+    else:
+        returns = torch.zeros_like(rewards).to(device)
+        for t in reversed(range(num_steps)):
+            if t == num_steps - 1:
+                nextnonterminal = 1.0 - next_done
+                next_return = next_value
+            else:
+                nextnonterminal = 1.0 - dones[t + 1]
+                next_return = returns[t + 1]
+            returns[t] = rewards[t] + gamma * nextnonterminal * next_return
+        advantages = returns - values
+    return returns, advantages
+
+
+def run_eval(
+    env_cls: Type[Environment],
+    env_kwargs: Dict[str, Any],
+    num_envs: int,
+    processes: int,
+    obs_space: ObsSpace,
+    action_space: Mapping[str, ActionSpace],
+    agent: PPOActor,
+    device: torch.device,
+    tracer: Tracer,
+    writer: SummaryWriter,
+    global_step: int,
+) -> None:
+    # TODO: metrics are biased towards short episodes
+    eval_envs: VecEnv
+    if processes > 1:
+        eval_envs = ParallelEnvList(
+            env_cls,
+            env_kwargs,
+            num_envs,
+            processes,
+        )
+    else:
+        eval_envs = EnvList(
+            env_cls, args.eval_env_kwargs or env_kwargs, args.eval_num_envs
+        )
+    eval_rollout = Rollout(
+        eval_envs,
+        obs_space=obs_space,
+        action_space=action_space,
+        agent=agent,
+        device=device,
+        tracer=tracer,
+    )
+    _, _, metrics = eval_rollout.run(
+        args.eval_steps,
+        record_samples=False,
+    )
+    for name, value in metrics.items():
+        writer.add_scalar(f"eval/{name}", value, global_step)
+    print(
+        f"[eval] global_step={global_step} {'  '.join(f'{name}={value}' for name, value in metrics.items())}"
+    )
+
+
 def train(args: argparse.Namespace) -> float:
     run_name = f"{args.gym_id}__{args.exp_name}__{args.seed}__{int(time.time())}"
     config = vars(args)
@@ -315,6 +549,10 @@ def train(args: argparse.Namespace) -> float:
 
     # env setup
     env_kwargs = json.loads(args.env_kwargs)
+    if args.eval_env_kwargs is not None:
+        eval_env_kwargs = json.loads(args.eval_env_kwargs)
+    else:
+        eval_env_kwargs = env_kwargs
     envs: VecEnv
     if args.processes > 1:
         envs = ParallelEnvList(env_cls, env_kwargs, args.num_envs, args.processes)
@@ -358,24 +596,41 @@ def train(args: argparse.Namespace) -> float:
     if args.track:
         wandb.watch(agent)
 
-    # ALGO Logic: Storage setup
-    rewards = torch.zeros((args.num_steps, args.num_envs)).to(device)
-    dones = torch.zeros((args.num_steps, args.num_envs)).to(device)
-    values = torch.zeros((args.num_steps, args.num_envs)).to(device)
-
-    # TRY NOT TO MODIFY: start the game
-    global_step = 0
-    start_time = time.time()
-    next_obs = envs.reset(obs_space)
-    next_done = torch.zeros(args.num_envs).to(device)
     num_updates = args.total_timesteps // args.batch_size
 
-    entities: RaggedBatchDict[np.float32] = RaggedBatchDict(RaggedBufferF32)
-    action_masks = RaggedActionDict()
-    actions = RaggedBatchDict(RaggedBufferI64)
-    logprobs = RaggedBatchDict(RaggedBufferF32)
+    rollout = Rollout(
+        envs,
+        obs_space=obs_space,
+        action_space=action_space,
+        agent=agent,
+        device=device,
+        tracer=tracer,
+    )
 
+    if args.eval_interval is not None:
+        next_eval_step: Optional[int] = 0
+    else:
+        next_eval_step = None
+
+    start_time = time.time()
     for update in range(1, num_updates + 1):
+
+        if next_eval_step is not None and rollout.global_step >= next_eval_step:
+            next_eval_step += args.eval_interval
+            run_eval(
+                env_cls,
+                eval_env_kwargs,
+                args.eval_num_envs,
+                args.processes,
+                obs_space,
+                action_space,
+                agent,
+                device,
+                tracer,
+                writer,
+                rollout.global_step,
+            )
+
         tracer.start("update")
         if (
             args.max_train_time is not None
@@ -395,125 +650,35 @@ def train(args: argparse.Namespace) -> float:
             optimizer.param_groups[0]["lr"] = lrnow
 
         tracer.start("rollout")
-        entities.clear()
-        action_masks.clear()
-        actions.clear()
-        logprobs.clear()
-        total_episodic_return = 0.0
-        total_episodic_length = 0
-        total_episodes = 0
-        for step in range(0, args.num_steps):
-            global_step += 1 * args.num_envs
 
-            entities.extend(next_obs.entities)
-            action_masks.extend(next_obs.action_masks)
-            dones[step] = next_done
+        next_obs, next_done, metrics = rollout.run(args.num_steps, record_samples=True)
+        for name, value in metrics.items():
+            writer.add_scalar(name, value, rollout.global_step)
+        print(
+            f"global_step={rollout.global_step} {'  '.join(f'{name}={value}' for name, value in metrics.items())}"
+        )
 
-            # ALGO LOGIC: action logic
-            with torch.no_grad(), tracer.span("forward"):
-                (
-                    action,
-                    probs_tensor,
-                    _,
-                    actor_counts,
-                    aux,
-                    logits,
-                ) = agent.get_action_and_auxiliary(
-                    next_obs.entities, next_obs.action_masks, tracer=tracer
-                )
-                logprob = tensor_dict_to_ragged(
-                    RaggedBufferF32, probs_tensor, actor_counts
-                )
-                values[step] = aux["value"].flatten()
-            actions.extend(action)
-            logprobs.extend(logprob)
+        values = rollout.values
+        actions = rollout.actions
+        entities = rollout.entities
+        action_masks = rollout.action_masks
+        logprobs = rollout.logprobs
+        global_step = rollout.global_step
 
-            with tracer.span("join_actions"):
-                _actions = join_actions(
-                    action, next_obs.action_masks, action_space, next_obs.ids
-                )
-
-            # TRY NOT TO MODIFY: execute the game and log data.
-            with tracer.span("step"):
-                if isinstance(envs, SampleRecordingVecEnv):
-                    if args.capture_logits:
-                        ragged_logits: Optional[
-                            Dict[str, RaggedBufferF32]
-                        ] = tensor_dict_to_ragged(
-                            RaggedBufferF32,
-                            {k: v.squeeze(1) for k, v in logits.items()},
-                            actor_counts,
-                        )
-                    else:
-                        ragged_logits = None
-                    next_obs = envs.act(_actions, obs_space, logprob, ragged_logits)
-                else:
-                    next_obs = envs.act(_actions, obs_space)
-            with tracer.span("reward_done_to_device"):
-                rewards[step] = torch.tensor(next_obs.reward).to(device).view(-1)
-                next_done = torch.tensor(next_obs.done).to(device).view(-1)
-
-            for eoei in next_obs.end_of_episode_info.values():
-                total_episodic_return += eoei.total_reward
-                total_episodic_length += eoei.length
-                total_episodes += 1
-
-        if total_episodes > 0:
-            avg_return = total_episodic_return / total_episodes
-            avg_length = total_episodic_length / total_episodes
-            writer.add_scalar(
-                "charts/episodic_return",
-                avg_return,
-                global_step,
-            )
-            writer.add_scalar(
-                "charts/episodic_length",
-                avg_length,
-                global_step,
-            )
-            writer.add_scalar(
-                "charts/episodes",
-                total_episodes,
-                global_step,
-            )
-            print(
-                f"global_step={global_step}, episodic_return={avg_return}, episodic_length={avg_length}, episodes={total_episodes}"
-            )
-
-        # bootstrap value if not done
         with torch.no_grad(), tracer.span("advantages"):
-            next_value = agent.get_value(next_obs.entities, tracer).reshape(1, -1)
-            if args.gae:
-                advantages = torch.zeros_like(rewards).to(device)
-                lastgaelam = 0
-                for t in reversed(range(args.num_steps)):
-                    if t == args.num_steps - 1:
-                        nextnonterminal = 1.0 - next_done.float()
-                        nextvalues = next_value
-                    else:
-                        nextnonterminal = 1.0 - dones[t + 1]
-                        nextvalues = values[t + 1]
-                    delta = (
-                        rewards[t]
-                        + args.gamma * nextvalues * nextnonterminal
-                        - values[t]
-                    )
-                    advantages[t] = lastgaelam = (
-                        delta
-                        + args.gamma * args.gae_lambda * nextnonterminal * lastgaelam
-                    )
-                returns = advantages + values
-            else:
-                returns = torch.zeros_like(rewards).to(device)
-                for t in reversed(range(args.num_steps)):
-                    if t == args.num_steps - 1:
-                        nextnonterminal = 1.0 - next_done
-                        next_return = next_value
-                    else:
-                        nextnonterminal = 1.0 - dones[t + 1]
-                        next_return = returns[t + 1]
-                    returns[t] = rewards[t] + args.gamma * nextnonterminal * next_return
-                advantages = returns - values
+            returns, advantages = returns_and_advantages(
+                agent,
+                next_obs,
+                next_done,
+                rollout.rewards,
+                rollout.dones,
+                values,
+                args.gae,
+                args.gamma,
+                args.gae_lambda,
+                device,
+                tracer,
+            )
 
         # flatten the batch
         with tracer.span("flatten"):
@@ -708,7 +873,6 @@ def train(args: argparse.Namespace) -> float:
         writer.add_scalar("losses/clipfrac", np.mean(clipfracs), global_step)
         writer.add_scalar("losses/explained_variance", explained_var, global_step)
         writer.add_scalar("losses/gradnorm", gradnorm, global_step)
-        writer.add_scalar("meanrew", rewards.mean().item(), global_step)
         for action_name, space in action_space.items():
             if isinstance(space, CategoricalActionSpace):
                 choices = actions.buffers[action_name].as_array().flatten()
@@ -728,10 +892,25 @@ def train(args: argparse.Namespace) -> float:
         for callstack, timing in traces.items():
             writer.add_scalar(f"trace/{callstack}", timing, global_step)
 
+    if args.eval_interval is not None:
+        run_eval(
+            env_cls,
+            eval_env_kwargs,
+            args.eval_num_envs,
+            args.processes,
+            obs_space,
+            action_space,
+            agent,
+            device,
+            tracer,
+            writer,
+            rollout.global_step,
+        )
+
     envs.close()
     writer.close()
 
-    return rewards.mean().item()
+    return rollout.rewards.mean().item()
 
 
 def join_actions(
