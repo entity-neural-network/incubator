@@ -275,8 +275,8 @@ class Rollout:
         self.next_obs: Optional[ObsBatch] = None
         self.next_done: Optional[torch.Tensor] = None
         self.rewards = torch.zeros(0)
-        self.dones = torch.zeros((args.num_steps, args.num_envs)).to(device)
-        self.values = torch.zeros((args.num_steps, args.num_envs)).to(device)
+        self.dones = torch.zeros(0)
+        self.values = torch.zeros(0)
         self.entities: RaggedBatchDict[np.float32] = RaggedBatchDict(RaggedBufferF32)
         self.action_masks = RaggedActionDict()
         self.actions = RaggedBatchDict(RaggedBufferI64)
