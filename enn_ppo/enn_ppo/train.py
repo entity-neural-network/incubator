@@ -36,6 +36,7 @@ from entity_gym.environment import (
     SelectEntityAction,
     SelectEntityActionMaskBatch,
     SelectEntityActionSpace,
+    Environment,
 )
 from entity_gym.environment.env_list import EnvList
 from entity_gym.environment.parallel_env_list import ParallelEnvList
@@ -92,6 +93,16 @@ def parse_args(override_args: Optional[List[str]] = None) -> argparse.Namespace:
     parser.add_argument('--trial', type=int, default=None,
         help='trial number of experiment spawned by hyperparameter tuner')
     
+    # Evals
+    parser.add_argument('--eval-interval', type=int, default=None,
+        help='number of global steps between evaluations')
+    parser.add_argument('--eval-steps', type=int, default=None,
+        help='number of sequential steps to evaluate for')
+    parser.add_argument('--eval-num-envs', type=int, default=None,
+        help='number of parallel environments in eval')
+    parser.add_argument('--eval-env-kwargs', type=str, default=None,
+        help='JSON dictionary with keyword arguments for the eval environment')
+
     # Network architecture
     parser.add_argument('--d-model', type=int, default=64,
         help='the hidden size of the network layers')
@@ -418,6 +429,51 @@ def returns_and_advantages(
     return returns, advantages
 
 
+def run_eval(
+    env_cls: Type[Environment],
+    env_kwargs: Dict[str, Any],
+    num_envs: int,
+    processes: int,
+    obs_space: ObsSpace,
+    action_space: Mapping[str, ActionSpace],
+    agent: PPOActor,
+    device: torch.device,
+    tracer: Tracer,
+    writer: SummaryWriter,
+    global_step: int,
+) -> None:
+    # TODO: metrics are biased towards short episodes
+    eval_envs: VecEnv
+    if processes > 1:
+        eval_envs = ParallelEnvList(
+            env_cls,
+            env_kwargs,
+            num_envs,
+            processes,
+        )
+    else:
+        eval_envs = EnvList(
+            env_cls, args.eval_env_kwargs or env_kwargs, args.eval_num_envs
+        )
+    eval_rollout = Rollout(
+        eval_envs,
+        obs_space=obs_space,
+        action_space=action_space,
+        agent=agent,
+        device=device,
+        tracer=tracer,
+    )
+    _, _, metrics = eval_rollout.run(
+        args.eval_steps,
+        record_samples=False,
+    )
+    for name, value in metrics.items():
+        writer.add_scalar(f"eval/{name}", value, global_step)
+    print(
+        f"[eval] global_step={global_step} {'  '.join(f'{name}={value}' for name, value in metrics.items())}"
+    )
+
+
 def train(args: argparse.Namespace) -> float:
     run_name = f"{args.gym_id}__{args.exp_name}__{args.seed}__{int(time.time())}"
     config = vars(args)
@@ -492,6 +548,10 @@ def train(args: argparse.Namespace) -> float:
 
     # env setup
     env_kwargs = json.loads(args.env_kwargs)
+    if args.eval_env_kwargs is not None:
+        eval_env_kwargs = json.loads(args.eval_env_kwargs)
+    else:
+        eval_env_kwargs = env_kwargs
     envs: VecEnv
     if args.processes > 1:
         envs = ParallelEnvList(env_cls, env_kwargs, args.num_envs, args.processes)
@@ -546,8 +606,30 @@ def train(args: argparse.Namespace) -> float:
         tracer=tracer,
     )
 
+    if args.eval_interval is not None:
+        next_eval_step: Optional[int] = 0
+    else:
+        next_eval_step = None
+
     start_time = time.time()
     for update in range(1, num_updates + 1):
+
+        if next_eval_step is not None and rollout.global_step >= next_eval_step:
+            next_eval_step += args.eval_interval
+            run_eval(
+                env_cls,
+                eval_env_kwargs,
+                args.eval_num_envs,
+                args.processes,
+                obs_space,
+                action_space,
+                agent,
+                device,
+                tracer,
+                writer,
+                rollout.global_step,
+            )
+
         tracer.start("update")
         if (
             args.max_train_time is not None
@@ -808,6 +890,21 @@ def train(args: argparse.Namespace) -> float:
         traces = tracer.finish()
         for callstack, timing in traces.items():
             writer.add_scalar(f"trace/{callstack}", timing, global_step)
+
+    if args.eval_interval is not None:
+        run_eval(
+            env_cls,
+            eval_env_kwargs,
+            args.eval_num_envs,
+            args.processes,
+            obs_space,
+            action_space,
+            agent,
+            device,
+            tracer,
+            writer,
+            rollout.global_step,
+        )
 
     envs.close()
     writer.close()
