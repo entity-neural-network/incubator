@@ -11,10 +11,10 @@ tensorboard = "^2.7.0"
 msgpack = "^1.0.3"
 msgpack-numpy = "^0.4.7"
 tqdm = "^4.62.3"
-ragged-buffer = "^0.3.3"
+ragged-buffer = "^0.3.4"
 wandb = "^0.12.7"
 optuna = "^2.10.0"
-enn_zoo = {path = "../enn_zoo", develop=true}
+enn_zoo = {path = "../enn_zoo", develop = true}
 entity_gym = {path = "../entity_gym", develop = true}
 rogue_net = {path = "../rogue_net", develop = true}
 

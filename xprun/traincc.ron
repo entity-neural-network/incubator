@@ -1,0 +1,96 @@
+XpV0(
+    project: "enn",
+    containers: {
+        "main": (
+            command: ["poetry", "run", "python", "-u", "enn_ppo/enn_ppo/train.py"],
+            build: [
+                From("nvcr.io/nvidia/pytorch:21.03-py3"),
+
+                // Install Poetry
+                Run("curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py | python -"),
+                Env("PATH", "/root/.poetry/bin:${PATH}"),
+
+                // Install Vulkan drivers (required by Griddly)
+                Run("wget -qO - http://packages.lunarg.com/lunarg-signing-key-pub.asc | apt-key add -"),
+                Run("wget -qO /etc/apt/sources.list.d/lunarg-vulkan-focal.list http://packages.lunarg.com/vulkan/lunarg-vulkan-focal.list"),
+                Run("apt-get update"),
+                Run("DEBIAN_FRONTEND=noninteractive apt-get install -y tzdata"),
+                Run("apt-get install vulkan-sdk -y"),
+
+                // Install Rust toolchain
+                Run("apt-get update"),
+                Run("apt-get install curl build-essential --yes"),
+                Run("curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y"),
+                Env("PATH", "/root/.cargo/bin:${PATH}"),
+
+                Repo(
+                    paths: [
+                        "pyproject.toml",
+                        "poetry.lock",
+                        "rogue_net/pyproject.toml",
+                        "rogue_net/poetry.lock",
+                        "rogue_net/rogue_net/__init__.py",
+                        "enn_ppo/pyproject.toml",
+                        "enn_ppo/poetry.lock",
+                        "enn_ppo/enn_ppo/__init__.py",
+                        "entity_gym/pyproject.toml",
+                        "entity_gym/poetry.lock",
+                        "entity_gym/entity_gym/__init__.py",
+                        "enn_zoo/pyproject.toml",
+                        "enn_zoo/poetry.lock",
+                        "enn_zoo/enn_zoo/__init__.py",
+                    ],
+                    target_dir: "/root/enn-incubator",
+                    cd: true,
+                ),
+
+                // Build xprun from source
+                Repo(url: "git@github.com:cswinter/xprun.git", rev: "c248812", target_dir: "/root"),
+                Run("poetry run pip install maturin==0.12.6"),
+                Run("poetry run maturin build --cargo-extra-args=--features=python --manifest-path=/root/xprun/Cargo.toml"),
+                Run("poetry run pip install /root/xprun/target/wheels/xprun-0.1.0-cp38-cp38-manylinux_2_31_x86_64.whl"),
+
+                Run("poetry install"),
+                Run("poetry run pip install torch==1.10.0+cu113 -f https://download.pytorch.org/whl/cu113/torch_stable.html"),
+                Run("poetry run pip install torch-scatter -f https://data.pyg.org/whl/torch-1.10.0+cu113.html"),
+
+                Repo(cd: true),
+            ],
+            gpu: 1,
+            gpu_mem: "5GB",
+            cpu_mem: "4GiB",
+            env_secrets: {
+                "WANDB_API_KEY": "wandb-api-key",
+            },
+            volumes: {
+                "/mnt/a/Dropbox/artifacts/xprun": "/mnt/xprun",
+            },
+        ),
+
+        "codecraftserver": (
+            command: ["server-0.1.0-SNAPSHOT/bin/server", "-Dplay.http.secret.key=ad31779d4ee49d5ad5162bf1429c32e2e9933f3b"],
+            cpu: 4,
+            cpu_mem: "12GiB",
+            tty: true,
+            env: {
+                "SBT_OPTS": "-Xmx10G",
+            },
+            build: [
+                From("hseeberger/scala-sbt:8u222_1.3.5_2.13.1"),
+
+                // build fixed versions of CodeCraftGame and CodeCraftServer as a straightforward way to download sbt 0.13.16 and populate dependency cache
+                Repo(url: "https://github.com/cswinter/CodeCraftGame.git", rev: "92304eb", cd: true, rm: true),
+                Run("sbt publishLocal"),
+                Repo(url: "https://github.com/cswinter/CodeCraftServer.git", rev: "df76892", cd: true, rm: true),
+                Run("sbt compile"),
+
+                // build CodeCraftGame and CodeCraftServer from source
+                Repo(url: "https://github.com/cswinter/CodeCraftGame.git", rev: "edc5a9f2", cd: true),
+                Run("sbt publishLocal"),
+                Repo(url: "https://github.com/cswinter/CodeCraftServer.git", rev: "302a379", cd: true),
+                Run("sbt dist"),
+                Run("unzip server/target/universal/server-0.1.0-SNAPSHOT.zip"),
+            ],
+        ),
+    }
+)
