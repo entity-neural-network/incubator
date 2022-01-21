@@ -138,12 +138,9 @@ class GymMicrorts(Environment):
     @classmethod
     def action_space(cls) -> Dict[str, ActionSpace]:
         return {
-            "move": CategoricalActionSpace(
-                choices=["up", "right", "down", "left"],
+            "unitaction": CategoricalActionSpace(
+                choices=["move_up", "move_right", "move_down", "move_left"],
             ),
-            # "harvest": CategoricalActionSpace(
-            #     choices=["up", "right", "down", "left"],
-            # ),
         }
 
     def _reset(self) -> Observation:
@@ -155,8 +152,8 @@ class GymMicrorts(Environment):
         self.step += 1
 
         print("=========", action)
-        if "move" in action:
-            response = self.client.gameStep(action["move"].actions, 0)
+        if "unitaction" in action:
+            response = self.client.gameStep(action["unitaction"].actions, 0)
         else:
             response = self.client.gameStep([], 0)
         self.client.render(False)
@@ -164,14 +161,9 @@ class GymMicrorts(Environment):
             entities=self.generate_entities(response),
             ids=np.array(response.observation[7]),
             action_masks={
-                "move": DenseCategoricalActionMask(
+                "unitaction": DenseCategoricalActionMask(
                     actors=np.array(response.observation[8]),
                 ),
-                # "harvest": DenseCategoricalActionMask(
-                #     actors=[
-                #         4,
-                #     ],
-                # ),
             },
             reward=response.reward @ self.reward_weight,
             done=response.done[0],
@@ -184,19 +176,15 @@ class GymMicrorts(Environment):
         response = self.client.reset(0)
         self.client.render(False)
 
-
+        print("===xx", np.array(response.observation[8]))
+        print("===xx", np.array(response.observation[9]))
         return Observation(
             entities=self.generate_entities(response),
             ids=np.array(response.observation[7]),
             action_masks={
-                "move": DenseCategoricalActionMask(
+                "unitaction": DenseCategoricalActionMask(
                     actors=np.array(response.observation[8]),
                 ),
-                # "harvest": DenseCategoricalActionMask(
-                #     actors=[
-                #         4,
-                #     ],
-                # ),
             },
             reward=response.reward @ self.reward_weight,
             done=response.done[0],
@@ -229,4 +217,5 @@ class GymMicrorts(Environment):
         if len(ranged) > 0:
             entities["Ranged"] = ranged
         
+        print(entities)
         return entities
