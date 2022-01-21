@@ -155,6 +155,10 @@ class VecEnv(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    def render(self, **kwargs: Any) -> np.ndarray:
+        raise NotImplementedError
+
+    @abstractmethod
     def __len__(self) -> int:
         raise NotImplementedError
 

@@ -99,3 +99,6 @@ class GriddlyEnv(Environment):
         self.step += 1
 
         return self._make_observation(reward, done)
+
+    def render(self, **kwargs: Any) -> np.ndarray:
+        return self._env.render(**kwargs, observer="global")  # type: ignore
