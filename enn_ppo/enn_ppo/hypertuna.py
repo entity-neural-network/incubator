@@ -1,5 +1,5 @@
 from collections import defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Tuple
 from distutils.util import strtobool
 import argparse
@@ -12,8 +12,12 @@ import wandb
 from copy import deepcopy
 import threading
 import numpy as np
+import heapq
+import logging
 
 from enum import Enum
+
+logger = logging.getLogger(__name__)
 
 
 class SamplingStrategy(Enum):
@@ -21,6 +25,7 @@ class SamplingStrategy(Enum):
     POWER_OF_TWO = 1
     LOGUNIFORM = 2
     UNIFORM = 3
+    INTUNIFORM = 4
 
 
 @dataclass
@@ -71,6 +76,10 @@ class HyperParam:
             min_value = max(center - range, min_value)
             max_value = min(center + range, max_value)
             value = trial.suggest_uniform(f"{self.path}", min_value, max_value)
+        elif self.sampling_strategy == SamplingStrategy.INTUNIFORM:
+            min_value = int(max(center / range, min_value))
+            max_value = int(min(center * range, max_value))
+            value = trial.suggest_int(f"{self.path}", min_value, max_value)
         if self.transform is not None:
             value = self.transform(other_vals, value)
         return f"{self.path}={value}", value
@@ -114,7 +123,7 @@ hyper_params = {
     ),
     "n-layer": HyperParam(
         path="n-layer",
-        sampling_strategy=SamplingStrategy.POWER_OF_TWO,
+        sampling_strategy=SamplingStrategy.INTUNIFORM,
         min_value=1,
     ),
     "num-steps": HyperParam(
@@ -146,6 +155,23 @@ hyper_params = {
 }
 
 
+@dataclass
+class Xp:
+    xp_def: Any
+    trial: int
+    trial_manager: "Trial"
+
+    def __lt__(self, other: Any) -> bool:
+        if isinstance(other, Xp):
+            return self.trial < other.trial
+        return NotImplemented
+
+    def __gt__(self, other: Any) -> bool:
+        if isinstance(other, Xp):
+            return self.trial > other.trial
+        return NotImplemented
+
+
 class HyperOptimizer:
     def __init__(
         self,
@@ -163,6 +189,7 @@ class HyperOptimizer:
         max_microbatch_size: Optional[int] = None,
         # Only run more than 1 trial if first trial is within variance of best result
         adaptive_trials: bool = False,
+        xprun_config: str = "xprun/train.ron",
     ):
         self.xprun = xprun.Client()
         self.wandb = wandb.Api()
@@ -170,7 +197,7 @@ class HyperOptimizer:
         self.time = time
         self.xp_name = xp_name
         xp = xprun.build_xpdef(
-            "xprun/train.ron",
+            xprun_config,
             ignore_dirty=False,
             include_dirty=True,
             verbose=False,
@@ -182,13 +209,11 @@ class HyperOptimizer:
         self.lock = threading.Lock()
         self.cvar = threading.Condition(self.lock)
         self.running_xps = 0
-        self.outstanding_xps = 0
         self.parallelism = parallelism
         self.steps = steps
         self.xps_per_trial = xps_per_trial
-        self.trial_results: Dict[int, List[float]] = defaultdict(list)
-        self.best_result = None
-        self.best_result_se = None
+        self.best_result: Optional[float] = None
+        self.best_result_se: Optional[float] = None
         self.best_config: Optional[str] = None
         self.priority = priority
         self.target_metric = target_metric
@@ -196,12 +221,126 @@ class HyperOptimizer:
         self.track = track
         self.max_microbatch_size = max_microbatch_size
         self.adaptive_trials = adaptive_trials
+        self.pending_xps: List[Xp] = []
 
         self.last_logged_trial_id = -1
         self.log_in_future: List[Tuple[int, Dict[str, float]]] = []
 
         self.params = params
         self.steps = steps
+
+        self.done = False
+
+    def run(self, n_trials: int) -> None:
+        default_params: Dict[str, float] = {}
+        args: Dict[str, float] = {}
+        for name, center, _ in self.params:
+            if hyper_params[name].sampling_strategy == SamplingStrategy.POWER_OF_TWO:
+                center = int(math.log2(center))
+            elif hyper_params[name].sampling_strategy == SamplingStrategy.OMINUS:
+                center = 1 - center
+            oname = hyper_params[name].optuna_name()
+            default_params[oname] = center
+            args[name] = center
+        self.study.enqueue_trial(default_params)
+
+        threading.Thread(target=self.xp_runner).start()
+
+        threads = []
+        for trial_id in range(n_trials):
+            # Wait until we have a free slot
+            with self.lock:
+                while len(self.pending_xps) > 0 or self.running_xps >= self.parallelism:
+                    self.cvar.wait()
+                    logger.debug(
+                        f"[main] wake: {len(self.pending_xps)} {self.running_xps}/{self.parallelism}"
+                    )
+            trial = self.study.ask()
+            xp, args = self.sample_xp(trial)
+            trial_runner = Trial(
+                self,
+                self.xps_per_trial,
+                xp,
+                trial,
+                trial_id,
+                args,
+            )
+            logger.debug(f"[main] starting trial {trial_id}")
+            thread = threading.Thread(target=trial_runner.run)
+            thread.start()
+            threads.append(thread)
+        for thread in threads:
+            thread.join()
+        print(f"Best result: {self.best_result}")
+        print(f"Best config: {self.best_config}")
+        with self.lock:
+            self.done = True
+            self.cvar.notify_all()
+
+    def xp_runner(self) -> None:
+        while True:
+            with self.lock:
+                while (
+                    self.running_xps >= self.parallelism or len(self.pending_xps) == 0
+                ):
+                    if self.done:
+                        return
+                    self.cvar.wait()
+                    logger.debug(
+                        f"[runner] wake: pending={len(self.pending_xps)} running={self.running_xps}/{self.parallelism}"
+                    )
+                logger.debug(f"[runner] queue: {[xp.trial for xp in self.pending_xps]}")
+                next_xp = heapq.heappop(self.pending_xps)
+                logger.debug(f"[runner] next: {next_xp.trial}")
+                threading.Thread(target=self.run_xp, args=(next_xp,)).start()
+                self.running_xps += 1
+                self.cvar.notify_all()
+
+    def run_xp(self, xp: Xp) -> None:
+        for retry in range(10):
+            try:
+                self.xprun.run(
+                    xp.xp_def, wait=True, priority=self.priority, user="clemens"
+                )
+            except Exception as e:
+                print(f"Failed to run {xp.xp_def.name}: {e}")
+                print(f"Retrying in 60 seconds... ({retry})")
+                time.sleep(60)
+                continue
+            break
+        else:
+            print(f"Failed to run {xp.xp_def.name}")
+            return
+        while True:
+            try:
+                self.xprun.block_until_completed(xp.xp_def.name)
+                break
+            except Exception as e:
+                print(f"Failed to block_until_completed {xp.xp_def.name}: {e}")
+                print(f"Retrying in 60 seconds... ({retry})")
+                time.sleep(60)
+                continue
+        run = list(
+            self.wandb.runs(
+                "entity-neural-network/enn-ppo", {"config.name": xp.xp_def.name}
+            )
+        )[0]
+        returns = [
+            row[self.target_metric]
+            for row in run.scan_history(keys=[self.target_metric])
+        ]
+        if len(returns) == 0:
+            result = -1
+        else:
+            datapoints = max(1, int(len(returns) * self.average_frac))
+            result = np.array(returns[-datapoints:]).mean()
+        with self.lock:
+            logger.debug(f"[xp] finished {xp.xp_def.name}")
+            xp.trial_manager.completed_xps += 1
+            xp.trial_manager.results.append(result)
+            self.running_xps -= 1
+            xp.trial_manager.issue()
+            self.cvar.notify_all()
 
     def base_xp_config(self, trial: int) -> Any:
         xp = deepcopy(self.config)
@@ -235,110 +374,18 @@ class HyperOptimizer:
         self.trial += 1
         return xp, args
 
-    def run(self, n_trials: int) -> None:
-        default_params: Dict[str, float] = {}
-        args: Dict[str, float] = {}
-        for name, center, _ in self.params:
-            if hyper_params[name].sampling_strategy == SamplingStrategy.POWER_OF_TWO:
-                center = int(math.log2(center))
-            elif hyper_params[name].sampling_strategy == SamplingStrategy.OMINUS:
-                center = 1 - center
-            oname = hyper_params[name].optuna_name()
-            transform = hyper_params[name].transform
-            if transform is not None:
-                print(args)
-                center = transform(args, center)
-            default_params[oname] = center
-            args[name] = center
-        self.study.enqueue_trial(default_params)
-
-        threads = []
-        for trial_id in range(n_trials):
-            # Wait until we have a free slot
-            with self.lock:
-                while self.running_xps >= self.parallelism or self.outstanding_xps > 0:
-                    self.cvar.wait()
-            trial = self.study.ask()
-            xp, args = self.sample_xp(trial)
-            self.outstanding_xps += (
-                self.xps_per_trial if trial_id == 0 or not self.adaptive_trials else 1
-            )
-            thread = threading.Thread(
-                target=self.run_trial,
-                args=(
-                    xp,
-                    trial,
-                    trial_id,
-                    args,
-                ),
-            )
-            thread.start()
-            threads.append(thread)
-        for thread in threads:
-            thread.join()
-        print(f"Best result: {self.best_result}")
-        print(f"Best config: {self.best_config}")
-
-    def run_trial(
+    def trial_completed(
         self,
-        xp: Any,
         trial: optuna.trial.Trial,
         trial_id: int,
+        result: float,
+        result_se: float,
         args: Dict[str, float],
+        xp: Any,
     ) -> None:
-        threads = []
-        max_remaining_xps = self.xps_per_trial
-        next_xps = (
-            1 if self.adaptive_trials and not trial_id == 0 else self.xps_per_trial
-        )
-        xpid = 0
-        while max_remaining_xps > 0:
-            max_remaining_xps -= next_xps
-            for _ in range(next_xps):
-                with self.lock:
-                    while self.running_xps >= self.parallelism:
-                        self.cvar.wait()
-                    self.running_xps += 1
-                    self.outstanding_xps -= 1
-                    _xp = deepcopy(xp)
-                    if self.xps_per_trial > 1:
-                        _xp.containers[0].command.append(f"--trial={trial_id}")
-                        _xp.name = f"{_xp.name}-{xpid}"
-                    thread = threading.Thread(
-                        target=self.run_xp,
-                        args=(
-                            _xp,
-                            trial_id,
-                        ),
-                    )
-                    thread.start()
-                    threads.append(thread)
-                    self.cvar.notify()
-                xpid += 1
-            for thread in threads:
-                thread.join()
-            with self.lock:
-                result = np.array(self.trial_results[trial_id]).mean()
-                result_se = (
-                    np.array(self.trial_results[trial_id]).std()
-                    if len(self.trial_results[trial_id]) > 1
-                    else self.best_result_se
-                )
-                if (
-                    self.best_result is not None
-                    and result + result_se + self.best_result_se < self.best_result
-                ):
-                    break
-                elif max_remaining_xps > 0:
-                    next_xps = min(next_xps * 2, max_remaining_xps)
-                    self.outstanding_xps += next_xps
-                    print(
-                        f"{result} + {result_se} + {self.best_result_se} > {self.best_result}, starting {next_xps} more for trial {trial_id}"
-                    )
-
         with self.lock:
             self.study.tell(trial, result)
-            print(f"Trial {trial_id}: {result}")
+            print(f"Trial {trial_id}: {result} ± {result_se}")
             if self.track:
                 args[self.target_metric] = result
                 self.log_in_future.append((trial_id, args))
@@ -360,44 +407,72 @@ class HyperOptimizer:
                 self.best_config = command
                 print(f"New best config:\n{' '.join(command)}")
 
-    def run_xp(self, xp: Any, trial: int) -> None:
-        for retry in range(10):
-            try:
-                self.xprun.run(xp, wait=True, priority=self.priority, user="clemens")
-            except Exception as e:
-                print(f"Failed to run {xp.name}: {e}")
-                print(f"Retrying in 60 seconds... ({retry})")
-                time.sleep(60)
-                continue
-            break
-        else:
-            print(f"Failed to run {xp.name}")
-            return
-        while True:
-            try:
-                self.xprun.block_until_completed(xp.name)
-                break
-            except Exception as e:
-                print(f"Failed to block_until_completed {xp.name}: {e}")
-                print(f"Retrying in 60 seconds... ({retry})")
-                time.sleep(60)
-                continue
-        run = list(
-            self.wandb.runs("entity-neural-network/enn-ppo", {"config.name": xp.name})
-        )[0]
-        returns = [
-            row[self.target_metric]
-            for row in run.scan_history(keys=[self.target_metric])
-        ]
-        if len(returns) == 0:
-            result = -1
-        else:
-            datapoints = max(1, int(len(returns) * self.average_frac))
-            result = np.array(returns[-datapoints:]).mean()
-        with self.lock:
-            self.running_xps -= 1
-            self.trial_results[trial].append(result)
-            self.cvar.notify()
+
+@dataclass
+class Trial:
+    ctx: HyperOptimizer
+    max_xps: int
+    xp: Any
+    trial: optuna.trial.Trial
+    trial_id: int
+    args: Dict[str, float]
+    results: List[float] = field(default_factory=list)
+    completed_xps: int = 0
+    authorized: int = 1
+    issued: int = 0
+
+    def __post_init__(self) -> None:
+        if self.trial_id == 0:
+            self.authorized = self.max_xps
+
+    def run(self) -> None:
+        with self.ctx.lock:
+            while self.completed_xps < self.authorized:
+                self.issue()
+                logger.debug(
+                    f"[trial {self.trial_id}] {self.completed_xps}/{self.issued}/{self.authorized}"
+                )
+                if self.completed_xps == self.authorized:
+                    break
+
+                self.ctx.cvar.wait()
+
+        result, result_se = self.results_mean_se()
+        self.ctx.trial_completed(
+            self.trial, self.trial_id, result, result_se, self.args, self.xp
+        )
+
+    def results_mean_se(self) -> Tuple[float, float]:
+        results = np.array(self.results)
+        return (
+            results.mean(),
+            results.std(ddof=1) / np.sqrt(len(results))
+            if len(results) > 1
+            else self.ctx.best_result_se or 0.0,
+        )
+
+    def issue(self) -> None:
+        result, result_se = self.results_mean_se()
+        if (
+            self.ctx.best_result is not None and self.ctx.best_result_se is not None
+        ) and result + result_se + self.ctx.best_result_se > self.ctx.best_result:
+            self.authorized = max(
+                self.authorized,
+                min(1 + 2 * self.completed_xps, self.max_xps),
+            )
+
+        while self.issued < self.authorized:
+            xpid = self.issued
+            _xp = deepcopy(self.xp)
+            if self.max_xps > 1:
+                _xp.containers[0].command.append(f"--trial={self.trial_id}")
+                _xp.name = f"{_xp.name}-{xpid}"
+            heapq.heappush(
+                self.ctx.pending_xps,
+                Xp(_xp, self.trial_id, self),
+            )
+            self.issued += 1
+            self.ctx.cvar.notify_all()
 
 
 if __name__ == "__main__":
@@ -412,6 +487,7 @@ if __name__ == "__main__":
     parser.add_argument("--run-name", type=str, default=None)
     parser.add_argument("--max-microbatch-size", type=int, default=None)
     parser.add_argument("--adaptive-trials", action="store_true")
+    parser.add_argument("--verbose", action="store_true")
     parser.add_argument(
         "--track",
         type=lambda x: bool(strtobool(x)),
@@ -424,8 +500,15 @@ if __name__ == "__main__":
         "--average-frac", type=float, default=0.2
     )  # Datapoints from the last average-frac% steps are used to compute final metric
     parser.add_argument("--target-metric", type=str, default="charts/episodic_return")
+    parser.add_argument("--xprun-config", type=str, default="xprun/train.ron")
     parser.add_argument("nargs", nargs="*")
     args = parser.parse_args()
+
+    # Configure logging
+    logging.basicConfig(level=logging.INFO)
+    if args.verbose:
+        # Set logging level to DEBUG just for this module
+        logger.setLevel(logging.DEBUG)
 
     run_name = args.run_name or f"optuna-{random.randint(0, 0xffffff):06x}"
 
@@ -456,6 +539,8 @@ if __name__ == "__main__":
         track=args.track,
         max_microbatch_size=args.max_microbatch_size,
         adaptive_trials=args.adaptive_trials,
+        xprun_config=args.xprun_config,
+        average_frac=args.average_frac,
     ).run(args.n_trials)
 
 """
