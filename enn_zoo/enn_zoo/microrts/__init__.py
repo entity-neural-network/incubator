@@ -16,7 +16,6 @@ from entity_gym.environment import (
     Environment,
     EpisodeStats,
     ObsSpace,
-    Type,
     CategoricalActionSpace,
     ActionSpace,
     Observation,
@@ -74,7 +73,7 @@ class GymMicrorts(Environment):
                 "lib/bots/mayariBot.jar",  # "MindSeal.jar"
             ]
             for jar in jars:
-                print(os.path.join(self.microrts_path, jar))
+                # print(os.path.join(self.microrts_path, jar))
                 jpype.addClassPath(os.path.join(self.microrts_path, jar))
             jpype.startJVM(convertStrings=False)
 
@@ -139,7 +138,20 @@ class GymMicrorts(Environment):
     def action_space(cls) -> Dict[str, ActionSpace]:
         return {
             "unitaction": CategoricalActionSpace(
-                choices=["move_up", "move_right", "move_down", "move_left"],
+                choices=[
+                    "move_up",
+                    "move_right",
+                    "move_down",
+                    "move_left",
+                    "harvest_up",
+                    "harvest_right",
+                    "harvest_down",
+                    "harvest_left",
+                    "return_up",
+                    "return_right",
+                    "return_down",
+                    "return_left",
+                ],
             ),
         }
 
@@ -151,11 +163,12 @@ class GymMicrorts(Environment):
         game_over = False
         self.step += 1
 
-        print("=========", action)
         if "unitaction" in action:
             response = self.client.gameStep(action["unitaction"].actions, 0)
+            # print("===xx", np.array(response.observation[9]))
         else:
             response = self.client.gameStep([], 0)
+
         self.client.render(False)
         return Observation(
             entities=self.generate_entities(response),
@@ -163,6 +176,7 @@ class GymMicrorts(Environment):
             action_masks={
                 "unitaction": DenseCategoricalActionMask(
                     actors=np.array(response.observation[8]),
+                    mask=np.array(response.observation[9]),
                 ),
             },
             reward=response.reward @ self.reward_weight,
@@ -176,14 +190,15 @@ class GymMicrorts(Environment):
         response = self.client.reset(0)
         self.client.render(False)
 
-        print("===xx", np.array(response.observation[8]))
-        print("===xx", np.array(response.observation[9]))
+        # print("===xx", np.array(response.observation[8]))
+        # print("===xx", np.array(response.observation[9]))
         return Observation(
             entities=self.generate_entities(response),
             ids=np.array(response.observation[7]),
             action_masks={
                 "unitaction": DenseCategoricalActionMask(
                     actors=np.array(response.observation[8]),
+                    mask=np.array(response.observation[9]),
                 ),
             },
             reward=response.reward @ self.reward_weight,
@@ -216,6 +231,6 @@ class GymMicrorts(Environment):
             entities["Heavy"] = heavy
         if len(ranged) > 0:
             entities["Ranged"] = ranged
-        
-        print(entities)
+
+        # print(entities)
         return entities
