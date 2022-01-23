@@ -1,7 +1,9 @@
 from dataclasses import dataclass
-from typing import Dict, List, Mapping, Sequence, Tuple
+from tokenize import String
+from typing import Any, Dict, List, Mapping, Sequence, Tuple
 import random
 import numpy as np
+import numpy.typing as npt
 from copy import deepcopy
 import os
 import gym_microrts
@@ -42,9 +44,11 @@ class GymMicrorts(Environment):
 
     def __init__(
         self,
-        map_paths=["maps/10x10/basesTwoWorkers10x10.xml"],
-        partial_obs=False,
-        reward_weight=np.array([0.0, 1.0, 0.0, 0.0, 0.0, 5.0]),
+        map_paths: List[str] = ["maps/10x10/basesTwoWorkers10x10.xml"],
+        partial_obs: bool = False,
+        reward_weight: npt.NDArray[np.float32] = np.array(
+            [0.0, 1.0, 0.0, 0.0, 0.0, 5.0]
+        ),
     ):
         self.map_paths = map_paths
         self.partial_obs = partial_obs
@@ -55,7 +59,7 @@ class GymMicrorts(Environment):
         # read map
         self.microrts_path = os.path.join(gym_microrts.__path__[0], "microrts")
         root = ET.parse(os.path.join(self.microrts_path, self.map_paths[0])).getroot()
-        self.height, self.width = int(root.get("height")), int(root.get("width"))
+        self.height, self.width = int(root.get("height")), int(root.get("width"))  # type: ignore
 
         # launch the JVM
         if not jpype._jpype.isStarted():
@@ -73,7 +77,6 @@ class GymMicrorts(Environment):
                 "lib/bots/mayariBot.jar",  # "MindSeal.jar"
             ]
             for jar in jars:
-                # print(os.path.join(self.microrts_path, jar))
                 jpype.addClassPath(os.path.join(self.microrts_path, jar))
             jpype.startJVM(convertStrings=False)
 
@@ -165,14 +168,14 @@ class GymMicrorts(Environment):
 
         if "unitaction" in action:
             response = self.client.gameStep(action["unitaction"].actions, 0)
-            # print("===xx", np.array(response.observation[9]))
         else:
             response = self.client.gameStep([], 0)
 
         self.client.render(False)
+        entity_ids = list(np.array(response.observation[7]))  # type: Sequence[Any]
         return Observation(
             entities=self.generate_entities(response),
-            ids=np.array(response.observation[7]),
+            ids=entity_ids,
             action_masks={
                 "unitaction": DenseCategoricalActionMask(
                     actors=np.array(response.observation[8]),
@@ -190,11 +193,10 @@ class GymMicrorts(Environment):
         response = self.client.reset(0)
         self.client.render(False)
 
-        # print("===xx", np.array(response.observation[8]))
-        # print("===xx", np.array(response.observation[9]))
+        entity_ids = list(np.array(response.observation[7]))  # type: Sequence[Any]
         return Observation(
             entities=self.generate_entities(response),
-            ids=np.array(response.observation[7]),
+            ids=entity_ids,
             action_masks={
                 "unitaction": DenseCategoricalActionMask(
                     actors=np.array(response.observation[8]),
@@ -208,7 +210,7 @@ class GymMicrorts(Environment):
             else None,
         )
 
-    def generate_entities(self, response):
+    def generate_entities(self, response: Any) -> Dict[str, npt.NDArray[np.float32]]:
         entities = {}
         resource = np.array(response.observation[0]).astype(np.float32)
         base = np.array(response.observation[1]).astype(np.float32)
@@ -232,5 +234,4 @@ class GymMicrorts(Environment):
         if len(ranged) > 0:
             entities["Ranged"] = ranged
 
-        # print(entities)
         return entities
