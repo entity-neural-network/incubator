@@ -42,6 +42,7 @@ from entity_gym.environment.env_list import EnvList
 from entity_gym.environment.parallel_env_list import ParallelEnvList
 from entity_gym.examples import ENV_REGISTRY
 from enn_zoo.griddly import GRIDDLY_ENVS, create_env
+from enn_zoo.codecraft.vec_env import CodeCraftEnv, CodeCraftVecEnv
 from entity_gym.serialization import SampleRecordingVecEnv
 from enn_ppo.simple_trace import Tracer
 from rogue_net.relpos_encoding import RelposEncodingConfig
@@ -542,6 +543,8 @@ def train(args: argparse.Namespace) -> float:
     elif args.gym_id in GRIDDLY_ENVS:
         path, level = GRIDDLY_ENVS[args.gym_id]
         env_cls = create_env(yaml_file=path, level=level)
+    elif args.gym_id == "CodeCraft":
+        env_cls = CodeCraftEnv
     else:
         raise KeyError(
             f"Unknown gym_id: {args.gym_id}\nAvailable environments: {list(ENV_REGISTRY.keys()) + list(GRIDDLY_ENVS.keys())}"
@@ -554,7 +557,9 @@ def train(args: argparse.Namespace) -> float:
     else:
         eval_env_kwargs = env_kwargs
     envs: VecEnv
-    if args.processes > 1:
+    if args.gym_id == "CodeCraft":
+        envs = CodeCraftVecEnv(args.num_envs, 0)
+    elif args.processes > 1:
         envs = ParallelEnvList(env_cls, env_kwargs, args.num_envs, args.processes)
     else:
         envs = EnvList(env_cls, env_kwargs, args.num_envs)

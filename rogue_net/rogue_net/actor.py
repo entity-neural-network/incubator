@@ -39,7 +39,6 @@ def tensor_dict_to_ragged(
 class Actor(nn.Module):
     def __init__(
         self,
-        obs_space: ObsSpace,
         embedding: nn.ModuleDict,
         action_space: Dict[str, ActionSpace],
         backbone: nn.Module,
@@ -50,7 +49,6 @@ class Actor(nn.Module):
     ):
         super(Actor, self).__init__()
 
-        self.obs_space = obs_space
         self.action_space = action_space
 
         self.embedding = embedding
@@ -217,8 +215,9 @@ class AutoActor(Actor):
     ):
         assert pooling_op in (None, "mean", "max", "meanmax")
         self.d_model = d_model
+        if feature_transforms is not None:
+            obs_space = feature_transforms.transform_obs_space(obs_space)
         super().__init__(
-            obs_space,
             embedding_creator.create_embeddings(obs_space, d_model),
             action_space,
             Transformer(
