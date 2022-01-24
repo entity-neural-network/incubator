@@ -155,7 +155,7 @@ class VecEnv(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def render(self, **kwargs: Any) -> np.ndarray:
+    def render(self, **kwargs: Any) -> npt.NDArray[np.uint8]:
         raise NotImplementedError
 
     @abstractmethod

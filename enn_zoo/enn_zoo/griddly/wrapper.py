@@ -1,6 +1,5 @@
 from abc import abstractmethod
-from collections import defaultdict
-from typing import Mapping, Dict, Set, Tuple, Any
+from typing import Mapping, Dict, Any
 
 import numpy as np
 from entity_gym.environment import (
@@ -11,9 +10,9 @@ from entity_gym.environment import (
     EpisodeStats,
     DenseCategoricalActionMask,
     ObsSpace,
-    ActionMask,
 )
-from griddly import GymWrapper
+
+import numpy.typing as npt
 
 
 class GriddlyEnv(Environment):
@@ -100,5 +99,5 @@ class GriddlyEnv(Environment):
 
         return self._make_observation(reward, done)
 
-    def render(self, **kwargs: Any) -> np.ndarray:
+    def render(self, **kwargs: Any) -> npt.NDArray[np.uint8]:
         return self._env.render(**kwargs, observer="global")  # type: ignore

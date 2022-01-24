@@ -2,6 +2,7 @@ import multiprocessing as mp
 import multiprocessing.connection as conn
 from multiprocessing.connection import Connection
 import numpy as np
+import numpy.typing as npt
 from typing import (
     Any,
     Dict,
@@ -175,7 +176,7 @@ class ParallelEnvList(VecEnv):
         assert isinstance(observations, ObsBatch)
         return observations
 
-    def render(self, **kwargs: Any) -> np.ndarray:
+    def render(self, **kwargs: Any) -> npt.NDArray[np.uint8]:
         rgb_arrays = []
         for remote in self.remotes:
             remote.send(("render", kwargs))

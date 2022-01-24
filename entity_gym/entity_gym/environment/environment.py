@@ -171,7 +171,7 @@ class Environment(ABC):
     def reset(self, obs_filter: ObsSpace) -> Observation:
         return self.__class__.filter_obs(self._reset(), obs_filter)
 
-    def render(self, **kwargs: Any) -> np.ndarray:
+    def render(self, **kwargs: Any) -> npt.NDArray[np.uint8]:
         """
         Renders the environment
 

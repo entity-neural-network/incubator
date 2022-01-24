@@ -52,9 +52,19 @@ Objects:
     Variables:
       - Name: entity_1_variable
         InitialValue: 5
+    Observers:
+      Block2D:
+        - Shape: circle
+          Color: [ 0.0, 0.0, 1.0 ]
+          Scale: 1.0
 
   - Name: entity_2
     MapCharacter: e
     Variables:
       - Name: entity_2_variable
         InitialValue: 10
+    Observers:
+      Block2D:
+        - Shape: circle
+          Color: [ 0.0, 0.0, 1.0 ]
+          Scale: 1.0

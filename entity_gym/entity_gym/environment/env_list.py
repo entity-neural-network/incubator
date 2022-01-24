@@ -17,6 +17,7 @@ from entity_gym.environment.vec_env import (
 )
 
 import numpy as np
+import numpy.typing as npt
 
 
 class EnvList(VecEnv):
@@ -36,7 +37,7 @@ class EnvList(VecEnv):
             self.cls.action_space(),
         )
 
-    def render(self, **kwargs: Mapping[str, Any]) -> np.ndarray:
+    def render(self, **kwargs: Any) -> npt.NDArray[np.uint8]:
         return np.stack([e.render(**kwargs) for e in self.envs])
 
     def close(self) -> None:

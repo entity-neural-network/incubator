@@ -101,7 +101,7 @@ def parse_args(override_args: Optional[List[str]] = None) -> argparse.Namespace:
         help='number of parallel environments in eval')
     parser.add_argument('--eval-env-kwargs', type=str, default=None,
         help='JSON dictionary with keyword arguments for the eval environment')
-    parser.add_argument('--eval-processes', type=int, default=1,
+    parser.add_argument('--eval-processes', type=int, default=None,
                         help='The number of processes to use to collect evaluation data. The envs are split as equally as possible across the processes')
     parser.add_argument('--eval-capture-videos',type=lambda x:bool(strtobool(x)), default=False, nargs='?', const=True,
                         help='If --eval-render-videos is set, videos will be recorded of the environments during evaluation')
@@ -284,7 +284,9 @@ class Rollout:
         self.action_masks = RaggedActionDict()
         self.actions = RaggedBatchDict(RaggedBufferI64)
         self.logprobs = RaggedBatchDict(RaggedBufferF32)
-        self.rendered: Optional[np.ndarray] = None
+
+        self.rendered_frames: List[npt.NDArray[np.uint8]] = []
+        self.rendered: Optional[npt.NDArray[np.uint8]] = None
 
     def run(
         self, steps: int, record_samples: bool, capture_videos: bool = False
@@ -314,7 +316,7 @@ class Rollout:
             next_done = self.next_done
 
         if capture_videos:
-            self.rendered = np.expand_dims(self.envs.render(mode="rgb_array"), 0)
+            self.rendered_frames.append(self.envs.render(mode="rgb_array"))
 
         for step in range(steps):
             self.global_step += len(self.envs)
@@ -344,12 +346,7 @@ class Rollout:
                 self.logprobs.extend(logprob)
 
             if capture_videos:
-                self.rendered = np.concatenate(
-                    [
-                        self.rendered,
-                        np.expand_dims(self.envs.render(mode="rgb_array"), 0),
-                    ]
-                )
+                self.rendered_frames.append(self.envs.render(mode="rgb_array"))
 
             with self.tracer.span("join_actions"):
                 _actions = join_actions(
@@ -388,6 +385,9 @@ class Rollout:
 
         self.next_obs = next_obs
         self.next_done = next_done
+
+        if capture_videos:
+            self.rendered = np.stack(self.rendered_frames)
 
         metrics = {}
         if total_episodes > 0:
@@ -646,11 +646,17 @@ def train(args: argparse.Namespace) -> float:
 
         if next_eval_step is not None and rollout.global_step >= next_eval_step:
             next_eval_step += args.eval_interval
+
+            # If eval processes is no set, we just use the same number of processes as the train loop
+            eval_processes = args.eval_processes
+            if not isinstance(eval_processes, int):
+                eval_processes = args.processes
+
             run_eval(
                 env_cls,
                 eval_env_kwargs,
                 args.eval_num_envs,
-                args.eval_processes,
+                eval_processes,
                 obs_space,
                 action_space,
                 agent,
