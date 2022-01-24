@@ -6,6 +6,7 @@ import time
 from enn_zoo.codecraft import rest_client
 from enn_zoo.codecraft.rest_client import ObsConfig, Rules
 import numpy as np
+import numpy.typing as npt
 from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple, Type
 from ragged_buffer import RaggedBufferF32, RaggedBufferI64, RaggedBufferBool
 from entity_gym.environment import VecEnv
@@ -436,6 +437,11 @@ class CodeCraftVecEnv(VecEnv):
         return self.step(
             [[a[1] for a in act["act"].actions] for act in actions], obs_filter
         )
+
+    def render(self, **kwargs: Any) -> npt.NDArray[np.uint8]:
+        # TODO: @cswinter to provide rest API client for grabbing image state from CodeCraft
+        # Have to put this here so mypy doesn't complain about abstract instantiation
+        raise NotImplementedError()
 
     def step(
         self,

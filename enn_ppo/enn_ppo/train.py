@@ -83,8 +83,6 @@ def parse_args(override_args: Optional[List[str]] = None) -> argparse.Namespace:
         help="the wandb's project name")
     parser.add_argument('--wandb-entity', type=str, default="entity-neural-network",
         help="the entity (team) of wandb's project")
-    parser.add_argument('--capture-video', type=lambda x:bool(strtobool(x)), default=False, nargs='?', const=True,
-        help='weather to capture videos of the agent performances (check out `videos` folder)')
     parser.add_argument('--capture-samples', type=str, default=None,
         help='if set, write the samples to this file')
     parser.add_argument('--capture-logits', type=lambda x:bool(strtobool(x)), default=False, nargs='?', const=True,
@@ -93,7 +91,7 @@ def parse_args(override_args: Optional[List[str]] = None) -> argparse.Namespace:
         help='The number of processes to use to collect env data. The envs are split as equally as possible across the processes')
     parser.add_argument('--trial', type=int, default=None,
         help='trial number of experiment spawned by hyperparameter tuner')
-    
+
     # Evals
     parser.add_argument('--eval-interval', type=int, default=None,
         help='number of global steps between evaluations')
@@ -103,6 +101,10 @@ def parse_args(override_args: Optional[List[str]] = None) -> argparse.Namespace:
         help='number of parallel environments in eval')
     parser.add_argument('--eval-env-kwargs', type=str, default=None,
         help='JSON dictionary with keyword arguments for the eval environment')
+    parser.add_argument('--eval-processes', type=int, default=None,
+                        help='The number of processes to use to collect evaluation data. The envs are split as equally as possible across the processes')
+    parser.add_argument('--eval-capture-videos',type=lambda x:bool(strtobool(x)), default=False, nargs='?', const=True,
+                        help='If --eval-render-videos is set, videos will be recorded of the environments during evaluation')
 
     # Network architecture
     parser.add_argument('--d-model', type=int, default=64,
@@ -283,8 +285,11 @@ class Rollout:
         self.actions = RaggedBatchDict(RaggedBufferI64)
         self.logprobs = RaggedBatchDict(RaggedBufferF32)
 
+        self.rendered_frames: List[npt.NDArray[np.uint8]] = []
+        self.rendered: Optional[npt.NDArray[np.uint8]] = None
+
     def run(
-        self, steps: int, record_samples: bool
+        self, steps: int, record_samples: bool, capture_videos: bool = False
     ) -> Tuple[ObsBatch, torch.Tensor, Dict[str, float]]:
         """
         Run the agent for a number of steps. Returns next_obs, next_done, and a dictionary of statistics.
@@ -309,6 +314,9 @@ class Rollout:
         else:
             next_obs = self.next_obs
             next_done = self.next_done
+
+        if capture_videos:
+            self.rendered_frames.append(self.envs.render(mode="rgb_array"))
 
         for step in range(steps):
             self.global_step += len(self.envs)
@@ -336,6 +344,9 @@ class Rollout:
                 self.values[step] = aux["value"].flatten()
                 self.actions.extend(action)
                 self.logprobs.extend(logprob)
+
+            if capture_videos:
+                self.rendered_frames.append(self.envs.render(mode="rgb_array"))
 
             with self.tracer.span("join_actions"):
                 _actions = join_actions(
@@ -374,6 +385,9 @@ class Rollout:
 
         self.next_obs = next_obs
         self.next_done = next_done
+
+        if capture_videos:
+            self.rendered = np.stack(self.rendered_frames)
 
         metrics = {}
         if total_episodes > 0:
@@ -443,6 +457,7 @@ def run_eval(
     tracer: Tracer,
     writer: SummaryWriter,
     global_step: int,
+    capture_videos: bool = False,
 ) -> None:
     # TODO: metrics are biased towards short episodes
     eval_envs: VecEnv
@@ -466,9 +481,18 @@ def run_eval(
         tracer=tracer,
     )
     _, _, metrics = eval_rollout.run(
-        args.eval_steps,
-        record_samples=False,
+        args.eval_steps, record_samples=False, capture_videos=capture_videos
     )
+
+    if capture_videos:
+        # save the videos
+        writer.add_video(
+            f"eval/video",
+            torch.tensor(eval_rollout.rendered).permute(1, 0, 4, 2, 3),
+            global_step,
+            fps=30,
+        )
+
     for name, value in metrics.items():
         writer.add_scalar(f"eval/{name}", value, global_step)
     print(
@@ -622,11 +646,17 @@ def train(args: argparse.Namespace) -> float:
 
         if next_eval_step is not None and rollout.global_step >= next_eval_step:
             next_eval_step += args.eval_interval
+
+            # If eval processes is no set, we just use the same number of processes as the train loop
+            eval_processes = args.eval_processes
+            if not isinstance(eval_processes, int):
+                eval_processes = args.processes
+
             run_eval(
                 env_cls,
                 eval_env_kwargs,
                 args.eval_num_envs,
-                args.processes,
+                eval_processes,
                 obs_space,
                 action_space,
                 agent,
@@ -634,6 +664,7 @@ def train(args: argparse.Namespace) -> float:
                 tracer,
                 writer,
                 rollout.global_step,
+                args.eval_capture_videos,
             )
 
         tracer.start("update")

@@ -73,7 +73,7 @@ def create_env(
                 image_path=image_path,
                 shader_path=shader_path,
                 player_observer_type=gd.ObserverType.NONE,
-                global_observer_type=gd.ObserverType.NONE,
+                global_observer_type=gd.ObserverType.BLOCK_2D,
                 level=level,
             )
 
