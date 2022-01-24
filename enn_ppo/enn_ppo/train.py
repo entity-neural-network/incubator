@@ -91,6 +91,8 @@ def parse_args(override_args: Optional[List[str]] = None) -> argparse.Namespace:
         help='The number of processes to use to collect env data. The envs are split as equally as possible across the processes')
     parser.add_argument('--trial', type=int, default=None,
         help='trial number of experiment spawned by hyperparameter tuner')
+    parser.add_argument('--data-dir', type=str, default='.',
+                        help='Directory to save output from training and logging')
 
     # Evals
     parser.add_argument('--eval-interval', type=int, default=None,
@@ -522,6 +524,10 @@ def train(args: argparse.Namespace) -> float:
     else:
         out_dir = None
 
+    data_path = Path(args.data_dir).absolute()
+    data_path.mkdir(parents=True, exist_ok=True)
+    data_dir = str(data_path)
+
     if args.track:
         import wandb
 
@@ -544,8 +550,9 @@ def train(args: argparse.Namespace) -> float:
             config=config,
             name=run_name,
             save_code=True,
+            dir=data_dir,
         )
-    writer = SummaryWriter(f"runs/{run_name}")
+    writer = SummaryWriter(os.path.join(data_dir, f"runs/{run_name}"))
     writer.add_text(
         "hyperparameters",
         "|param|value|\n|-|-|\n%s"
