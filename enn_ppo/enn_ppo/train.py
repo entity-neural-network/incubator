@@ -550,7 +550,7 @@ def train(args: argparse.Namespace) -> float:
             config=config,
             name=run_name,
             save_code=True,
-            dir=data_dir
+            dir=data_dir,
         )
     writer = SummaryWriter(os.path.join(data_dir, f"runs/{run_name}"))
     writer.add_text(
