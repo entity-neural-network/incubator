@@ -55,7 +55,17 @@ class CategoricalActionHead(nn.Module):
         assert isinstance(
             mask, CategoricalActionMaskBatch
         ), f"Expected CategoricalActionMaskBatch, got {type(mask)}"
+
         lengths = mask.actors.size1()
+        if len(mask.actors) == 0:
+            return (
+                torch.zeros((0, 1), dtype=torch.int64),
+                lengths,
+                torch.zeros((0, 1), dtype=torch.float32),
+                torch.zeros((0, 1), dtype=torch.float32),
+                torch.zeros((0, self.n_choice), dtype=torch.float32),
+            )
+
         actors = torch.tensor((mask.actors + index_offsets).as_array()).to(
             x.data.device
         )
@@ -105,8 +115,16 @@ class PaddedSelectEntityActionHead(nn.Module):
             mask, SelectEntityActionMaskBatch
         ), f"Expected SelectEntityActionMaskBatch, got {type(mask)}"
         device = x.data.device
-
         actor_lengths = mask.actors.size1()
+        if len(mask.actors) == 0:
+            return (
+                torch.zeros((0, 1), dtype=torch.int64),
+                actor_lengths,
+                torch.zeros((0, 1), dtype=torch.float32),
+                torch.zeros((0, 1), dtype=torch.float32),
+                torch.zeros((0, 1), dtype=torch.float32),
+            )
+
         actors = torch.tensor((mask.actors + index_offsets).as_array(), device=device)
         actor_embeds = x.data[actors]
         queries = self.query_proj(actor_embeds).squeeze(1)
