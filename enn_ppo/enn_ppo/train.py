@@ -918,13 +918,14 @@ def train(args: argparse.Namespace) -> float:
         writer.add_scalar("losses/gradnorm", gradnorm, global_step)
         for action_name, space in action_space.items():
             if isinstance(space, CategoricalActionSpace):
-                choices = actions.buffers[action_name].as_array().flatten()
-                for i, label in enumerate(space.choices):
-                    writer.add_scalar(
-                        "actions/{}/{}".format(action_name, label),
-                        np.sum(choices == i).item() / len(choices),
-                        global_step,
-                    )
+                _actions = actions.buffers[action_name].as_array().flatten()
+                if len(_actions) > 0:
+                    for i, label in enumerate(space.choices):
+                        writer.add_scalar(
+                            "actions/{}/{}".format(action_name, label),
+                            np.sum(_actions == i).item() / len(_actions),
+                            global_step,
+                        )
         print("SPS:", int(global_step / (time.time() - start_time)))
         writer.add_scalar(
             "charts/SPS", int(global_step / (time.time() - start_time)), global_step
