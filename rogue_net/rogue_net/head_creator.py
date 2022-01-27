@@ -8,12 +8,12 @@ import torch
 import numpy as np
 import numpy.typing as npt
 from entity_gym.environment import (
-    ActionMaskBatch,
+    VecActionMask,
     ActionSpace,
-    CategoricalActionMaskBatch,
+    VecCategoricalActionMask,
     CategoricalActionSpace,
     DenseSelectEntityActionMask,
-    SelectEntityActionMaskBatch,
+    VecSelectEntityActionMask,
     SelectEntityActionSpace,
 )
 from typing import Dict
@@ -24,7 +24,7 @@ class ActionHead(nn.Module):
         self,
         x: RaggedTensor,
         index_offsets: RaggedBufferI64,
-        mask: ActionMaskBatch,
+        mask: VecActionMask,
         prev_actions: Optional[RaggedBufferI64],
     ) -> Tuple[
         RaggedBufferI64,
@@ -47,13 +47,13 @@ class CategoricalActionHead(nn.Module):
         self,
         x: RaggedTensor,
         index_offsets: RaggedBufferI64,
-        mask: ActionMaskBatch,
+        mask: VecActionMask,
         prev_actions: Optional[RaggedBufferI64],
     ) -> Tuple[
         torch.Tensor, npt.NDArray[np.int64], torch.Tensor, torch.Tensor, torch.Tensor
     ]:
         assert isinstance(
-            mask, CategoricalActionMaskBatch
+            mask, VecCategoricalActionMask
         ), f"Expected CategoricalActionMaskBatch, got {type(mask)}"
 
         lengths = mask.actors.size1()
@@ -73,9 +73,9 @@ class CategoricalActionHead(nn.Module):
         logits = self.proj(actor_embeds)
 
         # Apply masks from the environment
-        if mask.masks is not None and mask.masks.size0() > 0:
+        if mask.mask is not None and mask.mask.size0() > 0:
             reshaped_masks = torch.tensor(
-                mask.masks.as_array().reshape(logits.shape)
+                mask.mask.as_array().reshape(logits.shape)
             ).to(x.data.device)
             logits = logits.masked_fill(reshaped_masks == 0, -float("inf"))
 
@@ -106,13 +106,13 @@ class PaddedSelectEntityActionHead(nn.Module):
         self,
         x: RaggedTensor,
         index_offsets: RaggedBufferI64,
-        mask: ActionMaskBatch,
+        mask: VecActionMask,
         prev_actions: Optional[RaggedBufferI64],
     ) -> Tuple[
         torch.Tensor, npt.NDArray[np.int64], torch.Tensor, torch.Tensor, torch.Tensor
     ]:
         assert isinstance(
-            mask, SelectEntityActionMaskBatch
+            mask, VecSelectEntityActionMask
         ), f"Expected SelectEntityActionMaskBatch, got {type(mask)}"
         device = x.data.device
         actor_lengths = mask.actors.size1()

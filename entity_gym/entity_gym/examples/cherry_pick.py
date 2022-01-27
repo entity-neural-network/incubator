@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+from entity_gym.environment.environment import EntityType
 import numpy as np
 from typing import Dict, List, Mapping
 
@@ -55,26 +56,24 @@ class CherryPick(Environment):
         self.last_reward = 0.0
         self.step = 0
         self.total_reward = 0.0
-        self.ids: List[EntityID] = [
-            f"Cherry {a}" for a in range(1, len(self.cherries) + 1)
-        ] + ["Player"]
         return self.observe()
 
     def observe(self) -> Observation:
         done = self.step == self.num_cherries // 2
+        ids: Dict[EntityType, List[EntityID]] = {
+            "Cherry": [("Cherry", a) for a in range(len(self.cherries))],
+            "Player": ["Player"],
+        }
         return Observation(
-            entities={
+            features={
                 "Cherry": np.array(self.cherries, dtype=np.float32).reshape(-1, 1),
                 "Player": np.zeros([1, 0], dtype=np.float32),
             },
-            ids=self.ids,
-            action_masks={
+            ids=ids,
+            actions={
                 "Pick Cherry": DenseSelectEntityActionMask(
-                    actors=np.array([len(self.cherries)]),
-                    actees=np.arange(len(self.cherries)),
-                    mask=(
-                        np.arange(len(self.cherries) + 1) < len(self.cherries)
-                    ).astype(np.float32),
+                    actor_ids=["Player"],
+                    actee_ids=ids["Cherry"],
                 ),
             },
             reward=self.last_reward,
@@ -84,16 +83,12 @@ class CherryPick(Environment):
             else None,
         )
 
-    def _entityID_to_idx(self, id: EntityID) -> int:
-        return self.ids.index(id)
-
     def _act(self, action: Mapping[str, Action]) -> Observation:
-        assert len(action) == 1
+        assert len(action) == 1, action
         a = action["Pick Cherry"]
         assert isinstance(a, SelectEntityAction)
-        chosen_cherry_idx = self._entityID_to_idx(a.actions[0][1])
+        _, chosen_cherry_idx = a.actees[0]
         self.last_reward = self.cherries.pop(chosen_cherry_idx)
-        self.ids.pop(chosen_cherry_idx)
         self.total_reward += self.last_reward
         self.step += 1
         return self.observe()

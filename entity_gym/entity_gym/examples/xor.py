@@ -6,7 +6,6 @@ from typing import Dict, Mapping
 from entity_gym.environment import (
     CategoricalAction,
     DenseCategoricalActionMask,
-    Entity,
     Environment,
     CategoricalActionSpace,
     ActionSpace,
@@ -61,9 +60,9 @@ class Xor(Environment):
         for action_name, a in action.items():
             assert isinstance(a, CategoricalAction)
             if action_name == "output":
-                if a.actions[0][1] == 0 and self.bit1.is_set == self.bit2.is_set:
+                if a.actions[0] == 0 and self.bit1.is_set == self.bit2.is_set:
                     reward = 1.0
-                elif a.actions[0][1] == 1 and self.bit1.is_set != self.bit2.is_set:
+                elif a.actions[0] == 1 and self.bit1.is_set != self.bit2.is_set:
                     reward = 1.0
 
         return self.observe(obs_filter, done=True, reward=reward)
@@ -78,7 +77,7 @@ class Xor(Environment):
         self, obs_filter: ObsSpace, done: bool = False, reward: float = 0.0
     ) -> Observation:
         return Observation(
-            entities=extract_features(
+            features=extract_features(
                 {
                     "Output": [Output()],
                     "Bit1": [self.bit1],
@@ -86,10 +85,10 @@ class Xor(Environment):
                 },
                 obs_filter,
             ),
-            action_masks={
-                "output": DenseCategoricalActionMask(actors=np.array([0]), mask=None),
+            actions={
+                "output": DenseCategoricalActionMask(actor_ids=[0]),
             },
-            ids=list(range(3)),
+            ids={"Output": [0], "Bit1": [1], "Bit2": [2]},
             reward=reward,
             done=done,
             end_of_episode_info=EpisodeStats(1, reward) if done else None,

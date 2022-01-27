@@ -65,8 +65,8 @@ class Count(Environment):
                 range(0, self.masked_choices), random.randint(0, self.masked_choices)
             ),
         }
-        mask = np.zeros((10), dtype=np.bool_)
-        mask[list(possible_counts)] = True
+        mask = np.zeros((1, 10), dtype=np.bool_)
+        mask[:, list(possible_counts)] = True
         return self.observe(obs_space, mask)
 
     def _reset(self) -> Observation:
@@ -76,9 +76,9 @@ class Count(Environment):
         reward = 0.0
         assert len(action) == 1
         a = action["count"]
-        assert len(a.actions) == 1
         assert isinstance(a, CategoricalAction)
-        choice = a.actions[0][1]
+        assert len(a.actions) == 1
+        choice = a.actions[0]
         if choice == self.count:
             reward = 1.0
         return self.observe(obs_filter, None, done=True, reward=reward)
@@ -92,22 +92,25 @@ class Count(Environment):
     def observe(
         self,
         obs_filter: ObsSpace,
-        mask: Optional[npt.NDArray[np.int64]],
+        mask: Optional[npt.NDArray[np.bool_]],
         done: bool = False,
         reward: float = 0.0,
     ) -> Observation:
         return Observation(
-            entities=extract_features(
+            features=extract_features(
                 {
                     "Player": [Player()],
                     "Bean": [Bean()] * self.count,
                 },
                 obs_filter,
             ),
-            action_masks={
-                "count": DenseCategoricalActionMask(actors=np.array([0]), mask=mask),
+            actions={
+                "count": DenseCategoricalActionMask(actor_ids=["Player"], mask=mask),
             },
-            ids=["Player"] + [f"Bean{i}" for i in range(1, self.count + 1)],
+            ids={
+                "Player": ["Player"],
+                "Bean": [f"Bean{i}" for i in range(1, self.count + 1)],
+            },
             reward=reward,
             done=done,
             end_of_episode_info=EpisodeStats(1, reward) if done else None,

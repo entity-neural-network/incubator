@@ -124,11 +124,10 @@ class MultiSnake(Environment):
     def _act(self, action: Mapping[str, Action]) -> Observation:
         game_over = False
         self.step += 1
-        reward = 0.0
         move_action = action["move"]
         self.last_scores = deepcopy(self.scores)
         assert isinstance(move_action, CategoricalAction)
-        for id, move in move_action.actions:
+        for id, move in move_action.items():
             snake = self.snakes[id]
             x, y = snake.segments[-1]
             if move == 0:
@@ -179,7 +178,7 @@ class MultiSnake(Environment):
             return (color - color_offset) % self.num_snakes
 
         return Observation(
-            entities={
+            features={
                 "SnakeHead": np.array(
                     [
                         [
@@ -212,12 +211,12 @@ class MultiSnake(Environment):
                     dtype=np.float32,
                 ),
             },
-            ids=list(
-                range(sum([len(s.segments) for s in self.snakes]) + len(self.food))
-            ),
-            action_masks={
+            ids={
+                "SnakeHead": [0, 1],
+            },
+            actions={
                 "move": DenseCategoricalActionMask(
-                    actors=np.arange(self.num_snakes, dtype=np.int64),
+                    actor_types=["SnakeHead"],
                 ),
             },
             reward=self.scores[player] - self.last_scores[player],
@@ -275,7 +274,12 @@ class MultiplayerMultiSnake(VecEnv):
                     if k not in combined_acts:
                         combined_acts[k] = v
                     else:
-                        combined_acts[k].actions.extend(v.actions)
+                        combined_acts[k].actors = list(combined_acts[k].actors) + list(
+                            v.actors
+                        )
+                        combined_acts[k].actions = np.concatenate(
+                            [combined_acts[k].actions, v.actions]
+                        )
             env._act(combined_acts)
             for j in range(self.num_players):
                 obs.append(env._observe(player=j))

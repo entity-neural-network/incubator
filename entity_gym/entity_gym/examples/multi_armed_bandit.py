@@ -47,7 +47,7 @@ class MultiArmedBandit(Environment):
 
         a = action["pull"]
         assert isinstance(a, CategoricalAction), f"{a} is not a CategoricalAction"
-        if a.actions[0][1] == 0:
+        if a.actions[0] == 0:
             reward = 1
         else:
             reward = 0
@@ -57,7 +57,7 @@ class MultiArmedBandit(Environment):
 
     def observe(self, done: bool = False, reward: float = 0) -> Observation:
         return Observation(
-            entities={
+            features={
                 "MultiArmedBandit": np.array(
                     [
                         [
@@ -67,10 +67,10 @@ class MultiArmedBandit(Environment):
                     dtype=np.float32,
                 ),
             },
-            action_masks={
-                "pull": DenseCategoricalActionMask(actors=np.array([0]), mask=None),
+            actions={
+                "pull": DenseCategoricalActionMask(actor_ids=[0]),
             },
-            ids=[0],
+            ids={"MultiArmedBandit": [0]},
             reward=reward,
             done=done,
             end_of_episode_info=EpisodeStats(self.step, self._total_reward)

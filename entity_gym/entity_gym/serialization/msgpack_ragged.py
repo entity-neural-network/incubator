@@ -9,9 +9,9 @@ from entity_gym.environment.vec_env import *
 # For security reasons we don't want to deserialize classes that are not in this list.
 WHITELIST = {
     "ObsSpace": ObsSpace,
-    "ObsBatch": ObsBatch,
-    "CategoricalActionMaskBatch": CategoricalActionMaskBatch,
-    "SelectEntityActionMaskBatch": SelectEntityActionMaskBatch,
+    "VecObs": VecObs,
+    "VecCategoricalActionMask": VecCategoricalActionMask,
+    "VecSelectEntityActionMask": VecSelectEntityActionMask,
     "SelectEntityAction": SelectEntityAction,
     "CategoricalAction": CategoricalAction,
     "Entity": Entity,

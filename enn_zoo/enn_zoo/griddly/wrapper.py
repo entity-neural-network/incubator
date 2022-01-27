@@ -1,5 +1,6 @@
 from abc import abstractmethod
 from typing import Mapping, Dict, Any
+from entity_gym.environment.environment import CategoricalAction
 
 import numpy as np
 from entity_gym.environment import (
@@ -49,8 +50,9 @@ class GriddlyEnv(Environment):
 
         for action_name, a in action.items():
             action_type = self._env.action_names.index(action_name)
+            assert isinstance(a, CategoricalAction)
             # TODO: this only works if we have a single entity, otherwise we have to map the entityID to an x,y coordinate
-            action_id = a.actions[0][1]
+            action_id = a.actions[0]
 
         return np.array([action_type, action_id])
 
@@ -67,14 +69,15 @@ class GriddlyEnv(Environment):
         action_masks = {}
         for action_name, entity_mask in entity_masks.items():
             action_masks[action_name] = DenseCategoricalActionMask(
-                actors=np.array(entity_mask["ActorIdx"]),
+                # TODO: fix
+                actor_ids=entity_mask["ActorIdx"],
                 mask=np.array(entity_mask["Masks"]).astype(np.bool_),
             )
 
         return Observation(
-            entities=entities,
+            features=entities,
             ids=entity_ids,
-            action_masks=action_masks,
+            actions=action_masks,
             reward=reward,
             done=done,
             end_of_episode_info=EpisodeStats(self.step, self.total_reward)

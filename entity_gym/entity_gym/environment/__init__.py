@@ -13,12 +13,14 @@ from .environment import (
     ObsSpace,
     EpisodeStats,
     Entity,
+    EntityType,
+    ActionType,
     EntityID,
 )
 from .vec_env import (
     VecEnv,
-    ObsBatch,
-    ActionMaskBatch,
-    CategoricalActionMaskBatch,
-    SelectEntityActionMaskBatch,
+    VecActionMask,
+    VecCategoricalActionMask,
+    VecSelectEntityActionMask,
+    VecObs,
 )

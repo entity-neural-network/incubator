@@ -98,7 +98,7 @@ class Minefield(Environment):
         for action_name, a in action.items():
             assert isinstance(a, CategoricalAction)
             if action_name == "move":
-                move = a.actions[0][1]
+                move = a.actions[0]
                 if move == 0:
                     self.vehicle.direction -= np.pi / 8
                 elif move == 1:
@@ -154,7 +154,7 @@ class Minefield(Environment):
         else:
             ox = oy = 0
         return Observation(
-            entities=extract_features(
+            features=extract_features(
                 {
                     "Mine": [Mine(m.x_pos - ox, m.y_pos - oy) for m in self.mines],
                     "Vehicle": [self.vehicle],
@@ -162,10 +162,10 @@ class Minefield(Environment):
                 },
                 obs_filter,
             ),
-            action_masks={
-                "move": DenseCategoricalActionMask(actors=np.array([0]), mask=None),
+            actions={
+                "move": DenseCategoricalActionMask(actor_types=["Vehicle"]),
             },
-            ids=list(range(len(self.mines) + 2)),
+            ids={"Vehicle": ["Vehicle"]},
             reward=reward,
             done=done,
             end_of_episode_info=EpisodeStats(self.step, reward) if done else None,

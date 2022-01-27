@@ -1,7 +1,7 @@
 from typing import Dict, Mapping, Optional, Tuple, Type, TypeVar
 
 from entity_gym.environment import (
-    ActionMaskBatch,
+    VecActionMask,
     ActionSpace,
     ObsSpace,
 )
@@ -133,7 +133,7 @@ class Actor(nn.Module):
     def get_action_and_auxiliary(
         self,
         entities: Mapping[str, RaggedBufferF32],
-        action_masks: Mapping[str, ActionMaskBatch],
+        action_masks: Mapping[str, VecActionMask],
         tracer: Tracer,
         prev_actions: Optional[Dict[str, RaggedBufferI64]] = None,
     ) -> Tuple[

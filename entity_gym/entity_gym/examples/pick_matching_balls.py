@@ -89,7 +89,7 @@ class PickMatchingBalls(Environment):
             reward = 0.0
 
         return Observation(
-            entities={
+            features={
                 "Ball": np.array(
                     [
                         [float(b.color == c) for c in range(6)] + [float(b.selected)]
@@ -104,13 +104,14 @@ class PickMatchingBalls(Environment):
                 ),
                 "Player": np.zeros([1, 0], dtype=np.float32),
             },
-            ids=np.arange(len(self.balls) + 1),
-            action_masks={
+            ids={
+                "Ball": list(range(len(self.balls))),
+                "Player": [len(self.balls)],
+            },
+            actions={
                 "Pick Ball": DenseSelectEntityActionMask(
-                    actors=np.array([len(self.balls)]),
-                    actees=np.array(
-                        [i for i, b in enumerate(self.balls) if not b.selected]
-                    ),
+                    actor_ids=[len(self.balls)],
+                    actee_ids=[i for i, b in enumerate(self.balls) if not b.selected],
                 ),
             },
             reward=reward,
@@ -121,7 +122,7 @@ class PickMatchingBalls(Environment):
     def _act(self, actions: Mapping[str, Action]) -> Observation:
         action = actions["Pick Ball"]
         assert isinstance(action, SelectEntityAction)
-        for _, selected_ball in action.actions:
+        for selected_ball in action.actees:
             assert not self.balls[selected_ball].selected
             self.balls[selected_ball].selected = True
         self.step += 1
