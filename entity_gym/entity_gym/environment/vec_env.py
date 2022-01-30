@@ -196,7 +196,6 @@ def batch_obs(
                     np.zeros((0, len(entity.features)), dtype=np.float32)
                 )
 
-        # TODO: action missing on timestep
         for atype, space in action_space.items():
             if atype not in o.actions:
                 if atype in action_masks:
@@ -248,28 +247,6 @@ def batch_obs(
                 )
             else:
                 raise NotImplementedError()
-
-        # # Append the action masks
-        # for action_name, space in action_space.items():
-        #     if isinstance(space, CategoricalActionSpace):
-        #         if action_name not in o.action_masks:
-        #             mask_size = len(space.choices)
-        #             action_masks[action_name].push(
-        #                 DenseCategoricalActionMask(
-        #                     np.array([], dtype=int), np.array([], dtype=bool)
-        #                 )
-        #             )
-        #         else:
-        #             action_masks[action_name].push(o.action_masks[action_name])
-        #     elif isinstance(space, SelectEntityActionSpace):
-        #         if action_name not in o.action_masks:
-        #             action_masks[action_name].push(
-        #                 DenseSelectEntityActionMask(
-        #                     np.array([], dtype=int), np.array([], dtype=int)
-        #                 )
-        #             )
-        #         else:
-        #             action_masks[action_name].push(o.action_masks[action_name])
 
         reward.append(o.reward)
         done.append(o.done)
