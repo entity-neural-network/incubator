@@ -41,13 +41,13 @@ class NotHotdog(Environment):
             "unused_action": CategoricalActionSpace(["0", "1"]),
         }
 
-    def _reset(self) -> Observation:
+    def reset(self) -> Observation:
         self.step = 0
         self.is_hotdog = random.randint(0, 1)
         self.hotdog_object = random.randint(0, 1) == 1
         return self.observe()
 
-    def _act(self, action: Mapping[str, Action]) -> Observation:
+    def act(self, action: Mapping[str, Action]) -> Observation:
         self.step += 1
 
         a = action["classify"]

@@ -1,5 +1,6 @@
 from typing import Dict, Type
 from entity_gym.environment import Environment
+from entity_gym.examples.minesweeper import MineSweeper
 from entity_gym.examples.move_to_origin import MoveToOrigin
 
 from entity_gym.examples.cherry_pick import CherryPick
@@ -23,4 +24,5 @@ ENV_REGISTRY: Dict[str, Type[Environment]] = {
     "Xor": Xor,
     "Count": Count,
     "FloorIsLava": FloorIsLava,
+    "MineSweeper": MineSweeper,
 }

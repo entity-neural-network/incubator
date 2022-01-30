@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+from entity_gym.environment.environment import ActionType
 import numpy as np
 import random
 from typing import Dict, List, Mapping
@@ -60,10 +61,10 @@ class PickMatchingBalls(Environment):
         )
 
     @classmethod
-    def action_space(cls) -> Dict[str, ActionSpace]:
+    def action_space(cls) -> Dict[ActionType, ActionSpace]:
         return {"Pick Ball": SelectEntityActionSpace()}
 
-    def _reset(self) -> Observation:
+    def reset(self) -> Observation:
         num_balls = (
             self.max_balls if not self.randomize else random.randint(3, self.max_balls)
         )
@@ -119,7 +120,7 @@ class PickMatchingBalls(Environment):
             end_of_episode_info=EpisodeStats(self.step, reward) if done else None,
         )
 
-    def _act(self, actions: Mapping[str, Action]) -> Observation:
+    def act(self, actions: Mapping[ActionType, Action]) -> Observation:
         action = actions["Pick Ball"]
         assert isinstance(action, SelectEntityAction)
         for selected_ball in action.actees:

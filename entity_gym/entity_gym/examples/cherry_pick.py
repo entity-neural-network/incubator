@@ -46,7 +46,7 @@ class CherryPick(Environment):
     def action_space(cls) -> Dict[str, ActionSpace]:
         return {"Pick Cherry": SelectEntityActionSpace()}
 
-    def _reset(self) -> Observation:
+    def reset(self) -> Observation:
         cherries = [np.random.normal() for _ in range(self.num_cherries)]
         # Normalize so that the sum of the top half is 1.0
         top_half = sorted(cherries, reverse=True)[: self.num_cherries // 2]
@@ -83,7 +83,7 @@ class CherryPick(Environment):
             else None,
         )
 
-    def _act(self, action: Mapping[str, Action]) -> Observation:
+    def act(self, action: Mapping[str, Action]) -> Observation:
         assert len(action) == 1, action
         a = action["Pick Cherry"]
         assert isinstance(a, SelectEntityAction)

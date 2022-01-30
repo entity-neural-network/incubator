@@ -23,7 +23,6 @@ from entity_gym.environment.environment import (
 from entity_gym.environment.vec_env import (
     VecEnv,
     VecObs,
-    VecSelectEntityActionMask,
     batch_obs,
 )
 from ragged_buffer import RaggedBufferI64
@@ -44,7 +43,7 @@ class EnvList(VecEnv):
         return cls.cls
 
     def reset(self, obs_space: ObsSpace) -> VecObs:
-        return self._batch_obs([e.reset(obs_space) for e in self.envs])
+        return self._batch_obs([e.reset_filter(obs_space) for e in self.envs])
 
     def render(self, **kwargs: Any) -> npt.NDArray[np.uint8]:
         return np.stack([e.render(**kwargs) for e in self.envs])
@@ -98,10 +97,10 @@ class EnvList(VecEnv):
                         f"Action space type {type(action_space[atype])} not supported"
                     )
 
-            obs = env.act(_actions, obs_space)
+            obs = env.act_filter(_actions, obs_space)
             if obs.done:
                 # TODO: something is wrong with the interface here
-                new_obs = env.reset(obs_space)
+                new_obs = env.reset_filter(obs_space)
                 new_obs.done = True
                 new_obs.reward = obs.reward
                 new_obs.end_of_episode_info = obs.end_of_episode_info

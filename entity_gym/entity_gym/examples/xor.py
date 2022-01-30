@@ -47,15 +47,17 @@ class Xor(Environment):
     def action_space(cls) -> Dict[str, ActionSpace]:
         return {"output": CategoricalActionSpace(["0", "1"])}
 
-    def reset(self, obs_space: ObsSpace) -> Observation:
+    def reset_filter(self, obs_space: ObsSpace) -> Observation:
         self.bit1 = Bit1(random.choice([0.0, 1.0]))
         self.bit2 = Bit2(random.choice([0.0, 1.0]))
         return self.observe(obs_space)
 
-    def _reset(self) -> Observation:
-        return self.reset(Xor.obs_space())
+    def reset(self) -> Observation:
+        return self.reset_filter(Xor.obs_space())
 
-    def act(self, action: Mapping[str, Action], obs_filter: ObsSpace) -> Observation:
+    def act_filter(
+        self, action: Mapping[str, Action], obs_filter: ObsSpace
+    ) -> Observation:
         reward = 0.0
         for action_name, a in action.items():
             assert isinstance(a, CategoricalAction)
@@ -67,8 +69,8 @@ class Xor(Environment):
 
         return self.observe(obs_filter, done=True, reward=reward)
 
-    def _act(self, action: Mapping[str, Action]) -> Observation:
-        return self.act(
+    def act(self, action: Mapping[str, Action]) -> Observation:
+        return self.act_filter(
             action,
             Xor.obs_space(),
         )

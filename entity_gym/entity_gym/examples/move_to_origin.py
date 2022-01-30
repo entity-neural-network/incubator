@@ -59,7 +59,7 @@ class MoveToOrigin(Environment):
             ),
         }
 
-    def _reset(self) -> Observation:
+    def reset(self) -> Observation:
         angle = random.uniform(0, 2 * np.pi)
         self.x_pos = np.cos(angle)
         self.y_pos = np.sin(angle)
@@ -70,7 +70,7 @@ class MoveToOrigin(Environment):
         self.step = 0
         return self.observe()
 
-    def _act(self, action: Mapping[str, Action]) -> Observation:
+    def act(self, action: Mapping[str, Action]) -> Observation:
         self.step += 1
 
         for action_name, a in action.items():

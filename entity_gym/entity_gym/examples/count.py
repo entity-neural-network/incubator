@@ -57,7 +57,7 @@ class Count(Environment):
             )
         }
 
-    def reset(self, obs_space: ObsSpace) -> Observation:
+    def reset_filter(self, obs_space: ObsSpace) -> Observation:
         self.count = random.randint(0, self.masked_choices - 1)
         possible_counts = {
             self.count,
@@ -69,10 +69,12 @@ class Count(Environment):
         mask[:, list(possible_counts)] = True
         return self.observe(obs_space, mask)
 
-    def _reset(self) -> Observation:
-        return self.reset(Count.obs_space())
+    def reset(self) -> Observation:
+        return self.reset_filter(Count.obs_space())
 
-    def act(self, action: Mapping[str, Action], obs_filter: ObsSpace) -> Observation:
+    def act_filter(
+        self, action: Mapping[str, Action], obs_filter: ObsSpace
+    ) -> Observation:
         reward = 0.0
         assert len(action) == 1
         a = action["count"]
@@ -83,8 +85,8 @@ class Count(Environment):
             reward = 1.0
         return self.observe(obs_filter, None, done=True, reward=reward)
 
-    def _act(self, action: Mapping[str, Action]) -> Observation:
-        return self.act(
+    def act(self, action: Mapping[str, Action]) -> Observation:
+        return self.act_filter(
             action,
             Count.obs_space(),
         )

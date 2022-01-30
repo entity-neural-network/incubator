@@ -52,7 +52,7 @@ class FloorIsLava(Environment):
             "move": CategoricalActionSpace(["n", "ne", "e", "se", "s", "sw", "w", "nw"])
         }
 
-    def reset(self, obs_space: ObsSpace) -> Observation:
+    def reset_filter(self, obs_space: ObsSpace) -> Observation:
         width = 1000
         x = random.randint(-width, width)
         y = random.randint(-width, width)
@@ -72,10 +72,12 @@ class FloorIsLava(Environment):
         obs = self.observe(obs_space)
         return obs
 
-    def _reset(self) -> Observation:
-        return self.reset(FloorIsLava.obs_space())
+    def reset(self) -> Observation:
+        return self.reset_filter(FloorIsLava.obs_space())
 
-    def act(self, action: Mapping[str, Action], obs_filter: ObsSpace) -> Observation:
+    def act_filter(
+        self, action: Mapping[str, Action], obs_filter: ObsSpace
+    ) -> Observation:
         for action_name, a in action.items():
             assert isinstance(a, CategoricalAction) and action_name == "move"
             dx, dy = [
@@ -93,8 +95,8 @@ class FloorIsLava(Environment):
         obs = self.observe(obs_filter, done=True)
         return obs
 
-    def _act(self, action: Mapping[str, Action]) -> Observation:
-        return self.act(
+    def act(self, action: Mapping[str, Action]) -> Observation:
+        return self.act_filter(
             action,
             FloorIsLava.obs_space(),
         )

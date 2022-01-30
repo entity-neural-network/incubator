@@ -37,12 +37,12 @@ class MultiArmedBandit(Environment):
             "pull": CategoricalActionSpace(["A", "B", "C", "D", "E"]),
         }
 
-    def _reset(self) -> Observation:
+    def reset(self) -> Observation:
         self.step = 0
         self._total_reward = 0
         return self.observe()
 
-    def _act(self, action: Mapping[str, Action]) -> Observation:
+    def act(self, action: Mapping[str, Action]) -> Observation:
         self.step += 1
 
         a = action["pull"]

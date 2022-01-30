@@ -45,7 +45,7 @@ if __name__ == "__main__":
     env = env_cls()
     obs_space = env_cls.obs_space()
     actions = env_cls.action_space()
-    obs = env.reset(obs_space)
+    obs = env.reset_filter(obs_space)
     total_reward = obs.reward
     while not obs.done:
         print_obs(obs, total_reward, obs_space)
@@ -98,7 +98,7 @@ if __name__ == "__main__":
                     a.actees = list(a.actees) + [entity_id]
                 else:
                     raise ValueError(f"Unknown action type {action_def}")
-        obs = env.act(action, obs_space)
+        obs = env.act_filter(action, obs_space)
         total_reward += obs.reward
 
     print_obs(obs, total_reward, obs_space)

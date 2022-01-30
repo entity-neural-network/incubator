@@ -252,14 +252,14 @@ class Environment(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def _reset(self) -> Observation:
+    def reset(self) -> Observation:
         """
         Resets the environment and returns the initial observation.
         """
         raise NotImplementedError
 
     @abstractmethod
-    def _act(self, action: Mapping[str, Action]) -> Observation:
+    def act(self, action: Mapping[ActionType, Action]) -> Observation:
         """
         Performs the given action and returns the resulting observation.
 
@@ -268,8 +268,8 @@ class Environment(ABC):
         """
         raise NotImplementedError
 
-    def reset(self, obs_filter: ObsSpace) -> Observation:
-        return self.__class__.filter_obs(self._reset(), obs_filter)
+    def reset_filter(self, obs_filter: ObsSpace) -> Observation:
+        return self.__class__.filter_obs(self.reset(), obs_filter)
 
     def render(self, **kwargs: Any) -> npt.NDArray[np.uint8]:
         """
@@ -280,8 +280,10 @@ class Environment(ABC):
         """
         raise NotImplementedError
 
-    def act(self, action: Mapping[str, Action], obs_filter: ObsSpace) -> Observation:
-        return self.__class__.filter_obs(self._act(action), obs_filter)
+    def act_filter(
+        self, action: Mapping[ActionType, Action], obs_filter: ObsSpace
+    ) -> Observation:
+        return self.__class__.filter_obs(self.act(action), obs_filter)
 
     def close(self) -> None:
         pass

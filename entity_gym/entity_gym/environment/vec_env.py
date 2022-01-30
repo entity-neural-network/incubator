@@ -137,7 +137,7 @@ class VecEnv(ABC):
 
     @abstractmethod
     def act(
-        self, actions: Mapping[str, RaggedBufferI64], obs_filter: ObsSpace
+        self, actions: Mapping[ActionType, RaggedBufferI64], obs_filter: ObsSpace
     ) -> VecObs:
         raise NotImplementedError
 

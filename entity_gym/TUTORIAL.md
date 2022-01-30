@@ -39,15 +39,15 @@ from entity_gym.environment import *
 class MineSweeper(Environment):
     def __init__(
         self,
-        width: int,
-        height: int,
-        nmines: int,
-        nrobots: int,
+        width: int = 6,
+        height: int = 6,
+        nmines: int = 5,
+        nrobots: int = 2,
     ):
         self.width = width
         self.height = height
-        self.nmines = mines
-        self.nrobots = robots
+        self.nmines = nmines
+        self.nrobots = nrobots
         # Positions of robots and mines
         self.robots: List[Tuple[int, int]] = []
         self.mines: List[Tuple[int, int]] = []
@@ -62,6 +62,7 @@ The observation space has two different types of entities, mines and robots, bot
 The action space has a single categorical action with five possible choices.
 
 ```python
+from typing import List, Tuple, Dict
 from entity_gym.environment import *
 
 class MineSweeper(Environment):
@@ -75,12 +76,13 @@ class MineSweeper(Environment):
         })
     
     @classmethod
-    def action_space(cls) -> ActionSpace:
-        return ActionSpace({
-            "Move": CategoricalAction(
+    def action_space(cls) -> Dict[ActionType, ActionSpace]:
+        return {
+            "Move": CategoricalActionSpace(
                 ["Up", "Down", "Left", "Right", "Defuse Mines"],
             ),
-        })
+        }
+
 ```
 
 ## Reset
@@ -128,13 +130,13 @@ class MineSweeper(Environment):
         return Observation(
             features={
                 "Mine": np.array(
-                    [self.mines],
+                    self.mines,
                     dtype=np.float32,
-                ),
+                ).reshape(-1, 2),
                 "Robot": np.array(
-                    [self.robots],
+                    self.robots,
                     dtype=np.float32,
-                ),
+                ).reshape(-1, 2),
             },
             ids={
                 # Identifiers for each Robot
@@ -163,7 +165,6 @@ class MineSweeper(Environment):
 Finally, we implement the `act` method that takes an action and returns the next observation.
 
 ```python
-import math
 from entity_gym.environment import *
 
 class MineSweeper(Environment):
@@ -174,21 +175,22 @@ class MineSweeper(Environment):
         assert isinstance(move, CategoricalAction)
         for (_, i), choice in move.items():
             # Action space is ["Up", "Down", "Left", "Right", "Defuse Mines"],
-            if choice == 0 and self.robots[i][1] < self.height - 1:
-                self.robots[i][1] += 1
-            elif choice == 1 and self.robots[i][1] < self.height - 1:
-                self.robots[i][1] -= 1
-            elif choice == 2 and self.robots[i][0] < self.width - 1:
-                self.robots[i][0] += 1
-            elif choice == 3 and self.robots[i][0] > 0:
-                self.robots[i][0] -= 1
+            x, y = self.robots[i]
+            if choice == 0 and y < self.height - 1:
+                self.robots[i] = (x, y + 1)
+            elif choice == 1 and y > 0:
+                self.robots[i] = (x, y - 1)
+            elif choice == 2 and x > 0:
+                self.robots[i] = (x - 1, y)
+            elif choice == 3 and x < self.width - 1:
+                self.robots[i] = (x + 1, y)
             elif choice == 4:
                 # Remove all mines adjacent to this robot
                 rx, ry = self.robots[i]
                 self.mines = [
                     (x, y)
                     for (x, y) in self.mines
-                    if math.abs(x - rx) + math.abs(y - ry) > 1
+                    if abs(x - rx) + abs(y - ry) > 1
                 ]
 
         # Remove all robots that stepped on a mine

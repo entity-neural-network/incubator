@@ -66,7 +66,7 @@ class Minefield(Environment):
             )
         }
 
-    def reset(self, obs_space: ObsSpace) -> Observation:
+    def reset_filter(self, obs_space: ObsSpace) -> Observation:
         def randpos() -> Tuple[float, float]:
             return (
                 random.uniform(-self.width / 2, self.width / 2),
@@ -91,10 +91,12 @@ class Minefield(Environment):
         self.mines = mines
         return self.observe(obs_space)
 
-    def _reset(self) -> Observation:
-        return self.reset(Minefield.obs_space())
+    def reset(self) -> Observation:
+        return self.reset_filter(Minefield.obs_space())
 
-    def act(self, action: Mapping[str, Action], obs_filter: ObsSpace) -> Observation:
+    def act_filter(
+        self, action: Mapping[str, Action], obs_filter: ObsSpace
+    ) -> Observation:
         for action_name, a in action.items():
             assert isinstance(a, CategoricalAction)
             if action_name == "move":
@@ -119,8 +121,8 @@ class Minefield(Environment):
 
         return self.observe(obs_filter)
 
-    def _act(self, action: Mapping[str, Action]) -> Observation:
-        return self.act(
+    def act(self, action: Mapping[str, Action]) -> Observation:
+        return self.act_filter(
             action,
             Minefield.obs_space(),
         )

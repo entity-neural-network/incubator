@@ -117,10 +117,10 @@ class CodeCraftEnv(Environment):
             )
         }
 
-    def _reset(self) -> Observation:
+    def reset(self) -> Observation:
         raise NotImplementedError
 
-    def _act(self, action: Mapping[str, Action]) -> Observation:
+    def act(self, action: Mapping[str, Action]) -> Observation:
         raise NotImplementedError
 
     def close(self) -> None:
