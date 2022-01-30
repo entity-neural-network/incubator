@@ -12,7 +12,7 @@ from entity_gym.environment import (
     ActionSpace,
     VecCategoricalActionMask,
     CategoricalActionSpace,
-    DenseSelectEntityActionMask,
+    SelectEntityActionMask,
     VecSelectEntityActionMask,
     SelectEntityActionSpace,
 )

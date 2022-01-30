@@ -76,7 +76,7 @@ class MineSweeper(Environment):
                 # directly referenced by any actions.
             },
             actions={
-                "Move": DenseCategoricalActionMask(
+                "Move": CategoricalActionMask(
                     # Allow all robots to move
                     actor_types=["Robot"],
                 ),

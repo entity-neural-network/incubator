@@ -9,7 +9,7 @@ from ragged_buffer import RaggedBufferI64
 
 from entity_gym.environment import (
     CategoricalAction,
-    DenseCategoricalActionMask,
+    CategoricalActionMask,
     Entity,
     Environment,
     EpisodeStats,
@@ -218,7 +218,7 @@ class MultiSnake(Environment):
                 "SnakeHead": [0, 1],
             },
             actions={
-                "move": DenseCategoricalActionMask(
+                "move": CategoricalActionMask(
                     actor_types=["SnakeHead"],
                 ),
             },

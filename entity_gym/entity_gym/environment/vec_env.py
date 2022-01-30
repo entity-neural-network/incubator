@@ -13,7 +13,7 @@ from typing import (
 from entity_gym.environment.environment import (
     ActionSpace,
     CategoricalActionSpace,
-    DenseCategoricalActionMask,
+    CategoricalActionMask,
     Environment,
     EpisodeStats,
     ObsSpace,

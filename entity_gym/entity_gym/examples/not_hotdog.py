@@ -5,7 +5,7 @@ from typing import Dict, Mapping
 
 from entity_gym.environment import (
     CategoricalAction,
-    DenseCategoricalActionMask,
+    CategoricalActionMask,
     Entity,
     Environment,
     CategoricalActionSpace,
@@ -86,8 +86,8 @@ class NotHotdog(Environment):
                 else np.zeros((0, 0), dtype=np.float32),
             },
             actions={
-                "classify": DenseCategoricalActionMask(actor_ids=[0]),
-                "unused_action": DenseCategoricalActionMask(actor_ids=[]),
+                "classify": CategoricalActionMask(actor_ids=[0]),
+                "unused_action": CategoricalActionMask(actor_ids=[]),
             },
             ids={"Player": [0]},
             reward=reward,

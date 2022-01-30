@@ -9,7 +9,7 @@ from entity_gym.environment import (
     Observation,
     ActionSpace,
     EpisodeStats,
-    DenseCategoricalActionMask,
+    CategoricalActionMask,
     ObsSpace,
 )
 
@@ -68,7 +68,7 @@ class GriddlyEnv(Environment):
 
         action_masks = {}
         for action_name, entity_mask in entity_masks.items():
-            action_masks[action_name] = DenseCategoricalActionMask(
+            action_masks[action_name] = CategoricalActionMask(
                 # TODO: fix
                 actor_ids=entity_mask["ActorIdx"],
                 mask=np.array(entity_mask["Masks"]).astype(np.bool_),

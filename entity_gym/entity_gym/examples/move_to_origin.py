@@ -5,7 +5,7 @@ from typing import Dict, Mapping
 
 from entity_gym.environment import (
     CategoricalAction,
-    DenseCategoricalActionMask,
+    CategoricalActionMask,
     Entity,
     Environment,
     CategoricalActionSpace,
@@ -135,8 +135,8 @@ class MoveToOrigin(Environment):
                 ),
             },
             actions={
-                "horizontal_thruster": DenseCategoricalActionMask(),
-                "vertical_thruster": DenseCategoricalActionMask(),
+                "horizontal_thruster": CategoricalActionMask(),
+                "vertical_thruster": CategoricalActionMask(),
             },
             reward=(self.last_x_pos ** 2 + self.last_y_pos ** 2) ** 0.5
             - (self.x_pos ** 2 + self.y_pos ** 2) ** 0.5,

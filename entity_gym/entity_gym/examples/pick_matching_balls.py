@@ -5,7 +5,7 @@ import random
 from typing import Dict, List, Mapping
 
 from entity_gym.environment import (
-    DenseSelectEntityActionMask,
+    SelectEntityActionMask,
     Entity,
     Environment,
     EpisodeStats,
@@ -110,7 +110,7 @@ class PickMatchingBalls(Environment):
                 "Player": [len(self.balls)],
             },
             actions={
-                "Pick Ball": DenseSelectEntityActionMask(
+                "Pick Ball": SelectEntityActionMask(
                     actor_ids=[len(self.balls)],
                     actee_ids=[i for i, b in enumerate(self.balls) if not b.selected],
                 ),

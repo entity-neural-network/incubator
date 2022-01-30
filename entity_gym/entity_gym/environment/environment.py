@@ -35,7 +35,7 @@ ActionSpace = Union[CategoricalActionSpace, SelectEntityActionSpace]
 
 
 @dataclass
-class DenseCategoricalActionMask:
+class CategoricalActionMask:
     """
     Action mask for categorical action that specifies which agents can perform the action,
     and includes a dense mask that further contraints the choices available to each agent.
@@ -66,7 +66,7 @@ class DenseCategoricalActionMask:
 
 
 @dataclass
-class DenseSelectEntityActionMask:
+class SelectEntityActionMask:
     """
     Action mask for select entity action that specifies which agents can perform the action,
     and includes a dense mask that further contraints what other entities can be selected by
@@ -113,7 +113,7 @@ class DenseSelectEntityActionMask:
         ), "Either actee_entity_types or actees can be specified, but not both."
 
 
-ActionMask = Union[DenseCategoricalActionMask, DenseSelectEntityActionMask]
+ActionMask = Union[CategoricalActionMask, SelectEntityActionMask]
 
 
 @dataclass
@@ -171,7 +171,7 @@ class Observation:
         self, atype: ActionType, obs_space: ObsSpace
     ) -> npt.NDArray[np.int64]:
         action = self.actions[atype]
-        assert isinstance(action, DenseSelectEntityActionMask)
+        assert isinstance(action, SelectEntityActionMask)
         if action.actee_ids is not None:
             id_to_index = self.id_to_index(obs_space)
             return np.array(

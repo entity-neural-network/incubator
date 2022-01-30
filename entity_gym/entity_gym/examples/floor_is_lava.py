@@ -5,7 +5,7 @@ from typing import Dict, Mapping
 
 from entity_gym.environment import (
     CategoricalAction,
-    DenseCategoricalActionMask,
+    CategoricalActionMask,
     Environment,
     CategoricalActionSpace,
     ActionSpace,
@@ -120,7 +120,7 @@ class FloorIsLava(Environment):
                 obs_filter,
             ),
             actions={
-                "move": DenseCategoricalActionMask(actor_types=["Player"]),
+                "move": CategoricalActionMask(actor_types=["Player"]),
             },
             ids={"Player": [0]},
             reward=reward,

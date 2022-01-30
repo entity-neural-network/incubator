@@ -6,7 +6,7 @@ from typing import Dict, List, Mapping, Tuple, Optional
 
 from entity_gym.environment import (
     CategoricalAction,
-    DenseCategoricalActionMask,
+    CategoricalActionMask,
     Entity,
     Environment,
     CategoricalActionSpace,
@@ -107,7 +107,7 @@ class Count(Environment):
                 obs_filter,
             ),
             actions={
-                "count": DenseCategoricalActionMask(actor_ids=["Player"], mask=mask),
+                "count": CategoricalActionMask(actor_ids=["Player"], mask=mask),
             },
             ids={
                 "Player": ["Player"],

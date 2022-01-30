@@ -5,7 +5,7 @@ from typing import Dict, Mapping
 
 from entity_gym.environment import (
     CategoricalAction,
-    DenseCategoricalActionMask,
+    CategoricalActionMask,
     Entity,
     Environment,
     CategoricalActionSpace,
@@ -68,7 +68,7 @@ class MultiArmedBandit(Environment):
                 ),
             },
             actions={
-                "pull": DenseCategoricalActionMask(actor_ids=[0]),
+                "pull": CategoricalActionMask(actor_ids=[0]),
             },
             ids={"MultiArmedBandit": [0]},
             reward=reward,

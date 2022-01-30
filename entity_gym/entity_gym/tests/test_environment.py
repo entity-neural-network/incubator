@@ -5,8 +5,8 @@ from entity_gym.environment.parallel_env_list import ParallelEnvList
 from entity_gym.environment import (
     SelectEntityActionSpace,
     CategoricalActionSpace,
-    DenseSelectEntityActionMask,
-    DenseCategoricalActionMask,
+    SelectEntityActionMask,
+    CategoricalActionMask,
     VecCategoricalActionMask,
     VecSelectEntityActionMask,
     Observation,
@@ -151,7 +151,7 @@ def test_batch_obs_select_entity_action() -> None:
         ids={"entity1": ["entity1_0"], "entity2": ["entity2_0"]},
         actions={
             # entity1 can low five entity 2 and vice versa
-            "low_five": DenseSelectEntityActionMask(
+            "low_five": SelectEntityActionMask(
                 actor_ids=["entity1_0", "entity2_0"],
                 actee_ids=["entity2_0", "entity1_0"],
             )
@@ -168,7 +168,7 @@ def test_batch_obs_select_entity_action() -> None:
         ids={"entity1": ["entity1_0"], "entity3": ["entity3_0"]},
         actions={
             # entity3 can high five entity 1
-            "high_five": DenseSelectEntityActionMask(
+            "high_five": SelectEntityActionMask(
                 actor_ids=["entity3_0"],
                 actee_ids=["entity1_0"],
             )
@@ -190,15 +190,15 @@ def test_batch_obs_select_entity_action() -> None:
         },
         actions={
             # entity3 can high five entity 1, and entity 2_0 and entity 2_1 can mid five entity3. entity1 and entity2 can low five each other
-            "high_five": DenseSelectEntityActionMask(
+            "high_five": SelectEntityActionMask(
                 actor_ids=["entity3_0"],
                 actee_ids=["entity1_0"],
             ),
-            "mid_five": DenseSelectEntityActionMask(
+            "mid_five": SelectEntityActionMask(
                 actor_ids=["entity2_0", "entity2_1"],
                 actee_ids=["entity3_0"],
             ),
-            "low_five": DenseSelectEntityActionMask(
+            "low_five": SelectEntityActionMask(
                 actor_ids=["entity1_0", "entity2_0", "entity2_1"],
                 actee_ids=["entity2_0", "entity2_1", "entity1_0"],
             ),
@@ -267,7 +267,7 @@ def test_batch_obs_categorical_action() -> None:
         },
         actions={
             # both entity1 and entity2 can move all directions
-            "move": DenseCategoricalActionMask(
+            "move": CategoricalActionMask(
                 actor_ids=["entity1_0", "entity2_0"],
                 mask=np.array([[True, True, True, True], [True, True, True, True]]),
             ),
@@ -287,7 +287,7 @@ def test_batch_obs_categorical_action() -> None:
         },
         actions={
             # all entities can move. Entity 3_1 can also choose items
-            "move": DenseCategoricalActionMask(
+            "move": CategoricalActionMask(
                 actor_ids=["entity1_0", "entity3_0", "entity3_1"],
                 mask=np.array(
                     [
@@ -297,7 +297,7 @@ def test_batch_obs_categorical_action() -> None:
                     ]
                 ),
             ),
-            "choose_inventory_item": DenseCategoricalActionMask(
+            "choose_inventory_item": CategoricalActionMask(
                 ["entity3_1"], mask=np.array([[True, True, True]])
             ),
         },

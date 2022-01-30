@@ -4,7 +4,7 @@ import numpy as np
 from typing import Dict, List, Mapping
 
 from entity_gym.environment import (
-    DenseSelectEntityActionMask,
+    SelectEntityActionMask,
     Entity,
     EntityID,
     Environment,
@@ -71,7 +71,7 @@ class CherryPick(Environment):
             },
             ids=ids,
             actions={
-                "Pick Cherry": DenseSelectEntityActionMask(
+                "Pick Cherry": SelectEntityActionMask(
                     actor_ids=["Player"],
                     actee_ids=ids["Cherry"],
                 ),

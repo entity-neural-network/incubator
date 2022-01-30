@@ -5,7 +5,7 @@ from typing import Dict, List, Mapping, Tuple
 
 from entity_gym.environment import (
     CategoricalAction,
-    DenseCategoricalActionMask,
+    CategoricalActionMask,
     Entity,
     Environment,
     CategoricalActionSpace,
@@ -165,7 +165,7 @@ class Minefield(Environment):
                 obs_filter,
             ),
             actions={
-                "move": DenseCategoricalActionMask(actor_types=["Vehicle"]),
+                "move": CategoricalActionMask(actor_types=["Vehicle"]),
             },
             ids={"Vehicle": ["Vehicle"]},
             reward=reward,

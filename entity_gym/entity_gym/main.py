@@ -4,7 +4,7 @@ import numpy as np
 
 from entity_gym.environment import (
     CategoricalAction,
-    DenseSelectEntityActionMask,
+    SelectEntityActionMask,
     Environment,
     ObsSpace,
     CategoricalActionSpace,
@@ -80,7 +80,7 @@ if __name__ == "__main__":
                     a.actions = np.array(list(a.actions) + [choice_id])
                     a.actors = list(a.actors) + [actor_id]
                 elif isinstance(action_def, SelectEntityActionSpace):
-                    assert isinstance(action_mask, DenseSelectEntityActionMask)
+                    assert isinstance(action_mask, SelectEntityActionMask)
                     # Prompt user for entity
                     print(f"{action_name}")
                     if action_mask.actee_ids is not None:

@@ -5,7 +5,7 @@ from typing import Dict, Mapping
 
 from entity_gym.environment import (
     CategoricalAction,
-    DenseCategoricalActionMask,
+    CategoricalActionMask,
     Environment,
     CategoricalActionSpace,
     ActionSpace,
@@ -88,7 +88,7 @@ class Xor(Environment):
                 obs_filter,
             ),
             actions={
-                "output": DenseCategoricalActionMask(actor_ids=[0]),
+                "output": CategoricalActionMask(actor_ids=[0]),
             },
             ids={"Output": [0], "Bit1": [1], "Bit2": [2]},
             reward=reward,

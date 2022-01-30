@@ -2,7 +2,7 @@ import os
 
 import numpy as np
 from enn_zoo.griddly import create_env
-from entity_gym.environment import CategoricalActionSpace, DenseCategoricalActionMask
+from entity_gym.environment import CategoricalActionSpace, CategoricalActionMask
 
 init_path = os.path.dirname(os.path.realpath(__file__))
 
@@ -72,10 +72,10 @@ def test_griddly_wrapper() -> None:
     )
 
     # Check the masks in the observation
-    assert isinstance(observation.actions["move_one"], DenseCategoricalActionMask)
+    assert isinstance(observation.actions["move_one"], CategoricalActionMask)
     assert np.all(
         observation.actions["move_one"].mask
         == np.array([[1, 1, 1, 1, 0]])  # can do everything but move down
     )
-    assert isinstance(observation.actions["move_two"], DenseCategoricalActionMask)
+    assert isinstance(observation.actions["move_two"], CategoricalActionMask)
     assert np.all(observation.actions["move_two"].mask == np.array([[1, 1, 1, 1]]))

@@ -12,7 +12,7 @@ from entity_gym.environment.environment import (
     ActionType,
     CategoricalAction,
     CategoricalActionSpace,
-    DenseSelectEntityActionMask,
+    SelectEntityActionMask,
     EntityID,
     Environment,
     ObsSpace,
@@ -75,7 +75,7 @@ class EnvList(VecEnv):
                         actions=action[i].as_array().reshape(-1),
                     )
                 elif isinstance(action_space[atype], SelectEntityActionSpace):
-                    assert isinstance(mask, DenseSelectEntityActionMask)
+                    assert isinstance(mask, SelectEntityActionMask)
                     if mask.actee_entity_types is not None:
                         index_to_id = self.last_obs[i].index_to_id(obs_space)
                         raise NotImplementedError()
