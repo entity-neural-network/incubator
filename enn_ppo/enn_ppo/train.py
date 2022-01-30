@@ -20,30 +20,10 @@ from typing import (
     Union,
 )
 import json
-from entity_gym.environment.vec_env import (
-    VecActionMask,
-    VecObs,
-    VecSelectEntityActionMask,
-)
+from entity_gym.environment import *
 
 import numpy as np
 import numpy.typing as npt
-from entity_gym.environment import (
-    Action,
-    VecActionMask,
-    ActionSpace,
-    CategoricalAction,
-    CategoricalActionSpace,
-    EntityID,
-    VecEnv,
-    ObsSpace,
-    SelectEntityAction,
-    VecSelectEntityActionMask,
-    SelectEntityActionSpace,
-    Environment,
-)
-from entity_gym.environment.env_list import EnvList
-from entity_gym.environment.parallel_env_list import ParallelEnvList
 from entity_gym.examples import ENV_REGISTRY
 from enn_zoo.griddly import GRIDDLY_ENVS, create_env
 from enn_zoo.codecraft.cc_vec_env import CodeCraftEnv, CodeCraftVecEnv

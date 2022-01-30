@@ -292,17 +292,17 @@ class Environment(ABC):
     def filter_obs(cls, obs: Observation, obs_filter: ObsSpace) -> Observation:
         selectors = cls._compile_feature_filter(obs_filter)
         return Observation(
-            {
+            features={
                 etype: features[:, selectors[etype]].reshape(
                     features.shape[0], len(selectors[etype])
                 )
                 for etype, features in obs.features.items()
             },
-            obs.ids,
-            obs.actions,
-            obs.done,
-            obs.reward,
-            obs.end_of_episode_info,
+            actions=obs.actions,
+            done=obs.done,
+            reward=obs.reward,
+            ids=obs.ids,
+            end_of_episode_info=obs.end_of_episode_info,
         )
 
     @classmethod

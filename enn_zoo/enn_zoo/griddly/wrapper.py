@@ -85,7 +85,7 @@ class GriddlyEnv(Environment):
             else None,
         )
 
-    def _reset(self) -> Observation:
+    def reset(self) -> Observation:
         self._env.reset()
 
         self.total_reward = 0
@@ -93,7 +93,7 @@ class GriddlyEnv(Environment):
 
         return self._make_observation()
 
-    def _act(self, action: Mapping[str, Action]) -> Observation:
+    def act(self, action: Mapping[str, Action]) -> Observation:
         g_action = self._to_griddly_action(action)
         _, reward, done, info = self._env.step(g_action)
 
