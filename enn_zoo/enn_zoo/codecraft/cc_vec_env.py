@@ -721,18 +721,6 @@ class CodeCraftVecEnv(VecEnv):
         )
         ragged_tiles = RaggedBufferF32.from_array(tiles)
 
-        ids = [
-            list(
-                range(
-                    ragged_allies[i].items()
-                    + ragged_enemies[i].items()
-                    + ragged_minerals[i].items()
-                    + ragged_tiles[i].items()
-                )
-            )
-            for i in range(num_envs)
-        ]
-
         actors: List[int] = []
         for i in range(num_envs):
             actors.extend(list(range(ragged_allies[i].items())))
@@ -744,7 +732,6 @@ class CodeCraftVecEnv(VecEnv):
                 "mineral": ragged_minerals,
                 # "tile": ragged_tiles,
             },
-            ids=ids,  # type: ignore
             action_masks={
                 "act": VecCategoricalActionMask(
                     actors=RaggedBufferI64.from_flattened(
