@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import (
     Any,
     Dict,
@@ -135,10 +135,10 @@ class ObsSpace:
 @dataclass
 class Observation:
     features: Mapping[EntityType, npt.NDArray[np.float32]]
-    ids: Mapping[EntityType, Sequence[EntityID]]
     actions: Mapping[ActionType, ActionMask]
     done: bool
     reward: float
+    ids: Mapping[EntityType, Sequence[EntityID]] = field(default_factory=dict)
 
     end_of_episode_info: Optional[EpisodeStats] = None
 
