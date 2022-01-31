@@ -185,7 +185,7 @@ def test_batch_obs_select_entity_action() -> None:
         },
         ids={
             "entity1": ["entity1_0"],
-            "entity2": ["entity2_0", "entity2_1"],
+            "entity2": ["entity2_1", "entity2_0"],
             "entity3": ["entity3_0"],
         },
         actions={
@@ -195,12 +195,12 @@ def test_batch_obs_select_entity_action() -> None:
                 actee_ids=["entity1_0"],
             ),
             "mid_five": SelectEntityActionMask(
-                actor_ids=["entity2_0", "entity2_1"],
+                actor_ids=["entity2_1", "entity2_0"],
                 actee_ids=["entity3_0"],
             ),
             "low_five": SelectEntityActionMask(
-                actor_ids=["entity1_0", "entity2_0", "entity2_1"],
-                actee_ids=["entity2_0", "entity2_1", "entity1_0"],
+                actor_ids=["entity1_0", "entity2_1", "entity2_0"],
+                actee_ids=["entity2_1", "entity1_0", "entity2_0"],
             ),
         },
         reward=0.0,
@@ -288,7 +288,7 @@ def test_batch_obs_categorical_action() -> None:
         actions={
             # all entities can move. Entity 3_1 can also choose items
             "move": CategoricalActionMask(
-                actor_ids=["entity1_0", "entity3_0", "entity3_1"],
+                actor_ids=["entity3_0", "entity1_0", "entity3_1"],
                 mask=np.array(
                     [
                         [True, True, True, True],
@@ -314,7 +314,7 @@ def test_batch_obs_categorical_action() -> None:
         ids={
             "entity1": ["entity1_0", "entity1_1"],
             "entity2": ["entity2_0", "entity2_1"],
-            "entity3": ["entity3_0", "entity3_1"],
+            "entity3": ["entity3_1", "entity3_0"],
         },
         actions={
             # no entities can move or do anything
