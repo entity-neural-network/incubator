@@ -33,7 +33,10 @@ import numpy.typing as npt
 
 class EnvList(VecEnv):
     def __init__(
-        self, env_cls: Type[Environment], env_kwargs: List[Dict[str, Any]], num_envs: int
+        self,
+        env_cls: Type[Environment],
+        env_kwargs: List[Dict[str, Any]],
+        num_envs: int,
     ):
         if len(env_kwargs) < num_envs:
             env_kwargs = env_kwargs * (num_envs // len(env_kwargs) + 1)
@@ -116,7 +119,7 @@ class EnvList(VecEnv):
         return self._batch_obs(observations)
 
     def _batch_obs(self, obs: List[Observation]) -> VecObs:
-        __import__('pprint').pprint(obs)
+        __import__("pprint").pprint(obs)
         self.last_obs = obs
         return batch_obs(obs, self.cls.obs_space(), self.cls.action_space())
 
