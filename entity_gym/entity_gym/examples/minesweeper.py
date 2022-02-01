@@ -59,7 +59,7 @@ class MineSweeper(Environment):
             self.nmines + self.nrobots,
         )
         self.mines = positions[: self.nmines]
-        self.robots = positions[self.nmines :]
+        self.robots = list(positions[self.nmines :])
         self.orbital_cannon_cooldown = self.cooldown_period
         return self.observe()
 
@@ -148,7 +148,9 @@ class MineSweeper(Environment):
                 ]
 
         # Remove all robots that stepped on a mine
-        self.robots = [r for r in self.robots if r is not None and (x, y) not in self.mines]
+        self.robots = [
+            r for r in self.robots if r is not None and (x, y) not in self.mines
+        ]
 
         return self.observe()
 
