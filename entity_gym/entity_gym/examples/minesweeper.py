@@ -148,9 +148,7 @@ class MineSweeper(Environment):
                 ]
 
         # Remove all robots that stepped on a mine
-        self.robots = [
-            r for r in self.robots if r is not None and (x, y) not in self.mines
-        ]
+        self.robots = [r for r in self.robots if r is not None and r not in self.mines]
 
         return self.observe()
 
