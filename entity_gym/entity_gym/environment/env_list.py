@@ -33,9 +33,11 @@ import numpy.typing as npt
 
 class EnvList(VecEnv):
     def __init__(
-        self, env_cls: Type[Environment], env_kwargs: Dict[str, Any], num_envs: int
+        self, env_cls: Type[Environment], env_kwargs: List[Dict[str, Any]], num_envs: int
     ):
-        self.envs = [env_cls(**env_kwargs) for _ in range(num_envs)]  # type: ignore
+        if len(env_kwargs) < num_envs:
+            env_kwargs = env_kwargs * (num_envs // len(env_kwargs) + 1)
+        self.envs = [env_cls(**env_kwargs[i]) for i in range(num_envs)]  # type: ignore
         self.cls = env_cls
         self.last_obs: List[Observation] = []
 

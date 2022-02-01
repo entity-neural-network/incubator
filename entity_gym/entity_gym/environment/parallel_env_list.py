@@ -109,7 +109,7 @@ class ParallelEnvList(VecEnv):
     def __init__(
         self,
         env_cls: Type[Environment],
-        env_kwargs: Dict[str, Any],
+        env_kwargs: List[Dict[str, Any]],
         num_envs: int,
         num_processes: int,
         start_method: Optional[str] = None,
@@ -123,6 +123,9 @@ class ParallelEnvList(VecEnv):
             start_method = "forkserver" if forkserver_available else "spawn"
         ctx = mp.get_context(start_method)
 
+        if len(env_kwargs) < num_envs:
+            env_kwargs *= num_envs
+
         assert (
             num_envs % num_processes == 0
         ), "The required number of environments can not be equally split into the number of specified processes."
@@ -132,8 +135,8 @@ class ParallelEnvList(VecEnv):
         self.envs_per_process = int(num_envs / num_processes)
 
         env_list_configs = [
-            (env_cls, env_kwargs, self.envs_per_process)
-            for _ in range(self.num_processes)
+            (env_cls, env_kwargs[i], self.envs_per_process)
+            for i in range(self.num_processes)
         ]
 
         self.remotes = []

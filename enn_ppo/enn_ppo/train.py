@@ -445,7 +445,7 @@ def run_eval(
     if processes > 1:
         eval_envs = ParallelEnvList(
             env_cls,
-            env_kwargs,
+            [env_kwargs],
             num_envs,
             processes,
         )
@@ -562,6 +562,8 @@ def train(args: argparse.Namespace) -> float:
 
     # env setup
     env_kwargs = json.loads(args.env_kwargs)
+    if isinstance(env_kwargs, dict):
+        env_kwargs = [env_kwargs]
     if args.eval_env_kwargs is not None:
         eval_env_kwargs = json.loads(args.eval_env_kwargs)
     else:
