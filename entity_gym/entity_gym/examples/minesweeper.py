@@ -20,11 +20,16 @@ class MineSweeper(Environment):
         height: int = 6,
         nmines: int = 5,
         nrobots: int = 2,
+        orbital_cannon: bool = False,
+        cooldown_period: int = 5,
     ):
         self.width = width
         self.height = height
         self.nmines = nmines
         self.nrobots = nrobots
+        self.orbital_cannon = orbital_cannon
+        self.cooldown_period = cooldown_period
+        self.orbital_cannon_cooldown = cooldown_period
         # Positions of robots and mines
         self.robots: List[Tuple[int, int]] = []
         self.mines: List[Tuple[int, int]] = []
@@ -35,6 +40,7 @@ class MineSweeper(Environment):
             {
                 "Mine": Entity(features=["x", "y"]),
                 "Robot": Entity(features=["x", "y"]),
+                "Orbital Cannon": Entity(["cooldown"]),
             }
         )
 
@@ -44,6 +50,7 @@ class MineSweeper(Environment):
             "Move": CategoricalActionSpace(
                 ["Up", "Down", "Left", "Right", "Defuse Mines"],
             ),
+            "Fire Orbital Cannon": SelectEntityActionSpace(),
         }
 
     def reset(self) -> Observation:
@@ -53,6 +60,7 @@ class MineSweeper(Environment):
         )
         self.mines = positions[: self.nmines]
         self.robots = positions[self.nmines :]
+        self.orbital_cannon_cooldown = self.cooldown_period
         return self.observe()
 
     def observe(self) -> Observation:
@@ -68,17 +76,36 @@ class MineSweeper(Environment):
                     self.robots,
                     dtype=np.float32,
                 ).reshape(-1, 2),
+                "Orbital Cannon": np.array(
+                    [[self.orbital_cannon_cooldown]],
+                    dtype=np.float32,
+                )
+                if self.orbital_cannon
+                else np.zeros((0, 1), dtype=np.float32),
             },
             ids={
-                # Identifiers for each Robot
+                "Mine": [("Mine", i) for i in range(len(self.mines))],
                 "Robot": [("Robot", i) for i in range(len(self.robots))],
-                # We don't need identifiers for mines since they are not
-                # directly referenced by any actions.
+                "Orbital Cannon": [("Orbital Cannon", 0)]
+                if self.orbital_cannon
+                else [],
             },
             actions={
                 "Move": CategoricalActionMask(
                     # Allow all robots to move
                     actor_types=["Robot"],
+                    mask=np.array(
+                        [self.valid_moves(x, y) for (x, y) in self.robots],
+                        dtype=np.bool_,
+                    ),
+                ),
+                "Fire Orbital Cannon": SelectEntityActionMask(
+                    # Only the Orbital Cannon can fire, but not if cooldown > 0
+                    actor_types=["Orbital Cannon"]
+                    if self.orbital_cannon_cooldown == 0
+                    else [],
+                    # Both mines and robots can be fired at
+                    actee_types=["Mine", "Robot"],
                 ),
             },
             # The game is done once there are no more mines or robots
@@ -89,6 +116,14 @@ class MineSweeper(Environment):
         )
 
     def act(self, actions: Mapping[ActionType, Action]) -> Observation:
+        fire = actions["Fire Orbital Cannon"]
+        assert isinstance(fire, SelectEntityAction)
+        for (entity_type, i) in fire.actees:
+            if entity_type == "Mine":
+                self.mines.remove(self.mines[i])
+            elif entity_type == "Robot":
+                self.robots.remove(self.robots[i])
+
         move = actions["Move"]
         assert isinstance(move, CategoricalAction)
         for (_, i), choice in move.items():
@@ -113,3 +148,13 @@ class MineSweeper(Environment):
         self.robots = [(x, y) for (x, y) in self.robots if (x, y) not in self.mines]
 
         return self.observe()
+
+    def valid_moves(self, x: int, y: int) -> List[bool]:
+        return [
+            x < self.width - 1,
+            x > 0,
+            y < self.height - 1,
+            y > 0,
+            # Always allow staying in place and defusing mines
+            True,
+        ]

@@ -59,11 +59,11 @@ class CategoricalActionHead(nn.Module):
         lengths = mask.actors.size1()
         if len(mask.actors) == 0:
             return (
-                torch.zeros((0, 1), dtype=torch.int64),
+                torch.zeros((0, 1), dtype=torch.int64, device=x.device),
                 lengths,
-                torch.zeros((0, 1), dtype=torch.float32),
-                torch.zeros((0, 1), dtype=torch.float32),
-                torch.zeros((0, self.n_choice), dtype=torch.float32),
+                torch.zeros((0, 1), dtype=torch.float32, device=x.device),
+                torch.zeros((0, 1), dtype=torch.float32, device=x.device),
+                torch.zeros((0, self.n_choice), dtype=torch.float32, device=x.device),
             )
 
         actors = torch.tensor((mask.actors + index_offsets).as_array()).to(
@@ -118,11 +118,11 @@ class PaddedSelectEntityActionHead(nn.Module):
         actor_lengths = mask.actors.size1()
         if len(mask.actors) == 0:
             return (
-                torch.zeros((0, 1), dtype=torch.int64),
+                torch.zeros((0, 1), dtype=torch.int64, device=device),
                 actor_lengths,
-                torch.zeros((0, 1), dtype=torch.float32),
-                torch.zeros((0, 1), dtype=torch.float32),
-                torch.zeros((0, 1), dtype=torch.float32),
+                torch.zeros((0, 1), dtype=torch.float32, device=device),
+                torch.zeros((0, 1), dtype=torch.float32, device=device),
+                torch.zeros((0, 1), dtype=torch.float32, device=device),
             )
 
         actors = torch.tensor((mask.actors + index_offsets).as_array(), device=device)

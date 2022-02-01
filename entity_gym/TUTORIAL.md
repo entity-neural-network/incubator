@@ -218,7 +218,7 @@ from entity_gym.environment import *
 class MineSweeper(Environment):
     ...
 
-    def valid_moves(self, x, y) -> List[bool]:
+    def valid_moves(self, x: int, y: int) -> List[bool]:
         return [
             x < self.width - 1,
             x > 0,
@@ -239,7 +239,7 @@ class MineSweeper(Environment):
                             self.valid_moves(x, y)
                             for (x, y) in self.robots
                         ],
-                        dtype=np.bool,
+                        dtype=np.bool_,
                     ),
                 ),
             },
@@ -266,7 +266,7 @@ class MineSweeper(Environment):
             "Mine": Entity(features=["x", "y"]),
             "Robot": Entity(features=["x", "y"]),
             # The Orbital Cannon entity
-            "Orbital Cannon": Entity("cooldown"),
+            "Orbital Cannon": Entity(["cooldown"]),
         })
     
     @classmethod
@@ -276,7 +276,7 @@ class MineSweeper(Environment):
                 ["Up", "Down", "Left", "Right", "Defuse Mines"]
             ),
             # New action for firing laser
-            "FireOrbitalCannon": SelectEntityAction(),
+            "Fire Orbital Cannon": SelectEntityActionSpace(),
         })
     
     
@@ -320,7 +320,7 @@ class MineSweeper(Environment):
                 "Move": DenseCategoricalActionMask(
                     actor_types=["Robot"],
                 ),
-                "Fire Orbital Cannon": SelectEntityAction(
+                "Fire Orbital Cannon": SelectEntityActionMask(
                     # Only the Orbital Cannon can fire, but not if cooldown > 0
                     actor_types=["Orbital Cannon"] if self.orbital_cannon_cooldown == 0 else [],
                     # Both mines and robots can be fired at

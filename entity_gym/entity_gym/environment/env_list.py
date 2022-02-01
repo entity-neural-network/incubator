@@ -77,8 +77,12 @@ class EnvList(VecEnv):
                 elif isinstance(action_space[atype], SelectEntityActionSpace):
                     assert isinstance(mask, SelectEntityActionMask)
                     if mask.actee_types is not None:
-                        index_to_id = self.last_obs[i].index_to_id(obs_space)
-                        raise NotImplementedError()
+                        index_to_actee: List[EntityID] = []
+                        for etype in mask.actee_types:
+                            index_to_actee.extend(self.last_obs[i].ids[etype])
+                        actees = [
+                            index_to_actee[a] for a in action[i].as_array().reshape(-1)
+                        ]
                     elif mask.actee_ids is not None:
                         actees = [
                             mask.actee_ids[e] for e in action[i].as_array().reshape(-1)
