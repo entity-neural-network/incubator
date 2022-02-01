@@ -114,6 +114,7 @@ class EnvList(VecEnv):
         return self._batch_obs(observations)
 
     def _batch_obs(self, obs: List[Observation]) -> VecObs:
+        __import__('pprint').pprint(obs)
         self.last_obs = obs
         return batch_obs(obs, self.cls.obs_space(), self.cls.action_space())
 
