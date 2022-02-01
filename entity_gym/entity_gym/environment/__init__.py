@@ -6,6 +6,7 @@ from .parallel_env_list import *
 __all__ = [
     "Environment",
     "Observation",
+    "EntityObs",
     "Action",
     "CategoricalAction",
     "SelectEntityAction",

@@ -66,38 +66,28 @@ class MineSweeper(Environment):
     def observe(self) -> Observation:
         done = len(self.mines) == 0 or len(self.robots) == 0
         reward = 1.0 if len(self.mines) == 0 else 0.0
-        return Observation(
-            features={
-                "Mine": np.array(
-                    self.mines,
-                    dtype=np.float32,
-                ).reshape(-1, 2),
-                "Robot": np.array(
-                    self.robots,
-                    dtype=np.float32,
-                ).reshape(-1, 2),
-                "Orbital Cannon": np.array(
-                    [[self.orbital_cannon_cooldown]],
-                    dtype=np.float32,
+        return Observation.from_entity_obs(
+            entities={
+                "Mine": EntityObs(
+                    features=self.mines,
+                    ids=[("Mine", i) for i in range(len(self.mines))],
+                ),
+                "Robot": EntityObs(
+                    features=[r for r in self.robots if r is not None],
+                    ids=[("Robot", i) for i in range(len(self.robots))],
+                ),
+                "Orbital Cannon": EntityObs(
+                    features=[(self.orbital_cannon_cooldown,)],
+                    ids=[("Orbital Cannon", 0)],
                 )
                 if self.orbital_cannon
-                else np.zeros((0, 1), dtype=np.float32),
-            },
-            ids={
-                "Mine": [("Mine", i) for i in range(len(self.mines))],
-                "Robot": [("Robot", i) for i in range(len(self.robots))],
-                "Orbital Cannon": [("Orbital Cannon", 0)]
-                if self.orbital_cannon
-                else [],
+                else None,
             },
             actions={
                 "Move": CategoricalActionMask(
                     # Allow all robots to move
                     actor_types=["Robot"],
-                    mask=np.array(
-                        [self.valid_moves(x, y) for (x, y) in self.robots],
-                        dtype=np.bool_,
-                    ),
+                    mask=[self.valid_moves(*r) for r in self.robots if r is not None],
                 ),
                 "Fire Orbital Cannon": SelectEntityActionMask(
                     # Only the Orbital Cannon can fire, but not if cooldown > 0

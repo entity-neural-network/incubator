@@ -53,7 +53,7 @@ class CategoricalActionMask:
     If None, all entities can perform the action.
     """
 
-    mask: Optional[np.ndarray] = None
+    mask: Union[Sequence[Sequence[bool]], np.ndarray, None] = None
     """
     A boolean array of shape (len(actors), len(choices)). If mask[i, j] is True, then
     agent i can perform action j.
@@ -133,18 +133,51 @@ class ObsSpace:
 
 
 @dataclass
+class EntityObs:
+    features: Union[npt.NDArray[np.float32], Sequence[Sequence[float]]]
+    ids: Optional[Sequence[EntityID]] = None
+
+
+@dataclass
 class Observation:
-    features: Mapping[EntityType, npt.NDArray[np.float32]]
+    features: Mapping[
+        EntityType, Union[npt.NDArray[np.float32], Sequence[Sequence[float]]]
+    ]
     actions: Mapping[ActionType, ActionMask]
     done: bool
     reward: float
     ids: Mapping[EntityType, Sequence[EntityID]] = field(default_factory=dict)
-
     end_of_episode_info: Optional[EpisodeStats] = None
 
     def __post_init__(self) -> None:
         self._id_to_index: Optional[Dict[EntityID, int]] = None
         self._index_to_id: Optional[List[EntityID]] = None
+
+    @classmethod
+    def from_entity_obs(
+        cls,
+        entities: Mapping[EntityType, Optional[EntityObs]],
+        actions: Mapping[ActionType, ActionMask],
+        done: bool,
+        reward: float,
+        end_of_episode_info: Optional[EpisodeStats] = None,
+    ) -> "Observation":
+        return cls(
+            features={
+                etype: entity.features
+                for etype, entity in entities.items()
+                if entity is not None
+            },
+            actions=actions,
+            done=done,
+            reward=reward,
+            ids={
+                etype: entity.ids
+                for etype, entity in entities.items()
+                if entity is not None and entity.ids is not None
+            },
+            end_of_episode_info=end_of_episode_info,
+        )
 
     def _actor_indices(
         self, atype: ActionType, obs_space: ObsSpace
@@ -208,9 +241,16 @@ class Observation:
             for etype in obs_space.entities.keys():
                 ids = self.ids.get(etype)
                 if ids is None:
-                    ids = [None] * self.features[etype].shape[0]
+                    ids = [None] * self.num_entities(etype)
                 self._index_to_id.extend(ids)
         return self._index_to_id
+
+    def num_entities(self, entity: EntityType) -> int:
+        feats = self.features[entity]
+        if isinstance(feats, np.ndarray):
+            return feats.shape[0]
+        else:
+            return len(feats)
 
 
 @dataclass
@@ -297,13 +337,19 @@ class Environment(ABC):
     @classmethod
     def filter_obs(cls, obs: Observation, obs_filter: ObsSpace) -> Observation:
         selectors = cls._compile_feature_filter(obs_filter)
-        return Observation(
-            features={
-                etype: features[:, selectors[etype]].reshape(
-                    features.shape[0], len(selectors[etype])
+        features: Dict[
+            EntityType, Union[npt.NDArray[np.float32], Sequence[Sequence[float]]]
+        ] = {}
+        for etype, feats in obs.features.items():
+            selector = selectors[etype]
+            if isinstance(feats, np.ndarray):
+                features[etype] = feats[:, selector].reshape(
+                    feats.shape[0], len(selector)
                 )
-                for etype, features in obs.features.items()
-            },
+            else:
+                features[etype] = [[entity[i] for i in selector] for entity in feats]
+        return Observation(
+            features=features,
             actions=obs.actions,
             done=obs.done,
             reward=obs.reward,

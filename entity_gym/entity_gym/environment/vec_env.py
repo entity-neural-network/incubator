@@ -172,7 +172,6 @@ def batch_obs(
 
     for action_name, space in action_space.items():
         if isinstance(space, CategoricalActionSpace):
-            mask_size = len(space.choices)
             action_masks[action_name] = VecCategoricalActionMask(
                 RaggedBufferI64(1),
                 None,
@@ -190,7 +189,12 @@ def batch_obs(
                     lengths=np.zeros(i, dtype=np.int64),
                 )
             if entity_type in o.features:
-                features[entity_type].push(o.features[entity_type])
+                ofeats = o.features[entity_type]
+                if not isinstance(ofeats, np.ndarray):
+                    ofeats = np.array(ofeats, dtype=np.float32).reshape(
+                        len(ofeats), len(obs_space.entities[entity_type].features)
+                    )
+                features[entity_type].push(ofeats)
             else:
                 features[entity_type].push(
                     np.zeros((0, len(entity.features)), dtype=np.float32)
@@ -235,7 +239,10 @@ def batch_obs(
                             np.ones((0, len(space.choices)), dtype=np.bool_),
                             np.zeros(i, dtype=np.int64),
                         )
-                    vec_action.mask.push(action.mask)
+                    amask = action.mask
+                    if not isinstance(amask, np.ndarray):
+                        amask = np.array(amask, dtype=np.bool_)
+                    vec_action.mask.push(amask)
             elif isinstance(space, SelectEntityActionSpace):
                 vec_action = action_masks[atype]
                 assert isinstance(vec_action, VecSelectEntityActionMask)
