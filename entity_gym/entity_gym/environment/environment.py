@@ -177,6 +177,12 @@ class Observation:
             return np.array(
                 [id_to_index[id] for id in action.actee_ids], dtype=np.int64
             )
+        elif action.actee_types is not None:
+            ids: List[int] = []
+            id_to_index = self.id_to_index(obs_space)
+            for etype in action.actee_types:
+                ids.extend(id_to_index[id] for id in self.ids[etype])
+            return np.array(ids, dtype=np.int64)
         else:
             return np.arange(  # type: ignore
                 sum(len(self.ids[etype]) for etype in obs_space.entities),

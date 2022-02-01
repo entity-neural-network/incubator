@@ -239,12 +239,14 @@ def batch_obs(
             elif isinstance(space, SelectEntityActionSpace):
                 vec_action = action_masks[atype]
                 assert isinstance(vec_action, VecSelectEntityActionMask)
-                vec_action.actors.push(
-                    o._actor_indices(atype, obs_space).reshape(-1, 1)
-                )
-                vec_action.actees.push(
-                    o._actee_indices(atype, obs_space).reshape(-1, 1)
-                )
+                actors = o._actor_indices(atype, obs_space).reshape(-1, 1)
+                vec_action.actors.push(actors)
+                if len(actors) > 0:
+                    vec_action.actees.push(
+                        o._actee_indices(atype, obs_space).reshape(-1, 1)
+                    )
+                else:
+                    vec_action.actees.push(np.zeros((0, 1), dtype=np.int64))
             else:
                 raise NotImplementedError()
 

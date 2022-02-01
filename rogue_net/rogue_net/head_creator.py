@@ -172,7 +172,7 @@ class PaddedSelectEntityActionHead(nn.Module):
         logits_mask = torch.bmm(query_mask.unsqueeze(2), key_mask.unsqueeze(1))
 
         # Firstly mask off the conditions that are not available. This is the typical masked transformer approach
-        logits = logits.masked_fill(logits_mask == 0, -float("inf"))
+        logits = logits.masked_fill(logits_mask == 0, -1e9)
 
         dist = Categorical(logits=logits)
         if prev_actions is None:

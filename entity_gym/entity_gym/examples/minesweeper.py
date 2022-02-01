@@ -1,6 +1,6 @@
 import random
 import numpy as np
-from typing import Dict, List, Mapping, Tuple
+from typing import Dict, List, Mapping, Optional, Tuple
 from entity_gym.environment import *
 
 
@@ -31,7 +31,7 @@ class MineSweeper(Environment):
         self.cooldown_period = cooldown_period
         self.orbital_cannon_cooldown = cooldown_period
         # Positions of robots and mines
-        self.robots: List[Tuple[int, int]] = []
+        self.robots: List[Optional[Tuple[int, int]]] = []
         self.mines: List[Tuple[int, int]] = []
 
     @classmethod
@@ -122,11 +122,14 @@ class MineSweeper(Environment):
             if entity_type == "Mine":
                 self.mines.remove(self.mines[i])
             elif entity_type == "Robot":
-                self.robots.remove(self.robots[i])
+                # Don't remove yet to keep indices valid
+                self.robots[i] = None
 
         move = actions["Move"]
         assert isinstance(move, CategoricalAction)
         for (_, i), choice in move.items():
+            if self.robots[i] is None:
+                continue
             # Action space is ["Up", "Down", "Left", "Right", "Defuse Mines"],
             x, y = self.robots[i]
             if choice == 0 and y < self.height - 1:
@@ -145,7 +148,7 @@ class MineSweeper(Environment):
                 ]
 
         # Remove all robots that stepped on a mine
-        self.robots = [(x, y) for (x, y) in self.robots if (x, y) not in self.mines]
+        self.robots = [r for r in self.robots if r is not None and (x, y) not in self.mines]
 
         return self.observe()
 
