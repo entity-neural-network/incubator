@@ -46,13 +46,23 @@ class GriddlyEnv(Environment):
         pass
 
     def _to_griddly_action(self, action: Mapping[str, Action]) -> np.ndarray:
+        if self.use_coordinate_actions:
 
-        for action_name, a in action.items():
-            action_type = self._env.action_names.index(action_name)
-            # TODO: this only works if we have a single entity, otherwise we have to map the entityID to an x,y coordinate
-            action_id = a.actions[0][1]
+            g_actions = []
+            for action_name, a in action.items():
+                action_type = self._env.action_names.index(action_name)
+                # Get the xy location from the entityID
+                for entity_id, action_id in a.actions:
 
-        return np.array([action_type, action_id])
+                g_actions.append([x, y, action_type, action_id])
+            return np.stack(g_actions)
+        else:
+            for action_name, a in action.items():
+                action_type = self._env.action_names.index(action_name)
+                # TODO: this only works if we have a single entity, otherwise we have to map the entityID to an x,y coordinate
+                action_id = a.actions[0][1]
+
+            return np.array([action_type, action_id])
 
     def _make_observation(self, reward: int = 0, done: bool = False) -> Observation:
         griddly_entity_observation = self._entity_observer.observe(1)
@@ -63,6 +73,8 @@ class GriddlyEnv(Environment):
         entities = {
             name: np.array(obs, dtype=np.float32) for name, obs in entities.items()
         }
+
+        self.entity_locations = {entity_ids}
 
         action_masks = {}
         for action_name, entity_mask in entity_masks.items():
