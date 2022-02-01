@@ -9,4 +9,4 @@ A number of simple example environments can be found in [entity_gym/envs](https:
 
 After installing entity-gym with `pip install -e .`, the example environments can be run with `python entity_gym/main.py --env=MoveToOrigin|CherryPick|PickMatchingBalls|Minefield|MultiSnake`.
 
-The [Quick Start Guide](#TUTORIAL.md) walks you through the process of creating a new environment.
+The [Quick Start Guide](TUTORIAL.md) walks you through the process of creating a new environment.

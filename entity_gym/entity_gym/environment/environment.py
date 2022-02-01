@@ -85,7 +85,7 @@ class SelectEntityActionMask:
     If None, all entities can perform the action.
     """
 
-    actee_entity_types: Optional[Sequence[EntityType]] = None
+    actee_types: Optional[Sequence[EntityType]] = None
     """
     The types of entities that can be selected by each actor.
     If None, all entities types can be selected by each actor.
@@ -109,7 +109,7 @@ class SelectEntityActionMask:
             self.actor_ids is None or self.actor_types is None
         ), "Only one of actor_ids or actor_types can be specified"
         assert (
-            self.actee_entity_types is None or self.actee_ids is None
+            self.actee_types is None or self.actee_ids is None
         ), "Either actee_entity_types or actees can be specified, but not both."
 
 
