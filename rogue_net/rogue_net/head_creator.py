@@ -56,14 +56,15 @@ class CategoricalActionHead(nn.Module):
             mask, VecCategoricalActionMask
         ), f"Expected CategoricalActionMaskBatch, got {type(mask)}"
 
+        device = x.data.device
         lengths = mask.actors.size1()
         if len(mask.actors) == 0:
             return (
-                torch.zeros((0, 1), dtype=torch.int64, device=x.device),
+                torch.zeros((0, 1), dtype=torch.int64, device=device),
                 lengths,
-                torch.zeros((0, 1), dtype=torch.float32, device=x.device),
-                torch.zeros((0, 1), dtype=torch.float32, device=x.device),
-                torch.zeros((0, self.n_choice), dtype=torch.float32, device=x.device),
+                torch.zeros((0, 1), dtype=torch.float32, device=device),
+                torch.zeros((0, 1), dtype=torch.float32, device=device),
+                torch.zeros((0, self.n_choice), dtype=torch.float32, device=device),
             )
 
         actors = torch.tensor((mask.actors + index_offsets).as_array()).to(
