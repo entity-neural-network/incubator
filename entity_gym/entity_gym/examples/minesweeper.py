@@ -31,7 +31,7 @@ class MineSweeper(Environment):
         self.cooldown_period = cooldown_period
         self.orbital_cannon_cooldown = cooldown_period
         # Positions of robots and mines
-        self.robots: List[Optional[Tuple[int, int]]] = []
+        self.robots: List[Tuple[int, int]] = []
         self.mines: List[Tuple[int, int]] = []
 
     @classmethod
@@ -59,7 +59,7 @@ class MineSweeper(Environment):
             self.nmines + self.nrobots,
         )
         self.mines = positions[: self.nmines]
-        self.robots = list(positions[self.nmines :])
+        self.robots = positions[self.nmines :]
         self.orbital_cannon_cooldown = self.cooldown_period
         return self.observe()
 
@@ -73,7 +73,7 @@ class MineSweeper(Environment):
                     ids=[("Mine", i) for i in range(len(self.mines))],
                 ),
                 "Robot": EntityObs(
-                    features=[r for r in self.robots if r is not None],
+                    features=self.robots,
                     ids=[("Robot", i) for i in range(len(self.robots))],
                 ),
                 "Orbital Cannon": EntityObs(
@@ -87,7 +87,7 @@ class MineSweeper(Environment):
                 "Move": CategoricalActionMask(
                     # Allow all robots to move
                     actor_types=["Robot"],
-                    mask=[self.valid_moves(*r) for r in self.robots if r is not None],
+                    mask=[self.valid_moves(x, y) for x, y in self.robots],
                 ),
                 "Fire Orbital Cannon": SelectEntityActionMask(
                     # Only the Orbital Cannon can fire, but not if cooldown > 0
@@ -108,12 +108,13 @@ class MineSweeper(Environment):
     def act(self, actions: Mapping[ActionType, Action]) -> Observation:
         fire = actions["Fire Orbital Cannon"]
         assert isinstance(fire, SelectEntityAction)
+        remove_robot = None
         for (entity_type, i) in fire.actees:
             if entity_type == "Mine":
                 self.mines.remove(self.mines[i])
             elif entity_type == "Robot":
                 # Don't remove yet to keep indices valid
-                self.robots[i] = None
+                remove_robot = i
 
         move = actions["Move"]
         assert isinstance(move, CategoricalAction)
@@ -137,8 +138,10 @@ class MineSweeper(Environment):
                     (x, y) for (x, y) in self.mines if abs(x - rx) + abs(y - ry) > 1
                 ]
 
+        if remove_robot is not None:
+            self.robots.pop(remove_robot)
         # Remove all robots that stepped on a mine
-        self.robots = [r for r in self.robots if r is not None and r not in self.mines]
+        self.robots = [r for r in self.robots if r not in self.mines]
 
         return self.observe()
 

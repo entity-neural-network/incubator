@@ -127,28 +127,19 @@ class MineSweeper(Environment):
     ...
 
     def observe(self) -> Observation:
-        return Observation(
-            features={
-                "Mine": np.array(
-                    self.mines,
-                    dtype=np.float32,
-                ).reshape(-1, 2),
-                "Robot": np.array(
-                    self.robots,
-                    dtype=np.float32,
-                ).reshape(-1, 2),
-            },
-            ids={
-                # Identifiers for each Robot
-                "Robot": [
-                    ("Robot", i)
-                    for i in range(len(self.robots))
-                ],
+        return Observation.from_entity_obs(
+            entities={
+                "Robot": EntityObs(
+                    features=self.robots,
+                    # Identifiers for each Robot
+                    ids=[("Robot", i) for i in range(len(self.robots))],
+                ),
                 # We don't need identifiers for mines since they are not 
                 # directly referenced by any actions.
+                "Mine": EntityObs(features=self.mines),
             },
             actions={
-                "Move": DenseCategoricalActionMask(
+                "Move": CategoricalActionMask(
                     # Allow all robots to move
                     actor_types=["Robot"],
                 ),
@@ -231,16 +222,13 @@ class MineSweeper(Environment):
     def observe(self) -> Observation:
         return Observation(
             actions={
-                "Move": DenseCategoricalActionMask(
+                "Move": CategoricalActionMask(
                     # Allow all robots to move
                     actor_types=["Robot"],
-                    mask=np.array(
-                        [
-                            self.valid_moves(x, y)
-                            for (x, y) in self.robots
-                        ],
-                        dtype=np.bool_,
-                    ),
+                    mask=[
+                        self.valid_moves(x, y)
+                        for (x, y) in self.robots
+                    ],
                 ),
             },
             ...
@@ -288,33 +276,20 @@ class MineSweeper(Environment):
         return self.observe()
     
     def observe(self) -> Observation:
-        return Observation(
-            features={
-                "Mine": np.array(
-                    [self.mines],
-                    dtype=np.float32,
+        return Observation.from_entity_obs(
+            entities={
+                "Mine": EntityObs(
+                    features=self.mines,
+                    ids=[("Mine", i) for i in range(len(self.mines))],
                 ),
-                "Robot": np.array(
-                    [self.robots],
-                    dtype=np.float32,
+                "Robot": EntityObs(
+                    features=[r for r in self.robots if r is not None],
+                    ids=[("Robot", i) for i in range(len(self.robots))],
                 ),
-                "Orbital Cannon": np.array(
-                    [[self.orbital_cannon_cooldown]],
-                    dtype=np.float32,
-                ),
-            },
-            ids={
-                # We now need identifiers for mines as well, since they may be
-                # selected by the Orbital Cannon
-                "Mine": [
-                    ("Mine", i)
-                    for i in range(len(self.mines))
-                ],
-                "Robot": [
-                    ("Robot", i)
-                    for i in range(len(self.robots))
-                ],
-                "Orbital Cannon": [("Orbital Cannon", 0)],
+                "Orbital Cannon": EntityObs(
+                    features=[(self.orbital_cannon_cooldown,)],
+                    ids=[("Orbital Cannon", 0)],
+                )
             },
             actions={
                 "Move": DenseCategoricalActionMask(
@@ -334,11 +309,22 @@ class MineSweeper(Environment):
     def act(self, actions: Mapping[ActionType, Action]) -> Observation:
         fire = actions["Fire Orbital Cannon"]
         assert isinstance(fire, SelectEntityAction)
+        remove_robot = None
         for (entity_type, i) in fire.actees:
             if entity_type == "Mine":
                 self.mines.remove(self.mines[i])
             elif entity_type == "Robot":
-                self.robots.remove(self.robots[i])
+                # Don't remove yet to keep indices valid
+                remove_robot = i
 
+        move = actions["Move"]
         ...
+
+        if remove_robot is not None:
+            self.robots.pop(remove_robot)
+        # Remove all robots that stepped on a mine
+        self.robots = [r for r in self.robots if r not in self.mines]
+
+        return self.observe
+
 ```
