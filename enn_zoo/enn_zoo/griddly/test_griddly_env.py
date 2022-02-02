@@ -79,3 +79,18 @@ def test_griddly_wrapper() -> None:
     )
     assert isinstance(observation.actions["move_two"], CategoricalActionMask)
     assert np.all(observation.actions["move_two"].mask == np.array([[1, 1, 1, 1]]))
+
+
+def test_single_agent() -> None:
+    """
+    Create an environment and perform different action types to make sure the commands are translated
+    correctly between griddly and enn wrappers
+    """
+    pass
+
+def test_single_agent_multi_entity() -> None:
+    """
+    Create an environment with multiple entities and perform different action types to make sure the commands are translated
+    correctly between griddly and enn wrappers
+    """
+    pass
