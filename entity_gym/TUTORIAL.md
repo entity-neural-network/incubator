@@ -283,7 +283,7 @@ class MineSweeper(Environment):
                     ids=[("Mine", i) for i in range(len(self.mines))],
                 ),
                 "Robot": EntityObs(
-                    features=[r for r in self.robots if r is not None],
+                    features=self.robots,
                     ids=[("Robot", i) for i in range(len(self.robots))],
                 ),
                 "Orbital Cannon": EntityObs(
