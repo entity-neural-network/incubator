@@ -70,7 +70,7 @@ class GriddlyEnv(Environment):
         for action_name, entity_mask in entity_masks.items():
             action_masks[action_name] = CategoricalActionMask(
                 # TODO: fix
-                actor_ids=entity_mask["ActorIdx"],
+                actor_ids=entity_mask["ActorEntityIds"],
                 mask=np.array(entity_mask["Masks"]).astype(np.bool_),
             )
 
