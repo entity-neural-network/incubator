@@ -1,6 +1,6 @@
 Version: "0.1"
 Environment:
-  Name: Partially Observable Clusters
+  Name: Clusters Multi
   Description: Cluster the coloured objects together by pushing them against the static coloured blocks.
   Observers:
     Sprite2D:

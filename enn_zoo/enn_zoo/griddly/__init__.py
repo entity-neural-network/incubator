@@ -110,13 +110,13 @@ def create_env(
 
 
 GRIDDLY_ENVS: Dict[str, Dict[str, Any]] = {
-    #"GDY-Clusters-Multi-Generated": {"yaml_file": os.path.join(init_path, "env_descriptions/clusters_multi.yaml"), "level":0},
-    "GDY-Clusters-Multi-All": {"yaml_file": os.path.join(init_path, "env_descriptions/clusters_multi.yaml"), "level":0, "random_levels": True},
-    "GDY-Clusters-Multi-0": {"yaml_file": os.path.join(init_path, "env_descriptions/clusters_multi.yaml"), "level":0},
-    "GDY-Clusters-Multi-1": {"yaml_file": os.path.join(init_path, "env_descriptions/clusters_multi.yaml"), "level":1},
-    "GDY-Clusters-Multi-2": {"yaml_file": os.path.join(init_path, "env_descriptions/clusters_multi.yaml"), "level":2},
-    "GDY-Clusters-Multi-3": {"yaml_file": os.path.join(init_path, "env_descriptions/clusters_multi.yaml"), "level":3},
-    "GDY-Clusters-Multi-4": {"yaml_file": os.path.join(init_path, "env_descriptions/clusters_multi.yaml"), "level":4},
+    #"GDY-Clusters-Multi-Generated": {"yaml_file": os.path.join(init_path, "env_descriptions/clusters_entities.yaml"), "level":0},
+    "GDY-Clusters-Multi-All": {"yaml_file": os.path.join(init_path, "env_descriptions/clusters_entities.yaml"), "level":0, "random_levels": True},
+    "GDY-Clusters-Multi-0": {"yaml_file": os.path.join(init_path, "env_descriptions/clusters_entities.yaml"), "level":0},
+    "GDY-Clusters-Multi-1": {"yaml_file": os.path.join(init_path, "env_descriptions/clusters_entities.yaml"), "level":1},
+    "GDY-Clusters-Multi-2": {"yaml_file": os.path.join(init_path, "env_descriptions/clusters_entities.yaml"), "level":2},
+    "GDY-Clusters-Multi-3": {"yaml_file": os.path.join(init_path, "env_descriptions/clusters_entities.yaml"), "level":3},
+    "GDY-Clusters-Multi-4": {"yaml_file": os.path.join(init_path, "env_descriptions/clusters_entities.yaml"), "level":4},
 
     #"GDY-Clusters-Generated": (os.path.join(init_path, "env_descriptions/clusters.yaml"), -1),
     "GDY-Clusters-All": {"yaml_file": os.path.join(init_path, "env_descriptions/clusters.yaml"), "level":0, "random_levels": True},
