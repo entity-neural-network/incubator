@@ -66,6 +66,10 @@ class MineSweeper(Environment):
     def observe(self) -> Observation:
         done = len(self.mines) == 0 or len(self.robots) == 0
         reward = 1.0 if len(self.mines) == 0 else 0.0
+        print(f"mines = {self.mines}")
+        print(f"robots = {self.robots}")
+        print(f"orbital_cannon_cooldown = {self.orbital_cannon_cooldown}")
+        print(f"orbital_cannon = {self.orbital_cannon}")
         return Observation.from_entity_obs(
             entities={
                 "Mine": EntityObs(

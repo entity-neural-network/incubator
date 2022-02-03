@@ -109,11 +109,19 @@ class RaggedAttention(nn.Module):
                 padpack_batch,
                 padpack_inverse_index,
             ) = padpack
+            print("PADPACK INDEX")
+            print(padpack_index)
+            print("PADPACK BATCH")
+            print(padpack_batch)
+            print("PADPACK INVERSE INDEX")
+            print(padpack_inverse_index)
             x = x[torch.LongTensor(padpack_index).to(device)]
             tpadpack_batch = torch.Tensor(padpack_batch).to(device)
             attn_mask = (
                 tpadpack_batch.unsqueeze(2) != tpadpack_batch.unsqueeze(1)
             ).unsqueeze(1)
+            print("ATTN MASK")
+            print(attn_mask)
 
         B, T, C = x.size()
 

@@ -1,60 +1,65 @@
-Observation(
+VecObs(
     features={
-        "Mine": array([[0.0, 2.0]], dtype=float32),
-        "Robot": array([[0.0, 1.0]], dtype=float32),
-        "Orbital Cannon": array([[0.0]], dtype=float32),
-    },
-    actions={
-        "Move": CategoricalActionMask(
-            actor_ids=None,
-            actor_types=["Robot"],
-            mask=array([[True, False, True, True, True]]),
+        "Mine": RaggedBufferF32(
+            [
+                [[0, 2], [0, 1], [2, 2], [0, 0], [1, 0]],
+                [[2.0, 1.0]],
+                [[1, 0], [0, 1], [2, 2]],
+            ]
         ),
-        "Fire Orbital Cannon": SelectEntityActionMask(
-            actor_ids=None,
-            actor_types=["Orbital Cannon"],
-            actee_types=["Mine", "Robot"],
-            actee_ids=None,
-            mask=None,
+        "Robot": RaggedBufferF32(
+            [
+                [[1.0, 1.0]],
+                [[2.0, 0.0]],
+                [[0, 0], [2, 0]],
+            ]
+        ),
+        "Orbital Cannon": RaggedBuffer(
+            [
+                [],
+                [[0.0]],
+                [],
+            ]
         ),
     },
-    done=False,
-    reward=0.0,
-    ids={
-        "Mine": [("Mine", 0)],
-        "Robot": [("Robot", 0)],
-        "Orbital Cannon": [("Orbital Cannon", 0)],
-    },
-    end_of_episode_info=None,
-)
-Observation(
-    features={
-        "Mine": array([[1.0, 1.0], [0.0, 1.0], [1.0, 0.0]], dtype=float32),
-        "Robot": array([[2.0, 0.0], [1.0, 2.0]], dtype=float32),
-        "Orbital Cannon": array([], shape=(0, 1), dtype=float32),
-    },
-    actions={
-        "Move": CategoricalActionMask(
-            actor_ids=None,
-            actor_types=["Robot"],
-            mask=array(
-                [[False, True, True, False, True], [True, True, False, True, True]]
+    action_masks={
+        "Move": VecCategoricalActionMask(
+            actors=RaggedBufferI64(
+                [
+                    [[5]],
+                    [[1]],
+                    [[3], [4]],
+                ]
+            ),
+            mask=RaggedBufferBool(
+                [
+                    [[True, True, True, True, True]],
+                    [[False, True, True, False, True]],
+                    [
+                        [True, False, True, False, True],
+                        [False, True, True, False, True],
+                    ],
+                ]
             ),
         ),
-        "Fire Orbital Cannon": SelectEntityActionMask(
-            actor_ids=None,
-            actor_types=[],
-            actee_types=["Mine", "Robot"],
-            actee_ids=None,
-            mask=None,
+        "Fire Orbital Cannon": VecSelectEntityActionMask(
+            actors=RaggedBufferI64(
+                [
+                    [],
+                    [[2]],
+                    [],
+                ]
+            ),
+            actees=RaggedBufferI64(
+                [
+                    [],
+                    [[0], [1]],
+                    [],
+                ]
+            ),
         ),
     },
-    done=False,
-    reward=0.0,
-    ids={
-        "Mine": [("Mine", 0), ("Mine", 1), ("Mine", 2)],
-        "Robot": [("Robot", 0), ("Robot", 1)],
-        "Orbital Cannon": [],
-    },
-    end_of_episode_info=None,
+    reward=array([0.0, 0.0, 0.0], dtype=float32),
+    done=array([False, False, False]),
+    end_of_episode_info={},
 )

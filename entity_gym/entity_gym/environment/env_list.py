@@ -48,6 +48,7 @@ class EnvList(VecEnv):
         return cls.cls
 
     def reset(self, obs_space: ObsSpace) -> VecObs:
+        print("RESET")
         return self._batch_obs([e.reset_filter(obs_space) for e in self.envs])
 
     def render(self, **kwargs: Any) -> npt.NDArray[np.uint8]:
@@ -60,6 +61,8 @@ class EnvList(VecEnv):
     def act(
         self, actions: Mapping[str, RaggedBufferI64], obs_space: ObsSpace
     ) -> VecObs:
+        print("VEC ACT")
+        __import__("pprint").pprint(actions)
         observations = []
         action_space = self.cls.action_space()
         for i, env in enumerate(self.envs):
@@ -106,6 +109,8 @@ class EnvList(VecEnv):
                         f"Action space type {type(action_space[atype])} not supported"
                     )
 
+            print("ENV ACT")
+            __import__("pprint").pprint(_actions)
             obs = env.act_filter(_actions, obs_space)
             if obs.done:
                 # TODO: something is wrong with the interface here
@@ -119,9 +124,13 @@ class EnvList(VecEnv):
         return self._batch_obs(observations)
 
     def _batch_obs(self, obs: List[Observation]) -> VecObs:
+        print("ENV OBS")
         __import__("pprint").pprint(obs)
         self.last_obs = obs
-        return batch_obs(obs, self.cls.obs_space(), self.cls.action_space())
+        batched = batch_obs(obs, self.cls.obs_space(), self.cls.action_space())
+        print("VEC OBS")
+        __import__("pprint").pprint(batched)
+        return batched
 
     def __len__(self) -> int:
         return len(self.envs)

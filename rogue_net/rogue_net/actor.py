@@ -45,7 +45,6 @@ class Actor(nn.Module):
         action_heads: nn.ModuleDict,
         auxiliary_heads: Optional[nn.ModuleDict] = None,
         feature_transforms: Optional[TranslatePositions] = None,
-        relpos_encoding: Optional[RelposEncoding] = None,
     ):
         super(Actor, self).__init__()
 
@@ -56,7 +55,6 @@ class Actor(nn.Module):
         self.action_heads = action_heads
         self.auxiliary_heads = auxiliary_heads
         self.feature_transforms = feature_transforms
-        self.relpos_encoding = True
 
     def device(self) -> torch.device:
         return next(self.parameters()).device
@@ -106,9 +104,18 @@ class Actor(nn.Module):
             tbatch_index = torch.tensor(batch_index).to(self.device())
             tlengths = torch.tensor(lengths).to(self.device())
 
-        x = x[tindex_map]
         entity_types = torch.cat(entity_type)[tindex_map]
         tbatch_index = tbatch_index[tindex_map]
+
+        x = x[tindex_map]
+        print("EMBEDDING")
+        __import__("pprint").pprint(x)
+        print("BATCH INDEX")
+        __import__("pprint").pprint(tbatch_index)
+        print("INDEX MAP")
+        __import__("pprint").pprint(tindex_map)
+        print("ENTITY TYPE")
+        __import__("pprint").pprint(entity_types)
 
         with tracer.span("backbone"):
             x = self.backbone(
@@ -159,6 +166,8 @@ class Actor(nn.Module):
             .numpy()
             .reshape(-1, 1, 1)
         )
+        print("OFFSETS")
+        __import__("pprint").pprint(index_offsets)
         actor_counts: Dict[str, np.ndarray] = {}
         for action_name, action_head in self.action_heads.items():
             action, count, logprob, entropy, logit = action_head(
@@ -232,7 +241,4 @@ class AutoActor(Actor):
             head_creator.create_action_heads(action_space, d_model, d_qk),
             auxiliary_heads=auxiliary_heads,
             feature_transforms=feature_transforms,
-            relpos_encoding=RelposEncoding(relpos_encoding)
-            if relpos_encoding
-            else None,
         )
