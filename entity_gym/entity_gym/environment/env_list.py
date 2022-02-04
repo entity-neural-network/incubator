@@ -35,7 +35,7 @@ class EnvList(VecEnv):
     def __init__(
         self, env_cls: Type[Environment], env_kwargs: Dict[str, Any], num_envs: int
     ):
-        self.envs = [env_cls(**env_kwargs) for _ in range(num_envs)]
+        self.envs = [env_cls(**env_kwargs) for _ in range(num_envs)]  # type: ignore
         self.cls = env_cls
         self.last_obs: List[Observation] = []
 

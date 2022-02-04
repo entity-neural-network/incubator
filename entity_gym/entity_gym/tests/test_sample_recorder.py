@@ -1,8 +1,10 @@
-import numpy as np
 import tempfile
-from entity_gym.serialization import Sample, SampleRecorder, Trace
-from entity_gym.environment import VecCategoricalActionMask, VecObs
+
+import numpy as np
 from ragged_buffer import RaggedBufferF32, RaggedBufferI64
+
+from entity_gym.environment import VecCategoricalActionMask, VecObs
+from entity_gym.serialization import Sample, SampleRecorder, Trace
 
 
 def test_serde_sample() -> None:
@@ -83,7 +85,7 @@ def test_serde_sample() -> None:
         sample_recorder.record(sample)
         sample_recorder.close()
 
-        with open(f.name, "rb") as f:  # type: ignore
+        with open(f.name, "rb") as f:
             trace = Trace.deserialize(f.read())
             assert len(trace.samples) == 2
             assert trace.samples[0].obs.reward[0] == 0.3124125987123489
