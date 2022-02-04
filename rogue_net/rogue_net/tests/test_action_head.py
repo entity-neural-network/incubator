@@ -4,7 +4,7 @@ import numpy as np
 from rogue_net.head_creator import CategoricalActionHead
 from rogue_net.ragged_tensor import RaggedTensor
 from ragged_buffer import RaggedBufferI64
-from entity_gym.environment import CategoricalActionMaskBatch
+from entity_gym.environment import VecCategoricalActionMask
 
 
 def test_empty_actors() -> None:
@@ -20,12 +20,12 @@ def test_empty_actors() -> None:
         index_offsets=RaggedBufferI64.from_array(
             np.array([[[0]], [[4]], [[6]], [[8]]])
         ),
-        mask=CategoricalActionMaskBatch(
+        mask=VecCategoricalActionMask(
             actors=RaggedBufferI64.from_flattened(
                 np.zeros((0, 1), dtype=np.int64),
                 lengths=np.array([0, 0, 0, 0], dtype=np.int64),
             ),
-            masks=None,
+            mask=None,
         ),
         prev_actions=None,
     )

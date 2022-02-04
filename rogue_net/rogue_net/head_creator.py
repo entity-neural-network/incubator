@@ -8,12 +8,12 @@ import torch
 import numpy as np
 import numpy.typing as npt
 from entity_gym.environment import (
-    ActionMaskBatch,
+    VecActionMask,
     ActionSpace,
-    CategoricalActionMaskBatch,
+    VecCategoricalActionMask,
     CategoricalActionSpace,
-    DenseSelectEntityActionMask,
-    SelectEntityActionMaskBatch,
+    SelectEntityActionMask,
+    VecSelectEntityActionMask,
     SelectEntityActionSpace,
 )
 from typing import Dict
@@ -24,7 +24,7 @@ class ActionHead(nn.Module):
         self,
         x: RaggedTensor,
         index_offsets: RaggedBufferI64,
-        mask: ActionMaskBatch,
+        mask: VecActionMask,
         prev_actions: Optional[RaggedBufferI64],
     ) -> Tuple[
         RaggedBufferI64,
@@ -47,23 +47,24 @@ class CategoricalActionHead(nn.Module):
         self,
         x: RaggedTensor,
         index_offsets: RaggedBufferI64,
-        mask: ActionMaskBatch,
+        mask: VecActionMask,
         prev_actions: Optional[RaggedBufferI64],
     ) -> Tuple[
         torch.Tensor, npt.NDArray[np.int64], torch.Tensor, torch.Tensor, torch.Tensor
     ]:
         assert isinstance(
-            mask, CategoricalActionMaskBatch
+            mask, VecCategoricalActionMask
         ), f"Expected CategoricalActionMaskBatch, got {type(mask)}"
 
+        device = x.data.device
         lengths = mask.actors.size1()
         if len(mask.actors) == 0:
             return (
-                torch.zeros((0, 1), dtype=torch.int64),
+                torch.zeros((0, 1), dtype=torch.int64, device=device),
                 lengths,
-                torch.zeros((0, 1), dtype=torch.float32),
-                torch.zeros((0, 1), dtype=torch.float32),
-                torch.zeros((0, self.n_choice), dtype=torch.float32),
+                torch.zeros((0, 1), dtype=torch.float32, device=device),
+                torch.zeros((0, 1), dtype=torch.float32, device=device),
+                torch.zeros((0, self.n_choice), dtype=torch.float32, device=device),
             )
 
         actors = torch.tensor((mask.actors + index_offsets).as_array()).to(
@@ -73,9 +74,9 @@ class CategoricalActionHead(nn.Module):
         logits = self.proj(actor_embeds)
 
         # Apply masks from the environment
-        if mask.masks is not None and mask.masks.size0() > 0:
+        if mask.mask is not None and mask.mask.size0() > 0:
             reshaped_masks = torch.tensor(
-                mask.masks.as_array().reshape(logits.shape)
+                mask.mask.as_array().reshape(logits.shape)
             ).to(x.data.device)
             logits = logits.masked_fill(reshaped_masks == 0, -float("inf"))
 
@@ -106,23 +107,23 @@ class PaddedSelectEntityActionHead(nn.Module):
         self,
         x: RaggedTensor,
         index_offsets: RaggedBufferI64,
-        mask: ActionMaskBatch,
+        mask: VecActionMask,
         prev_actions: Optional[RaggedBufferI64],
     ) -> Tuple[
         torch.Tensor, npt.NDArray[np.int64], torch.Tensor, torch.Tensor, torch.Tensor
     ]:
         assert isinstance(
-            mask, SelectEntityActionMaskBatch
+            mask, VecSelectEntityActionMask
         ), f"Expected SelectEntityActionMaskBatch, got {type(mask)}"
         device = x.data.device
         actor_lengths = mask.actors.size1()
         if len(mask.actors) == 0:
             return (
-                torch.zeros((0, 1), dtype=torch.int64),
+                torch.zeros((0, 1), dtype=torch.int64, device=device),
                 actor_lengths,
-                torch.zeros((0, 1), dtype=torch.float32),
-                torch.zeros((0, 1), dtype=torch.float32),
-                torch.zeros((0, 1), dtype=torch.float32),
+                torch.zeros((0, 1), dtype=torch.float32, device=device),
+                torch.zeros((0, 1), dtype=torch.float32, device=device),
+                torch.zeros((0, 1), dtype=torch.float32, device=device),
             )
 
         actors = torch.tensor((mask.actors + index_offsets).as_array(), device=device)
@@ -171,7 +172,7 @@ class PaddedSelectEntityActionHead(nn.Module):
         logits_mask = torch.bmm(query_mask.unsqueeze(2), key_mask.unsqueeze(1))
 
         # Firstly mask off the conditions that are not available. This is the typical masked transformer approach
-        logits = logits.masked_fill(logits_mask == 0, -float("inf"))
+        logits = logits.masked_fill(logits_mask == 0, -1e9)
 
         dist = Categorical(logits=logits)
         if prev_actions is None:

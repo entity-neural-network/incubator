@@ -10,8 +10,8 @@ import numpy.typing as npt
 from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple, Type
 from ragged_buffer import RaggedBufferF32, RaggedBufferI64, RaggedBufferBool
 from entity_gym.environment import VecEnv
-from entity_gym.environment.vec_env import CategoricalActionMaskBatch
-from entity_gym.environment import Environment, ObsSpace, ObsBatch
+from entity_gym.environment.vec_env import VecCategoricalActionMask, VecObs
+from entity_gym.environment import Environment, ObsSpace
 from entity_gym.environment.environment import (
     Action,
     ActionSpace,
@@ -117,32 +117,14 @@ class CodeCraftEnv(Environment):
             )
         }
 
-    def _reset(self) -> Observation:
+    def reset(self) -> Observation:
         raise NotImplementedError
 
-    def _act(self, action: Mapping[str, Action]) -> Observation:
+    def act(self, action: Mapping[str, Action]) -> Observation:
         raise NotImplementedError
 
     def close(self) -> None:
         pass
-
-    @classmethod
-    def filter_obs(cls, obs: Observation, obs_filter: ObsSpace) -> Observation:
-        selectors = cls._compile_feature_filter(obs_filter)
-        entities = {
-            entity_name: entity_features[:, selectors[entity_name]].reshape(
-                entity_features.shape[0], len(selectors[entity_name])
-            )
-            for entity_name, entity_features in obs.entities.items()
-        }
-        return Observation(
-            entities,
-            obs.ids,
-            obs.action_masks,
-            obs.reward,
-            obs.done,
-            obs.end_of_episode_info,
-        )
 
     def env_cls(self) -> Type["Environment"]:
         return self.__class__
@@ -380,7 +362,7 @@ class CodeCraftVecEnv(VecEnv):
             self.next_opponent_index = 0
         return opp
 
-    def reset(self, obs_config: ObsSpace) -> ObsBatch:
+    def reset(self, obs_config: ObsSpace) -> VecObs:
         self.games = []
         self.eplen = []
         self.score = []
@@ -432,11 +414,9 @@ class CodeCraftVecEnv(VecEnv):
         return self.observe(obs_config)
 
     def act(
-        self, actions: Sequence[Mapping[str, Action]], obs_filter: ObsSpace
-    ) -> ObsBatch:
-        return self.step(
-            [[a[1] for a in act["act"].actions] for act in actions], obs_filter
-        )
+        self, actions: Mapping[str, RaggedBufferI64], obs_filter: ObsSpace
+    ) -> VecObs:
+        return self.step([list(row) for row in actions["act"].as_array()], obs_filter)
 
     def render(self, **kwargs: Any) -> npt.NDArray[np.uint8]:
         # TODO: @cswinter to provide rest API client for grabbing image state from CodeCraft
@@ -450,7 +430,7 @@ class CodeCraftVecEnv(VecEnv):
         # obs_config: Optional[ObsConfig] = None,
         obs_filter: ObsSpace,
         action_masks: Optional[Any] = None,
-    ) -> ObsBatch:
+    ) -> VecObs:
         self.step_async(actions, action_masks)
         return self.observe(obs_filter)
 
@@ -512,7 +492,7 @@ class CodeCraftVecEnv(VecEnv):
 
         rest_client.act_batch(game_actions)
 
-    def observe(self, obs_filter: ObsSpace) -> ObsBatch:
+    def observe(self, obs_filter: ObsSpace) -> VecObs:
         env_subset: Optional[List[int]] = None
         obs_config: Optional[ObsConfig] = None
         obs_config = obs_config or self.obs_config
@@ -741,37 +721,24 @@ class CodeCraftVecEnv(VecEnv):
         )
         ragged_tiles = RaggedBufferF32.from_array(tiles)
 
-        ids = [
-            list(
-                range(
-                    ragged_allies[i].items()
-                    + ragged_enemies[i].items()
-                    + ragged_minerals[i].items()
-                    + ragged_tiles[i].items()
-                )
-            )
-            for i in range(num_envs)
-        ]
-
         actors: List[int] = []
         for i in range(num_envs):
             actors.extend(list(range(ragged_allies[i].items())))
 
-        batch = ObsBatch(
-            entities={
+        batch = VecObs(
+            features={
                 "ally": ragged_allies,
                 # "enemy": ragged_enemies,
                 "mineral": ragged_minerals,
                 # "tile": ragged_tiles,
             },
-            ids=ids,  # type: ignore
             action_masks={
-                "act": CategoricalActionMaskBatch(
+                "act": VecCategoricalActionMask(
                     actors=RaggedBufferI64.from_flattened(
                         np.array(actors, dtype=np.int64).reshape(-1, 1),
                         ragged_allies.size1(),
                     ),
-                    masks=RaggedBufferBool.from_flattened(
+                    mask=RaggedBufferBool.from_flattened(
                         action_masks[ally_not_padding] == 1.0, ragged_allies.size1()
                     ),
                 ),

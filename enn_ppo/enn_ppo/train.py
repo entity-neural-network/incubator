@@ -20,29 +20,13 @@ from typing import (
     Union,
 )
 import json
-from entity_gym.environment.vec_env import ObsBatch
+from entity_gym.environment import *
 
 import numpy as np
 import numpy.typing as npt
-from entity_gym.environment import (
-    Action,
-    ActionMaskBatch,
-    ActionSpace,
-    CategoricalAction,
-    CategoricalActionSpace,
-    EntityID,
-    VecEnv,
-    ObsSpace,
-    SelectEntityAction,
-    SelectEntityActionMaskBatch,
-    SelectEntityActionSpace,
-    Environment,
-)
-from entity_gym.environment.env_list import EnvList
-from entity_gym.environment.parallel_env_list import ParallelEnvList
 from entity_gym.examples import ENV_REGISTRY
 from enn_zoo.griddly import GRIDDLY_ENVS, create_env
-from enn_zoo.codecraft.vec_env import CodeCraftEnv, CodeCraftVecEnv
+from enn_zoo.codecraft.cc_vec_env import CodeCraftEnv, CodeCraftVecEnv
 from entity_gym.serialization import SampleRecordingVecEnv
 from enn_ppo.simple_trace import Tracer
 from rogue_net.relpos_encoding import RelposEncodingConfig
@@ -199,9 +183,9 @@ class RaggedBatchDict(Generic[ScalarType]):
 
 @dataclass
 class RaggedActionDict:
-    buffers: Dict[str, ActionMaskBatch] = field(default_factory=dict)
+    buffers: Dict[str, VecActionMask] = field(default_factory=dict)
 
-    def extend(self, batch: Mapping[str, ActionMaskBatch]) -> None:
+    def extend(self, batch: Mapping[str, VecActionMask]) -> None:
         for k, v in batch.items():
             if k not in self.buffers:
                 self.buffers[k] = v
@@ -212,7 +196,7 @@ class RaggedActionDict:
         for buffer in self.buffers.values():
             buffer.clear()
 
-    def __getitem__(self, index: npt.NDArray[np.int64]) -> Dict[str, ActionMaskBatch]:
+    def __getitem__(self, index: npt.NDArray[np.int64]) -> Dict[str, VecActionMask]:
         return {k: v[index] for k, v in self.buffers.items()}
 
 
@@ -277,7 +261,7 @@ class Rollout:
         self.tracer = tracer
 
         self.global_step = 0
-        self.next_obs: Optional[ObsBatch] = None
+        self.next_obs: Optional[VecObs] = None
         self.next_done: Optional[torch.Tensor] = None
         self.rewards = torch.zeros(0)
         self.dones = torch.zeros(0)
@@ -292,7 +276,7 @@ class Rollout:
 
     def run(
         self, steps: int, record_samples: bool, capture_videos: bool = False
-    ) -> Tuple[ObsBatch, torch.Tensor, Dict[str, float]]:
+    ) -> Tuple[VecObs, torch.Tensor, Dict[str, float]]:
         """
         Run the agent for a number of steps. Returns next_obs, next_done, and a dictionary of statistics.
         """
@@ -324,7 +308,7 @@ class Rollout:
             self.global_step += len(self.envs)
 
             if record_samples:
-                self.entities.extend(next_obs.entities)
+                self.entities.extend(next_obs.features)
                 self.action_masks.extend(next_obs.action_masks)
                 self.dones[step] = next_done
 
@@ -337,7 +321,7 @@ class Rollout:
                     aux,
                     logits,
                 ) = self.agent.get_action_and_auxiliary(
-                    next_obs.entities, next_obs.action_masks, tracer=self.tracer
+                    next_obs.features, next_obs.action_masks, tracer=self.tracer
                 )
                 logprob = tensor_dict_to_ragged(
                     RaggedBufferF32, probs_tensor, actor_counts
@@ -349,11 +333,6 @@ class Rollout:
 
             if capture_videos:
                 self.rendered_frames.append(self.envs.render(mode="rgb_array"))
-
-            with self.tracer.span("join_actions"):
-                _actions = join_actions(
-                    action, next_obs.action_masks, self.action_space, next_obs.ids
-                )
 
             with self.tracer.span("step"):
                 if isinstance(self.envs, SampleRecordingVecEnv):
@@ -368,10 +347,10 @@ class Rollout:
                     else:
                         ragged_logits = None
                     next_obs = self.envs.act(
-                        _actions, self.obs_space, logprob, ragged_logits
+                        action, self.obs_space, logprob, ragged_logits
                     )
                 else:
-                    next_obs = self.envs.act(_actions, self.obs_space)
+                    next_obs = self.envs.act(action, self.obs_space)
 
             if record_samples:
                 with self.tracer.span("reward_done_to_device"):
@@ -404,7 +383,7 @@ class Rollout:
 
 def returns_and_advantages(
     agent: PPOActor,
-    next_obs: ObsBatch,
+    next_obs: VecObs,
     next_done: torch.Tensor,
     rewards: torch.Tensor,
     dones: torch.Tensor,
@@ -416,7 +395,7 @@ def returns_and_advantages(
     tracer: Tracer,
 ) -> Tuple[torch.Tensor, torch.Tensor]:
     # bootstrap value if not done
-    next_value = agent.get_value(next_obs.entities, tracer).reshape(1, -1)
+    next_value = agent.get_value(next_obs.features, tracer).reshape(1, -1)
     num_steps = values.size(0)
     if gae:
         advantages = torch.zeros_like(rewards).to(device)
@@ -955,46 +934,6 @@ def train(args: argparse.Namespace) -> float:
     writer.close()
 
     return rollout.rewards.mean().item()
-
-
-def join_actions(
-    actions: Mapping[str, RaggedBufferI64],
-    masks: Mapping[str, ActionMaskBatch],
-    action_space: Mapping[str, ActionSpace],
-    entity_ids: List[Sequence[EntityID]],
-) -> Sequence[Mapping[str, Action]]:
-    """Join all actions with corresponding `EntityID`s"""
-    _actions = []
-    for i, ids in enumerate(entity_ids):
-        _action_dict: Dict[str, Union[CategoricalAction, SelectEntityAction]] = {}
-        for action_name, ragged_action_buffer in actions.items():
-            mask = masks[action_name]
-            _acts = ragged_action_buffer[i]
-            _as = action_space[action_name]
-            if isinstance(_as, CategoricalActionSpace):
-                actor_action = [
-                    (ids[actor_idx], _act)
-                    for actor_idx, _act in zip(
-                        mask.actors[i].as_array().reshape(-1),
-                        _acts.as_array().reshape(-1),
-                    )
-                ]
-                _action_dict[action_name] = CategoricalAction(actor_action)
-            elif isinstance(_as, SelectEntityActionSpace):
-                assert isinstance(
-                    mask, SelectEntityActionMaskBatch
-                ), f"Expected SelectEntityActionMaskBatch, got {type(mask)}"
-                actees = mask.actees[i].as_array().flatten()
-                actor_action = [
-                    (ids[actor_idx], ids[actees[actee_idx]])
-                    for actor_idx, actee_idx in zip(
-                        mask.actors[i].as_array().reshape(-1),
-                        _acts.as_array().reshape(-1),
-                    )
-                ]
-                _action_dict[action_name] = SelectEntityAction(actor_action)
-        _actions.append(_action_dict)
-    return _actions
 
 
 if __name__ == "__main__":
