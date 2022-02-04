@@ -219,7 +219,7 @@ Objects:
           Scale: 0.9
 
   - Name: spike
-    MapCharacter: h
+    MapCharacter: x
     Observers:
       Sprite2D:
         - Image: gvgai/oryx/spike2.png
@@ -229,7 +229,7 @@ Objects:
           Scale: 0.5
 
   - Name: red_box
-    MapCharacter: "2"
+    MapCharacter: r
     InitialActions:
       - Action: box_counter
         ActionId: 1
@@ -241,7 +241,7 @@ Objects:
           Color: [ 0.5, 0.2, 0.2 ]
           Scale: 0.5
   - Name: red_block
-    MapCharacter: b
+    MapCharacter: R
     Observers:
       Sprite2D:
         - Image: gvgai/newset/blockR2.png
@@ -251,7 +251,7 @@ Objects:
           Scale: 1.0
 
   - Name: green_box
-    MapCharacter: "3"
+    MapCharacter: g
     InitialActions:
       - Action: box_counter
         ActionId: 1
@@ -263,7 +263,7 @@ Objects:
           Color: [ 0.2, 0.5, 0.2 ]
           Scale: 0.5
   - Name: green_block
-    MapCharacter: c
+    MapCharacter: G
     Observers:
       Sprite2D:
         - Image: gvgai/newset/blockG2.png
@@ -273,7 +273,7 @@ Objects:
           Scale: 1.0
 
   - Name: blue_box
-    MapCharacter: "1"
+    MapCharacter: b
     InitialActions:
       - Action: box_counter
         ActionId: 1
@@ -285,7 +285,7 @@ Objects:
           Color: [ 0.2, 0.2, 0.5 ]
           Scale: 0.5
   - Name: blue_block
-    MapCharacter: a
+    MapCharacter: B
     Observers:
       Sprite2D:
         - Image: gvgai/newset/blockB2.png
