@@ -19,7 +19,7 @@ Environment:
     Win:
       - eq: [ box_count, 0 ]
     Lose:
-      - eq: [ broken_boxes, 1 ]
+      - gte: [ broken_boxes, 1 ]
       - gte: [ _steps, 500]
   Levels:
     - |
