@@ -105,7 +105,10 @@ class PickMatchingBalls(Environment):
                 ),
                 "Player": np.zeros([1, 0], dtype=np.float32),
             },
-            ids={"Ball": list(range(len(self.balls))), "Player": [len(self.balls)],},
+            ids={
+                "Ball": list(range(len(self.balls))),
+                "Player": [len(self.balls)],
+            },
             actions={
                 "Pick Ball": SelectEntityActionMask(
                     actor_ids=[len(self.balls)],

@@ -115,7 +115,11 @@ class Actor(nn.Module):
                 x, tbatch_index, index_map, tentities, tindex_map, entity_types
             )
 
-        return RaggedTensor(x, tbatch_index, tlengths,)
+        return RaggedTensor(
+            x,
+            tbatch_index,
+            tlengths,
+        )
 
     def get_auxiliary_head(
         self, entities: Mapping[str, RaggedBufferF32], head_name: str, tracer: Tracer

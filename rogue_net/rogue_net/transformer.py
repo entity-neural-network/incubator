@@ -104,7 +104,11 @@ class RaggedAttention(nn.Module):
             x = x.reshape(shape.size0(), shape.size1(0), -1)
             attn_mask = None
         else:
-            (padpack_index, padpack_batch, padpack_inverse_index,) = padpack
+            (
+                padpack_index,
+                padpack_batch,
+                padpack_inverse_index,
+            ) = padpack
             x = x[torch.LongTensor(padpack_index).to(device)]
             tpadpack_batch = torch.Tensor(padpack_batch).to(device)
             attn_mask = (
@@ -238,7 +242,11 @@ class Transformer(nn.Module):
             relkeysvals: Optional[
                 Tuple[torch.Tensor, torch.Tensor]
             ] = self.relpos_encoding.keys_values(
-                input_feats, index_map, tpadpack_index, shape, entity_type,
+                input_feats,
+                index_map,
+                tpadpack_index,
+                shape,
+                entity_type,
             )
         else:
             relkeysvals = None

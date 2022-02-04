@@ -443,7 +443,12 @@ def run_eval(
     # TODO: metrics are biased towards short episodes
     eval_envs: VecEnv
     if processes > 1:
-        eval_envs = ParallelEnvList(env_cls, env_kwargs, num_envs, processes,)
+        eval_envs = ParallelEnvList(
+            env_cls,
+            env_kwargs,
+            num_envs,
+            processes,
+        )
     else:
         eval_envs = EnvList(
             env_cls, args.eval_env_kwargs or env_kwargs, args.eval_num_envs

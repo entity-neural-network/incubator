@@ -63,7 +63,9 @@ class MsgpackConnectionWrapper(object):
     def recv(self) -> Any:
         data_bytes = self._conn.recv_bytes()
         return msgpack_numpy.loads(
-            data_bytes, object_hook=ragged_buffer_decode, strict_map_key=False,
+            data_bytes,
+            object_hook=ragged_buffer_decode,
+            strict_map_key=False,
         )
 
 

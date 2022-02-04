@@ -62,8 +62,22 @@ class NotHotdog(Environment):
     def observe(self, done: bool = False, reward: float = 0) -> Observation:
         return Observation(
             features={
-                "Player": np.array([[self.step,]], dtype=np.float32,),
-                "Object": np.array([[self.is_hotdog,]], dtype=np.float32,)
+                "Player": np.array(
+                    [
+                        [
+                            self.step,
+                        ]
+                    ],
+                    dtype=np.float32,
+                ),
+                "Object": np.array(
+                    [
+                        [
+                            self.is_hotdog,
+                        ]
+                    ],
+                    dtype=np.float32,
+                )
                 if (self.hotdog_object and self.is_hotdog == 0)
                 or not self.hotdog_object
                 else np.zeros((0, 1), dtype=np.float32).reshape(0, 1),

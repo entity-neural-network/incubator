@@ -83,7 +83,14 @@ class CodeCraftEnv(Environment):
                         # "claimed",
                     ]
                 ),
-                "tile": Entity(["x", "y", "last_visited_time", "visited",]),
+                "tile": Entity(
+                    [
+                        "x",
+                        "y",
+                        "last_visited_time",
+                        "visited",
+                    ]
+                ),
             }
         )
 
@@ -690,21 +697,24 @@ class CodeCraftVecEnv(VecEnv):
         # TODO: hack
         ally_not_padding[:, 0] = True
         ragged_allies = RaggedBufferF32.from_flattened(
-            allies[ally_not_padding], ally_not_padding.sum(axis=1).astype(np.int64),
+            allies[ally_not_padding],
+            ally_not_padding.sum(axis=1).astype(np.int64),
         )
         enemies = _obs[:, obs_config.endallies() : obs_config.endenemies()].reshape(
             num_envs, obs_config.enemies(), obs_config.dstride()
         )
         not_padding = enemies[:, :, 7] != 0
         ragged_enemies = RaggedBufferF32.from_flattened(
-            enemies[not_padding], not_padding.sum(axis=1).astype(np.int64),
+            enemies[not_padding],
+            not_padding.sum(axis=1).astype(np.int64),
         )
         minerals = _obs[:, obs_config.endenemies() : obs_config.endmins()].reshape(
             num_envs, obs_config.minerals, obs_config.mstride()
         )
         not_padding = minerals[:, :, 2] != 0
         ragged_minerals = RaggedBufferF32.from_flattened(
-            minerals[not_padding], not_padding.sum(axis=1).astype(np.int64),
+            minerals[not_padding],
+            not_padding.sum(axis=1).astype(np.int64),
         )
         tiles = _obs[:, obs_config.endmins() : obs_config.endtiles()].reshape(
             num_envs, obs_config.tiles, obs_config.tstride()

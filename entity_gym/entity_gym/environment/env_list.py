@@ -71,7 +71,8 @@ class EnvList(VecEnv):
                     raise NotImplementedError()
                 if isinstance(action_space[atype], CategoricalActionSpace):
                     _actions[atype] = CategoricalAction(
-                        actors=actors, actions=action[i].as_array().reshape(-1),
+                        actors=actors,
+                        actions=action[i].as_array().reshape(-1),
                     )
                 elif isinstance(action_space[atype], SelectEntityActionSpace):
                     assert isinstance(mask, SelectEntityActionMask)
@@ -91,7 +92,10 @@ class EnvList(VecEnv):
                         actees = [
                             index_to_id[e] for e in action[i].as_array().reshape(-1)
                         ]
-                    _actions[atype] = SelectEntityAction(actors=actors, actees=actees,)
+                    _actions[atype] = SelectEntityAction(
+                        actors=actors,
+                        actees=actees,
+                    )
                 else:
                     raise NotImplementedError(
                         f"Action space type {type(action_space[atype])} not supported"

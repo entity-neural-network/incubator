@@ -86,7 +86,10 @@ class Count(Environment):
         return self.observe(obs_filter, None, done=True, reward=reward)
 
     def act(self, action: Mapping[str, Action]) -> Observation:
-        return self.act_filter(action, Count.obs_space(),)
+        return self.act_filter(
+            action,
+            Count.obs_space(),
+        )
 
     def observe(
         self,
@@ -97,9 +100,15 @@ class Count(Environment):
     ) -> Observation:
         return Observation(
             features=extract_features(
-                {"Player": [Player()], "Bean": [Bean()] * self.count,}, obs_filter,
+                {
+                    "Player": [Player()],
+                    "Bean": [Bean()] * self.count,
+                },
+                obs_filter,
             ),
-            actions={"count": CategoricalActionMask(actor_ids=["Player"], mask=mask),},
+            actions={
+                "count": CategoricalActionMask(actor_ids=["Player"], mask=mask),
+            },
             ids={
                 "Player": ["Player"],
                 "Bean": [f"Bean{i}" for i in range(1, self.count + 1)],

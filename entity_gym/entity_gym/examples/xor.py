@@ -70,17 +70,26 @@ class Xor(Environment):
         return self.observe(obs_filter, done=True, reward=reward)
 
     def act(self, action: Mapping[str, Action]) -> Observation:
-        return self.act_filter(action, Xor.obs_space(),)
+        return self.act_filter(
+            action,
+            Xor.obs_space(),
+        )
 
     def observe(
         self, obs_filter: ObsSpace, done: bool = False, reward: float = 0.0
     ) -> Observation:
         return Observation(
             features=extract_features(
-                {"Output": [Output()], "Bit1": [self.bit1], "Bit2": [self.bit2],},
+                {
+                    "Output": [Output()],
+                    "Bit1": [self.bit1],
+                    "Bit2": [self.bit2],
+                },
                 obs_filter,
             ),
-            actions={"output": CategoricalActionMask(actor_ids=[0]),},
+            actions={
+                "output": CategoricalActionMask(actor_ids=[0]),
+            },
             ids={"Output": [0], "Bit1": [1], "Bit2": [2]},
             reward=reward,
             done=done,

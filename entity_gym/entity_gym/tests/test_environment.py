@@ -169,7 +169,8 @@ def test_batch_obs_select_entity_action() -> None:
         actions={
             # entity3 can high five entity 1
             "high_five": SelectEntityActionMask(
-                actor_ids=["entity3_0"], actee_ids=["entity1_0"],
+                actor_ids=["entity3_0"],
+                actee_ids=["entity1_0"],
             )
         },
         reward=0.0,
@@ -190,10 +191,12 @@ def test_batch_obs_select_entity_action() -> None:
         actions={
             # entity3 can high five entity 1, and entity 2_0 and entity 2_1 can mid five entity3. entity1 and entity2 can low five each other
             "high_five": SelectEntityActionMask(
-                actor_ids=["entity3_0"], actee_ids=["entity1_0"],
+                actor_ids=["entity3_0"],
+                actee_ids=["entity1_0"],
             ),
             "mid_five": SelectEntityActionMask(
-                actor_ids=["entity2_1", "entity2_0"], actee_ids=["entity3_0"],
+                actor_ids=["entity2_1", "entity2_0"],
+                actee_ids=["entity3_0"],
             ),
             "low_five": SelectEntityActionMask(
                 actor_ids=["entity1_0", "entity2_1", "entity2_0"],
@@ -258,7 +261,10 @@ def test_batch_obs_categorical_action() -> None:
             "entity1": np.array([[10, 10, 10]], np.float32),
             "entity2": np.array([[10, 10, 10]], np.float32),
         },
-        ids={"entity1": ["entity1_0"], "entity2": ["entity2_0"],},
+        ids={
+            "entity1": ["entity1_0"],
+            "entity2": ["entity2_0"],
+        },
         actions={
             # both entity1 and entity2 can move all directions
             "move": CategoricalActionMask(
@@ -275,7 +281,10 @@ def test_batch_obs_categorical_action() -> None:
             "entity1": np.array([[10, 10, 10]], np.float32),
             "entity3": np.array([[10, 10, 10], [10, 10, 10]], np.float32),
         },
-        ids={"entity1": ["entity1_0"], "entity3": ["entity3_0", "entity3_1"],},
+        ids={
+            "entity1": ["entity1_0"],
+            "entity3": ["entity3_0", "entity3_1"],
+        },
         actions={
             # all entities can move. Entity 3_1 can also choose items
             "move": CategoricalActionMask(

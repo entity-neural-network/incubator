@@ -27,7 +27,11 @@ class ActionHead(nn.Module):
         mask: VecActionMask,
         prev_actions: Optional[RaggedBufferI64],
     ) -> Tuple[
-        RaggedBufferI64, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor,
+        RaggedBufferI64,
+        torch.Tensor,
+        torch.Tensor,
+        torch.Tensor,
+        torch.Tensor,
     ]:
         raise NotImplementedError()
 
@@ -192,7 +196,9 @@ class PaddedSelectEntityActionHead(nn.Module):
 
 
 def layer_init(
-    layer: nn.Module, std: float = np.sqrt(2), bias_const: float = 0.0,
+    layer: nn.Module,
+    std: float = np.sqrt(2),
+    bias_const: float = 0.0,
 ) -> nn.Module:
     torch.nn.init.orthogonal_(layer.weight, std)
     torch.nn.init.constant_(layer.bias, bias_const)  # type: ignore
