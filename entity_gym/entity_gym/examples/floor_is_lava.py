@@ -96,10 +96,7 @@ class FloorIsLava(Environment):
         return obs
 
     def act(self, action: Mapping[str, Action]) -> Observation:
-        return self.act_filter(
-            action,
-            FloorIsLava.obs_space(),
-        )
+        return self.act_filter(action, FloorIsLava.obs_space(),)
 
     def observe(self, obs_filter: ObsSpace, done: bool = False) -> Observation:
         if (
@@ -119,9 +116,7 @@ class FloorIsLava(Environment):
                 },
                 obs_filter,
             ),
-            actions={
-                "move": CategoricalActionMask(actor_types=["Player"]),
-            },
+            actions={"move": CategoricalActionMask(actor_types=["Player"]),},
             ids={"Player": [0]},
             reward=reward,
             done=done,

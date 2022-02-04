@@ -84,9 +84,7 @@ class MultiSnake(Environment):
     @classmethod
     def action_space(cls) -> Dict[str, ActionSpace]:
         return {
-            "move": CategoricalActionSpace(
-                choices=["up", "down", "left", "right"],
-            ),
+            "move": CategoricalActionSpace(choices=["up", "down", "left", "right"],),
         }
 
     def _spawn_snake(self, color: int) -> None:
@@ -204,24 +202,14 @@ class MultiSnake(Environment):
                 ).reshape(-1, 3),
                 "Food": np.array(
                     [
-                        [
-                            f.position[0],
-                            f.position[1],
-                            cycle_color(f.color),
-                        ]
+                        [f.position[0], f.position[1], cycle_color(f.color),]
                         for f in self.food
                     ],
                     dtype=np.float32,
                 ),
             },
-            ids={
-                "SnakeHead": [0, 1],
-            },
-            actions={
-                "move": CategoricalActionMask(
-                    actor_types=["SnakeHead"],
-                ),
-            },
+            ids={"SnakeHead": [0, 1],},
+            actions={"move": CategoricalActionMask(actor_types=["SnakeHead"],),},
             reward=self.scores[player] - self.last_scores[player],
             done=done,
             end_of_episode_info=EpisodeStats(

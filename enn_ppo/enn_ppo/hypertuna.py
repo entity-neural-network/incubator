@@ -95,13 +95,10 @@ class HyperParam:
 
 hyper_params = {
     "learning-rate": HyperParam(
-        path="learning-rate",
-        sampling_strategy=SamplingStrategy.LOGUNIFORM,
+        path="learning-rate", sampling_strategy=SamplingStrategy.LOGUNIFORM,
     ),
     "num-envs": HyperParam(
-        path="num-envs",
-        sampling_strategy=SamplingStrategy.POWER_OF_TWO,
-        min_value=2,
+        path="num-envs", sampling_strategy=SamplingStrategy.POWER_OF_TWO, min_value=2,
     ),
     "processes": HyperParam(
         path="processes",
@@ -109,31 +106,21 @@ hyper_params = {
         constraint=lambda x: (1, x["num-envs"]),
     ),
     "d-model": HyperParam(
-        path="d-model",
-        sampling_strategy=SamplingStrategy.POWER_OF_TWO,
+        path="d-model", sampling_strategy=SamplingStrategy.POWER_OF_TWO,
     ),
     "n-head": HyperParam(
         path="n-head",
         sampling_strategy=SamplingStrategy.POWER_OF_TWO,
         constraint=lambda x: (1, x.get("d-model")),
     ),
-    "d-qk": HyperParam(
-        path="d-qk",
-        sampling_strategy=SamplingStrategy.POWER_OF_TWO,
-    ),
+    "d-qk": HyperParam(path="d-qk", sampling_strategy=SamplingStrategy.POWER_OF_TWO,),
     "n-layer": HyperParam(
-        path="n-layer",
-        sampling_strategy=SamplingStrategy.INTUNIFORM,
-        min_value=1,
+        path="n-layer", sampling_strategy=SamplingStrategy.INTUNIFORM, min_value=1,
     ),
     "num-steps": HyperParam(
-        path="num-steps",
-        sampling_strategy=SamplingStrategy.POWER_OF_TWO,
+        path="num-steps", sampling_strategy=SamplingStrategy.POWER_OF_TWO,
     ),
-    "gamma": HyperParam(
-        path="gamma",
-        sampling_strategy=SamplingStrategy.OMINUS,
-    ),
+    "gamma": HyperParam(path="gamma", sampling_strategy=SamplingStrategy.OMINUS,),
     "minibatch-size": HyperParam(
         path="num-minibatches",
         sampling_strategy=SamplingStrategy.POWER_OF_TWO,
@@ -141,16 +128,13 @@ hyper_params = {
         transform=lambda args, val: int(args["num-envs"] * args["num-steps"] // val),
     ),
     "ent-coef": HyperParam(
-        path="ent-coef",
-        sampling_strategy=SamplingStrategy.LOGUNIFORM,
+        path="ent-coef", sampling_strategy=SamplingStrategy.LOGUNIFORM,
     ),
     "vf-coef": HyperParam(
-        path="vf-coef",
-        sampling_strategy=SamplingStrategy.LOGUNIFORM,
+        path="vf-coef", sampling_strategy=SamplingStrategy.LOGUNIFORM,
     ),
     "max-grad-norm": HyperParam(
-        path="max-grad-norm",
-        sampling_strategy=SamplingStrategy.LOGUNIFORM,
+        path="max-grad-norm", sampling_strategy=SamplingStrategy.LOGUNIFORM,
     ),
 }
 
@@ -197,10 +181,7 @@ class HyperOptimizer:
         self.time = time
         self.xp_name = xp_name
         xp = xprun.build_xpdef(
-            xprun_config,
-            ignore_dirty=False,
-            include_dirty=True,
-            verbose=False,
+            xprun_config, ignore_dirty=False, include_dirty=True, verbose=False,
         )
         xp.base_name = self.xp_name
         self.extra_args = extra_args
@@ -257,14 +238,7 @@ class HyperOptimizer:
                     )
             trial = self.study.ask()
             xp, args = self.sample_xp(trial)
-            trial_runner = Trial(
-                self,
-                self.xps_per_trial,
-                xp,
-                trial,
-                trial_id,
-                args,
-            )
+            trial_runner = Trial(self, self.xps_per_trial, xp, trial, trial_id, args,)
             logger.debug(f"[main] starting trial {trial_id}")
             thread = threading.Thread(target=trial_runner.run)
             thread.start()
@@ -396,8 +370,7 @@ class HyperOptimizer:
                         or self.last_logged_trial_id + 1 == _trial_id
                     ):
                         wandb.log(
-                            _args,
-                            step=_trial_id,
+                            _args, step=_trial_id,
                         )
                         self.last_logged_trial_id = _trial_id
             if self.best_result is None or result > self.best_result:
@@ -457,8 +430,7 @@ class Trial:
             self.ctx.best_result is not None and self.ctx.best_result_se is not None
         ) and result + result_se + self.ctx.best_result_se > self.ctx.best_result:
             self.authorized = max(
-                self.authorized,
-                min(1 + 2 * self.completed_xps, self.max_xps),
+                self.authorized, min(1 + 2 * self.completed_xps, self.max_xps),
             )
 
         while self.issued < self.authorized:
@@ -468,8 +440,7 @@ class Trial:
                 _xp.containers[0].command.append(f"--trial={self.trial_id}")
                 _xp.name = f"{_xp.name}-{xpid}"
             heapq.heappush(
-                self.ctx.pending_xps,
-                Xp(_xp, self.trial_id, self),
+                self.ctx.pending_xps, Xp(_xp, self.trial_id, self),
             )
             self.issued += 1
             self.ctx.cvar.notify_all()

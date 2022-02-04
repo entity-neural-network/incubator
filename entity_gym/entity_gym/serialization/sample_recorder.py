@@ -62,10 +62,7 @@ class SampleRecorder:
         self.file = open(path, "wb")
         # TODO: write header and obs space and act space
 
-    def record(
-        self,
-        sample: Sample,
-    ) -> None:
+    def record(self, sample: Sample,) -> None:
         bytes = sample.serialize()
         # Write 8 bytes unsigned int for the size of the serialized sample
         self.file.write(np.uint64(len(bytes)).tobytes())

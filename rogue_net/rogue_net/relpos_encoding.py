@@ -20,10 +20,7 @@ class RelposEncodingConfig:
 
 
 class RelposEncoding(nn.Module):
-    def __init__(
-        self,
-        config: RelposEncodingConfig,
-    ) -> None:
+    def __init__(self, config: RelposEncodingConfig,) -> None:
         super().__init__()
         self.d_head = config.d_head
         self.positional_features = config.position_features

@@ -83,7 +83,7 @@ def test_serde_sample() -> None:
         sample_recorder.record(sample)
         sample_recorder.close()
 
-        with open(f.name, "rb") as f:
+        with open(f.name, "rb") as f: # type: ignore
             trace = Trace.deserialize(f.read())
             assert len(trace.samples) == 2
             assert trace.samples[0].obs.reward[0] == 0.3124125987123489

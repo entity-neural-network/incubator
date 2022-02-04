@@ -23,56 +23,56 @@ Environment:
     - |
       w w w w w w w w w w w w w
       w . . . . . . . . . . . w
-      w . . 1 1 . . . 2 . 2 . w
-      w . . . . 1 . . . . . . w
-      w . . . a . . . . . 2 . w
-      w . . . . . . . h . . . w
-      w . . . . 1 . . . . b . w
-      w . . . . . . 1 . . . . w
+      w . . b b . . . r . r . w
+      w . . . . b . . . . . . w
+      w . . . B . . . . . r . w
+      w . . . . . . . x . . . w
+      w . . . . b . . . . R . w
+      w . . . . . . b . . . . w
       w . . . . . . . . A . . w
       w w w w w w w w w w w w w
     - |
       w w w w w w w w w w w w w
       w . . . . . . . . . . . w
-      w . . 1 . . 2 . c 3 . . w
-      w . . . . h . . h . . . w
-      w . . . 2 . . 3 . . 1 . w
-      w . . . . b . . h . . . w
-      w . . 3 . . . 2 . . 1 . w
-      w . . h . h . . . a . . w
+      w . . b . . r . G g . . w
+      w . . . . x . . x . . . w
+      w . . . r . . g . . b . w
+      w . . . . R . . x . . . w
+      w . . g . . . r . . b . w
+      w . . x . x . . . B . . w
       w . . . . . A . . . . . w
       w w w w w w w w w w w w w
     - |
       w w w w w w w w w w w w w
-      w . . a . . b . . c . . w
+      w . . B . . R . . G . . w
       w . . . . . . . . . . . w
       w . . . . . . . . . . . w
-      w h h h h h . h h h h h w
-      w . . . . h . h . . . . w
-      w . 1 2 . h . h . 1 3 . w
-      w . 3 . . . . . . . 2 . w
-      w . . . . . A . . . . . w
-      w w w w w w w w w w w w w
-    - |
-      w w w w w w w w w w w w w
-      w . . . . . . . . . . . w
-      w . . . 1 . 2 . . c . . w
-      w . . . . . 3 . . 3 . . w
-      w . . a . 2 . . . h . . w
-      w . . . . h h . 3 . . . w
-      w . . 1 . . . . . 2 . . w
-      w . . . . . 1 . . b . . w
+      w x x x x x . x x x x x w
+      w . . . . x . x . . . . w
+      w . b r . x . x . b g . w
+      w . g . . . . . . . r . w
       w . . . . . A . . . . . w
       w w w w w w w w w w w w w
     - |
       w w w w w w w w w w w w w
       w . . . . . . . . . . . w
-      w . . . . . . 1 . . . . w
-      w . . h . . b . . h . . w
-      w . . . . 1 . . . . . . w
-      w . . 3 . . . . 2 . . . w
-      w . . . a . h . . c . . w
-      w . . . . 3 . . . . 2 . w
+      w . . . b . r . . G . . w
+      w . . . . . g . . g . . w
+      w . . B . r . . . x . . w
+      w . . . . x x . g . . . w
+      w . . b . . . . . r . . w
+      w . . . . . b . . R . . w
+      w . . . . . A . . . . . w
+      w w w w w w w w w w w w w
+    - |
+      w w w w w w w w w w w w w
+      w . . . . . . . . . . . w
+      w . . . . . . b . . . . w
+      w . . x . . R . . x . . w
+      w . . . . b . . . . . . w
+      w . . g . . . . r . . . w
+      w . . . B . x . . G . . w
+      w . . . . g . . . . r . w
       w . . . . . A . . . . . w
       w w w w w w w w w w w w w
 Actions:

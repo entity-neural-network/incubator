@@ -173,8 +173,7 @@ def batch_obs(
     for action_name, space in action_space.items():
         if isinstance(space, CategoricalActionSpace):
             action_masks[action_name] = VecCategoricalActionMask(
-                RaggedBufferI64(1),
-                None,
+                RaggedBufferI64(1), None,
             )
         elif isinstance(space, SelectEntityActionSpace):
             action_masks[action_name] = VecSelectEntityActionMask(

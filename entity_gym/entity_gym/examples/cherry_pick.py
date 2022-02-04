@@ -35,12 +35,7 @@ class CherryPick(Environment):
 
     @classmethod
     def obs_space(cls) -> ObsSpace:
-        return ObsSpace(
-            {
-                "Cherry": Entity(["quality"]),
-                "Player": Entity([]),
-            }
-        )
+        return ObsSpace({"Cherry": Entity(["quality"]), "Player": Entity([]),})
 
     @classmethod
     def action_space(cls) -> Dict[str, ActionSpace]:
@@ -72,8 +67,7 @@ class CherryPick(Environment):
             ids=ids,
             actions={
                 "Pick Cherry": SelectEntityActionMask(
-                    actor_ids=["Player"],
-                    actee_ids=ids["Cherry"],
+                    actor_ids=["Player"], actee_ids=ids["Cherry"],
                 ),
             },
             reward=self.last_reward,

@@ -54,7 +54,16 @@ class GriddlyEnv(Environment):
                 action_type = self._env.action_names.index(action_name)
                 for entity_id, action_id in a.items():
                     entity_location = self.entity_locations[entity_id]
-                    entity_actions.append(np.array([entity_location[0], entity_location[1], action_type, action_id]))
+                    entity_actions.append(
+                        np.array(
+                            [
+                                entity_location[0],
+                                entity_location[1],
+                                action_type,
+                                action_id,
+                            ]
+                        )
+                    )
 
             return np.stack(entity_actions)
         else:

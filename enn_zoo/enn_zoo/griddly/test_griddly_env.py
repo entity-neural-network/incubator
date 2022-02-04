@@ -3,13 +3,19 @@ from typing import List, Optional
 
 import numpy as np
 from enn_zoo.griddly import create_env, GRIDDLY_ENVS
-from entity_gym.environment import CategoricalActionSpace, CategoricalActionMask, CategoricalAction
+from entity_gym.environment import (
+    CategoricalActionSpace,
+    CategoricalActionMask,
+    CategoricalAction,
+)
 
 init_path = os.path.dirname(os.path.realpath(__file__))
 
 
 def test_griddly_wrapper() -> None:
-    env_class = create_env(yaml_file=os.path.join(init_path, "env_descriptions/test/test.yaml"))
+    env_class = create_env(
+        yaml_file=os.path.join(init_path, "env_descriptions/test/test.yaml")
+    )
 
     # Check the observation space is being created correctly from the test environment
     observation_space = env_class.obs_space()
@@ -87,7 +93,9 @@ def test_single_agent() -> None:
     Create an environment and perform different action types to make sure the commands are translated
     correctly between griddly and enn wrappers
     """
-    env_cls = create_env(yaml_file=os.path.join(init_path, "env_descriptions/test/test_actions.yaml"))
+    env_cls = create_env(
+        yaml_file=os.path.join(init_path, "env_descriptions/test/test_actions.yaml")
+    )
     env = env_cls()
 
     observation = env.reset()
@@ -98,7 +106,9 @@ def test_single_agent() -> None:
     # The starting location
     assert env.entity_locations[entity1_id] == [2, 1]
 
-    move_down_action = CategoricalAction(actions=np.array([[4]], dtype=int), actors=[entity1_id])
+    move_down_action = CategoricalAction(
+        actions=np.array([[4]], dtype=int), actors=[entity1_id]
+    )
     observation_1 = env.act({"move_entity_one": move_down_action})
 
     # The entity has moved down
@@ -107,18 +117,24 @@ def test_single_agent() -> None:
 
     # There are three entity2 and one of them is in position 3,3
     assert len(observation_1.ids["entity_2"]) == 3
-    assert env.entity_locations[entity2_ids[0]] == [2, 3] or \
-           env.entity_locations[entity2_ids[1]] == [2, 3] or \
-           env.entity_locations[entity2_ids[2]] == [2, 3]
+    assert (
+        env.entity_locations[entity2_ids[0]] == [2, 3]
+        or env.entity_locations[entity2_ids[1]] == [2, 3]
+        or env.entity_locations[entity2_ids[2]] == [2, 3]
+    )
 
-    remove_down_action = CategoricalAction(actions=np.array([[4]], dtype=int), actors=[entity1_id])
+    remove_down_action = CategoricalAction(
+        actions=np.array([[4]], dtype=int), actors=[entity1_id]
+    )
     observation_2 = env.act({"remove_entity_two": remove_down_action})
 
     assert len(observation_2.ids["entity_1"]) == 1
 
     # There are two entity_2 and none of them are in 3,3
     assert len(observation_2.ids["entity_2"]) == 2
-    assert np.all([env.entity_locations[id] != [2, 3] for id in observation_2.ids["entity_2"]])
+    assert np.all(
+        [env.entity_locations[id] != [2, 3] for id in observation_2.ids["entity_2"]]
+    )
 
 
 def test_single_agent_multi_entity() -> None:
@@ -127,7 +143,11 @@ def test_single_agent_multi_entity() -> None:
     correctly between griddly and enn wrappers
     """
 
-    env_cls = create_env(yaml_file=os.path.join(init_path, "env_descriptions/test/test_multi_entities_actions.yaml"))
+    env_cls = create_env(
+        yaml_file=os.path.join(
+            init_path, "env_descriptions/test/test_multi_entities_actions.yaml"
+        )
+    )
     env = env_cls()
 
     observation = env.reset()
@@ -143,10 +163,16 @@ def test_single_agent_multi_entity() -> None:
     target_entity_2_id = get_id_by_location([3, 3])
 
     # Move target entity1 down and target entity 2 down
-    move_entity_one = CategoricalAction(actions=np.array([[4]], dtype=int), actors=[target_entity_1_id])
-    move_entity_two = CategoricalAction(actions=np.array([[2]], dtype=int), actors=[target_entity_2_id])
+    move_entity_one = CategoricalAction(
+        actions=np.array([[4]], dtype=int), actors=[target_entity_1_id]
+    )
+    move_entity_two = CategoricalAction(
+        actions=np.array([[2]], dtype=int), actors=[target_entity_2_id]
+    )
 
-    observation_1 = env.act({"move_entity_one": move_entity_one, "move_entity_two": move_entity_two})
+    observation_1 = env.act(
+        {"move_entity_one": move_entity_one, "move_entity_two": move_entity_two}
+    )
 
     assert len(observation_1.ids["entity_1"]) == 3
     assert len(observation_1.ids["entity_2"]) == 3
@@ -155,10 +181,16 @@ def test_single_agent_multi_entity() -> None:
     assert env.entity_locations[target_entity_2_id] == [3, 2]
 
     # Remove entity 1 and remove entity 2
-    remove_entity_two = CategoricalAction(actions=np.array([[4]], dtype=int), actors=[target_entity_1_id])
-    remove_entity_one = CategoricalAction(actions=np.array([[2]], dtype=int), actors=[target_entity_2_id])
+    remove_entity_two = CategoricalAction(
+        actions=np.array([[4]], dtype=int), actors=[target_entity_1_id]
+    )
+    remove_entity_one = CategoricalAction(
+        actions=np.array([[2]], dtype=int), actors=[target_entity_2_id]
+    )
 
-    observation_2 = env.act({"remove_entity_one": remove_entity_one, "remove_entity_two": remove_entity_two})
+    observation_2 = env.act(
+        {"remove_entity_one": remove_entity_one, "remove_entity_two": remove_entity_two}
+    )
 
     assert len(observation_2.ids["entity_1"]) == 2
     assert len(observation_2.ids["entity_2"]) == 2
