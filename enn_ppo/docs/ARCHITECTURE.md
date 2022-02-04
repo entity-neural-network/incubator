@@ -350,5 +350,72 @@ The "Fire Orbital Cannon" action is a little more tricky. It is a SelectEntityAc
 But at the end, we again get a list of indices corresponding to the entity selected by each actor.
 
 
-
 ![](https://user-images.githubusercontent.com/12845088/145058088-ae42f5f5-2782-4247-bcf5-8270a14e3510.png)
+
+
+## Actions
+
+Now, the actions computed by the model travel back to the environments.
+The `ListEnv` receives ragged buffers for each action which represent the chosen action in the case of categorical actions, or the selected entity in the case of select entity actions.
+
+<details>
+  <summary>Ragged Actions (click to expand)</summary>
+
+```python
+actions = {
+    'Fire Orbital Cannon': RaggedBuffer([
+        [],
+        [[0]],
+        [],
+    ]),
+    'Move': RaggedBuffer([
+        [[4]],
+        [[1]],
+        [[4], [2]],
+    ]),
+}
+```
+</details>
+
+The actions are split up along the environment axis, joined with the list of actors from the initial `Observation`s, and actor indices are replaced with the corresponding `EntityID`s.
+The resulting `Action` objects are dispatched to the `act` methods of the individual environments.
+
+<details>
+    <summary>Actions (click to expand)</summary>
+
+```python
+# Environment 1
+{
+    'Fire Orbital Cannon': SelectEntityAction(
+        actors=[],
+        actees=[],
+    ),
+    'Move': CategoricalAction(
+        actors=[('Robot', 0)],
+        actions=array([4]),
+    ),
+}
+# Environment 2
+{
+    'Fire Orbital Cannon': SelectEntityAction(
+        actors=[('Orbital Cannon', 0)],
+        actees=[('Mine', 0)],
+    ),
+    'Move': CategoricalAction(
+        actors=[('Robot', 0)],
+        actions=array([1]),
+    ),
+}
+# Environment 3
+{
+    'Fire Orbital Cannon': SelectEntityAction(
+        actors=[],
+        actees=[],
+    ),
+    'Move': CategoricalAction(
+        actors=[('Robot', 0), ('Robot', 1)],
+        actions=array([4, 2]),
+    ),
+}
+```
+</details>
