@@ -91,7 +91,7 @@ def create_env(
         def action_space(cls) -> Dict[str, ActionSpace]:
             return action_space
 
-        def _reset(self) -> Observation:
+        def reset(self) -> Observation:
             if random_levels:
                 random_level = np.random.choice(level_count)
                 self._env.reset(level_id=random_level)
