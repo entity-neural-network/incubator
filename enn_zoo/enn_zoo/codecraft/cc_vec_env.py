@@ -46,11 +46,11 @@ DRONE_FEATS = [
     # lock_build_action
     # "build_action_locked",
     # feat_dist_to_wall
-    # "distance_to_wall_0",
-    # "distance_to_wall_1",
-    # "distance_to_wall_2",
-    # "distance_to_wall_3",
-    # "distance_to_wall_4",
+    "distance_to_wall_0",
+    "distance_to_wall_1",
+    "distance_to_wall_2",
+    "distance_to_wall_3",
+    "distance_to_wall_4",
     "available_energy",
     "required_energy",
     # TODO: more than one build
