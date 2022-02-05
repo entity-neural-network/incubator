@@ -411,10 +411,10 @@ class TransformerPolicy8HS(nn.Module):
         policy.load_state_dict(state_dict)
         return policy
 
-    def evaluate(self, observation, action_masks, privileged_obs):
+    def evaluate(self, observation, action_masks, privileged_obs, prev_actions):
         action_masks = action_masks[:, : self.agents, :]
-        probs, v = self.forward(observation, privileged_obs, action_masks)
-        probs = probs.view(-1, self.agents, self.naction)
+        logits, v = self.forward(observation, privileged_obs, action_masks)
+        logits = logits.view(-1, self.agents, self.naction)
         if action_masks.size(2) != self.naction:
             nbatch, nagent, naction = action_masks.size()
             zeros = torch.zeros(nbatch, nagent, self.naction - naction).to(
@@ -422,16 +422,19 @@ class TransformerPolicy8HS(nn.Module):
             )
             action_masks = torch.cat([action_masks, zeros], dim=2)
         # Add small value to prevent crash when no action is possible
-        probs = probs * action_masks + self.epsilon
-        action_dist = distributions.Categorical(probs)
-        actions = action_dist.sample()
+        logits = logits.masked_fill(action_masks == 0, -1e9)
+        action_dist = distributions.Categorical(logits=logits)
+        if prev_actions is None:
+            actions = action_dist.sample()
+        else:
+            actions = prev_actions
         entropy = action_dist.entropy()[action_masks.sum(2) > 1]
         return (
             actions,
             action_dist.log_prob(actions),
             entropy,
             v,
-            probs,
+            None,
         )
 
     def backprop(
@@ -538,9 +541,8 @@ class TransformerPolicy8HS(nn.Module):
             action_masks.reshape(-1, self.naction)[active_agents.flat_index] == 0,
             float("-inf"),
         )
-        probs = F.softmax(logits, dim=1)
-        probs = active_agents.pad(probs)
-        return probs, values
+        # return active_agents.pad(logits), values
+        return logits, values
 
     def latents(self, x, action_masks):
         batch_size = x.size()[0]

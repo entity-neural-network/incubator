@@ -616,8 +616,6 @@ class CodeCraftVecEnv(VecEnv):
             if self.score[game] is None:
                 self.score[game] = score
             reward = score - self.score[game]
-            # TODO: HACK
-            reward = self.last_act_0[i] * 0.01
             self.score[game] = score
             self.eprew[game] += reward
 
