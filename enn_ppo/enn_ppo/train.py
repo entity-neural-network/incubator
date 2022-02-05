@@ -29,6 +29,7 @@ from enn_zoo.griddly import GRIDDLY_ENVS, create_env
 from enn_zoo.codecraft.cc_vec_env import CodeCraftEnv, CodeCraftVecEnv
 from entity_gym.serialization import SampleRecordingVecEnv
 from enn_ppo.simple_trace import Tracer
+from rogue_net.codecraftnet.adapter import CCNetAdapter
 from rogue_net.relpos_encoding import RelposEncodingConfig
 from rogue_net.actor import AutoActor
 from rogue_net import head_creator
@@ -597,16 +598,19 @@ def train(args: argparse.Namespace) -> float:
     else:
         relpos_encoding = None
 
-    agent = PPOActor(
-        obs_space,
-        action_space,
-        d_model=args.d_model,
-        n_head=args.n_head,
-        n_layer=args.n_layer,
-        pooling_op=args.pooling_op,
-        feature_transforms=translate,
-        relpos_encoding=relpos_encoding,
-    ).to(device)
+    if True:
+        agent = CCNetAdapter(device) # type: ignore
+    else:
+        agent = PPOActor(
+            obs_space,
+            action_space,
+            d_model=args.d_model,
+            n_head=args.n_head,
+            n_layer=args.n_layer,
+            pooling_op=args.pooling_op,
+            feature_transforms=translate,
+            relpos_encoding=relpos_encoding,
+        ).to(device)
     optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5)
     if args.track:
         wandb.watch(agent)
