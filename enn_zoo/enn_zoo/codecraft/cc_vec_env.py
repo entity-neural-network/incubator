@@ -249,7 +249,8 @@ class CodeCraftVecEnv(VecEnv):
         self,
         num_envs: int,
         num_self_play: int,
-        objective: Objective = Objective.ALLIED_WEALTH,
+        #objective: Objective = Objective.ALLIED_WEALTH,
+        objective: Objective = Objective.DISTANCE_TO_ORIGIN,
         config: TaskConfig = TaskConfig(),
         stagger: bool = True,
         fair: bool = False,
@@ -308,6 +309,7 @@ class CodeCraftVecEnv(VecEnv):
         self.randomize_idle = objective != Objective.ALLIED_WEALTH
         self.config = config
         self.create_game_delay = create_game_delay
+        self.last_act_0 = np.zeros(num_envs, dtype=np.float32)
 
         remaining_scripted = num_envs - 2 * num_self_play
         self.scripted_opponents = []
@@ -321,7 +323,7 @@ class CodeCraftVecEnv(VecEnv):
         self.next_opponent_index = 0
 
         self.builds = objective.extra_builds()
-        if objective == Objective.ALLIED_WEALTH:
+        if objective == Objective.ALLIED_WEALTH or objective == Objective.DISTANCE_TO_ORIGIN:
             self.custom_map = map_allied_wealth
             self.game_length = 1 * 60 * 60
         else:
@@ -431,6 +433,7 @@ class CodeCraftVecEnv(VecEnv):
         obs_filter: ObsSpace,
         action_masks: Optional[Any] = None,
     ) -> VecObs:
+        self.last_act_0 = np.array([1.0 if a[0] == 0 else 0.0 for a in actions])
         self.step_async(actions, action_masks)
         return self.observe(obs_filter)
 
@@ -613,6 +616,8 @@ class CodeCraftVecEnv(VecEnv):
             if self.score[game] is None:
                 self.score[game] = score
             reward = score - self.score[game]
+            # TODO: HACK
+            reward = self.last_act_0[i] * 0.01
             self.score[game] = score
             self.eprew[game] += reward
 
@@ -744,6 +749,7 @@ class CodeCraftVecEnv(VecEnv):
                 ),
             },
             reward=np.array(rews),
+            #reward=self.last_act_0,
             done=np.array(dones) == 1.0,
             end_of_episode_info=infos,
         )

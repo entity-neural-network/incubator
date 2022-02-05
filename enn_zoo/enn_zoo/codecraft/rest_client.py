@@ -28,7 +28,7 @@ class ObsConfig:
     v2: bool = True
     feat_rule_msdm: bool = True
     feat_rule_costs: bool = True
-    feat_mineral_claims: bool = False  # DIFF
+    feat_mineral_claims: bool = False
     harvest_action: bool = False
     lock_build_action: bool = False
     feat_dist_to_wall: bool = True
@@ -52,21 +52,15 @@ class ObsConfig:
     def dstride(self) -> int:
         ds = 17
         if self.feat_last_seen:
-            print("LS2")
             ds += 2
         if self.feat_is_visible:
-            print("IV2")
             ds += 1
         if self.lock_build_action:
-            print("LB2")
             ds += 1
         if self.feat_dist_to_wall:
-            print("DW2")
             ds += 5
         if self.construction_progress:
-            print("CP2")
             ds += self.num_builds + 2
-        print("TOTAL2: ", ds)
         return ds
 
     def mstride(self) -> int:

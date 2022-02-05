@@ -115,21 +115,15 @@ class ObsConfig:
     def dstride(self) -> int:
         ds = 17
         if self.feat_last_seen:
-            print("LS")
             ds += 2
         if self.feat_is_visible:
-            print("IV")
             ds += 1
         if self.lock_build_action:
-            print("LB")
             ds += 1
         if self.feat_dist_to_wall:
-            print("DW")
             ds += 5
         if self.feat_construction_progress:
-            print("CP")
             ds += self.num_builds + 2
-        print(f"TOTAL: {ds}")
         return ds
 
     def mstride(self):
@@ -436,8 +430,8 @@ class TransformerPolicy8HS(nn.Module):
             actions,
             action_dist.log_prob(actions),
             entropy,
-            v.detach().view(-1).cpu().numpy(),
-            probs.detach().cpu().numpy(),
+            v,
+            probs,
         )
 
     def backprop(
@@ -564,6 +558,8 @@ class TransformerPolicy8HS(nn.Module):
             batch_size, self.agents, self.obs_config.global_features()
         )
         xagent = torch.cat([xagent, globals], dim=2)
+        # print("GLOBALS", globals)
+        # print("XAGENT", xagent)
 
         agent_active = action_masks.sum(2) > 0
         # Ensure at least one agent is selected because code doesn't work with empty tensors.
@@ -576,6 +572,7 @@ class TransformerPolicy8HS(nn.Module):
 
         origin = xagent[:, 0:2].clone()
         direction = xagent[:, 2:4].clone()
+        # __import__('ipdb').set_trace()
 
         pemb_list = []
         pmask_list = []
@@ -805,6 +802,7 @@ class PosItemBlock(nn.Module):
             x = x[:, self.start : self.end].view(-1, self.count, self.d_in)
 
         select = x[:, :, self.mask_feature] != 0
+        # print("ITEM BLOCK", x)
 
         active = SparseSequence.from_mask(select)
         x_sparse = x[select]

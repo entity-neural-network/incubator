@@ -108,6 +108,7 @@ def parse_args(override_args: Optional[List[str]] = None) -> argparse.Namespace:
         help='if set, translate positions to be centered on a given entity. Example: --translate=\'{"reference_entity": "SnakeHead", "position_features": ["x", "y"]}\'')
     parser.add_argument('--relpos-encoding', type=str, default=None,
         help='configuration for relative positional encoding. Example: --relpos-encoding=\'{"extent": [10, 10], "position_features": ["x", "y"]}\'')
+    parser.add_argument('--cc-main', type=lambda x:bool(strtobool(x)), default=False, nargs='?', const=True)
 
     # Algorithm specific arguments
     parser.add_argument('--num-envs', type=int, default=4,
@@ -250,7 +251,8 @@ class Rollout:
         envs: VecEnv,
         obs_space: ObsSpace,
         action_space: Mapping[str, ActionSpace],
-        agent: PPOActor,
+        agent1: PPOActor,
+        agent2: PPOActor,
         device: torch.device,
         tracer: Tracer,
     ) -> None:
@@ -258,7 +260,8 @@ class Rollout:
         self.obs_space = obs_space
         self.action_space = action_space
         self.device = device
-        self.agent = agent
+        self.agent1 = agent1
+        self.agent2 = agent2
         self.tracer = tracer
 
         self.global_step = 0
@@ -321,9 +324,31 @@ class Rollout:
                     actor_counts,
                     aux,
                     logits,
-                ) = self.agent.get_action_and_auxiliary(
+                ) = self.agent1.get_action_and_auxiliary(
                     next_obs.features, next_obs.action_masks, tracer=self.tracer
                 )
+                (
+                    action2,
+                    probs_tensor2,
+                    _,
+                    actor_counts2,
+                    aux2,
+                    logits2,
+                ) = self.agent2.get_action_and_auxiliary(
+                    next_obs.features, next_obs.action_masks, tracer=self.tracer
+                )
+                for a in set(list(action.keys()) + list(action2.keys())):
+                    assert action[a].size0() == action2[a].size0()
+                    assert np.array_equal(action[a].size1(), action2[a].size1())
+                    assert action[a].size2() == action2[a].size2()
+                for p in set(list(probs_tensor.keys()) + list(probs_tensor2.keys())):
+                    assert probs_tensor[p].shape == probs_tensor2[p].shape
+                for ac in set(list(actor_counts.keys()) + list(actor_counts2.keys())):
+                    assert actor_counts[ac].shape == actor_counts2[ac].shape
+                for a in set(list(aux.keys()) + list(aux2.keys())):
+                    assert aux[a].shape == aux2[a].shape
+                # for l in set(list(logits.keys()) + list(logits2.keys())):
+                #    assert logits[l].shape == logits2[l].shape
                 logprob = tensor_dict_to_ragged(
                     RaggedBufferF32, probs_tensor, actor_counts
                 )
@@ -383,7 +408,8 @@ class Rollout:
 
 
 def returns_and_advantages(
-    agent: PPOActor,
+    agent1: PPOActor,
+    agent2: PPOActor,
     next_obs: VecObs,
     next_done: torch.Tensor,
     rewards: torch.Tensor,
@@ -396,7 +422,9 @@ def returns_and_advantages(
     tracer: Tracer,
 ) -> Tuple[torch.Tensor, torch.Tensor]:
     # bootstrap value if not done
-    next_value = agent.get_value(next_obs.features, tracer).reshape(1, -1)
+    next_value = agent1.get_value(next_obs.features, tracer).reshape(1, -1)
+    next_value2 = agent2.get_value(next_obs.features, tracer).reshape(1, -1)
+    assert next_value.shape == next_value2.shape
     num_steps = values.size(0)
     if gae:
         advantages = torch.zeros_like(rewards).to(device)
@@ -598,22 +626,22 @@ def train(args: argparse.Namespace) -> float:
     else:
         relpos_encoding = None
 
-    if True:
-        agent = CCNetAdapter(device) # type: ignore
-    else:
-        agent = PPOActor(
-            obs_space,
-            action_space,
-            d_model=args.d_model,
-            n_head=args.n_head,
-            n_layer=args.n_layer,
-            pooling_op=args.pooling_op,
-            feature_transforms=translate,
-            relpos_encoding=relpos_encoding,
-        ).to(device)
-    optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5)
+    agent1 = CCNetAdapter(device)  # type: ignore
+    agent2 = PPOActor(
+        obs_space,
+        action_space,
+        d_model=args.d_model,
+        n_head=args.n_head,
+        n_layer=args.n_layer,
+        pooling_op=args.pooling_op,
+        feature_transforms=translate,
+        relpos_encoding=relpos_encoding,
+    ).to(device)
+    if not args.cc_main:
+        agent1, agent2 = agent2, agent1
+    optimizer = optim.Adam(agent1.parameters(), lr=args.learning_rate, eps=1e-5)
     if args.track:
-        wandb.watch(agent)
+        wandb.watch(agent1)
 
     num_updates = args.total_timesteps // args.batch_size
 
@@ -621,7 +649,8 @@ def train(args: argparse.Namespace) -> float:
         envs,
         obs_space=obs_space,
         action_space=action_space,
-        agent=agent,
+        agent1=agent1,
+        agent2=agent2,
         device=device,
         tracer=tracer,
     )
@@ -693,7 +722,8 @@ def train(args: argparse.Namespace) -> float:
 
         with torch.no_grad(), tracer.span("advantages"):
             returns, advantages = returns_and_advantages(
-                agent,
+                agent1,
+                agent2,
                 next_obs,
                 next_done,
                 rollout.rewards,
@@ -746,13 +776,36 @@ def train(args: argparse.Namespace) -> float:
                             _,
                             aux,
                             _,
-                        ) = agent.get_action_and_auxiliary(
+                        ) = agent1.get_action_and_auxiliary(
+                            b_entities,
+                            b_action_masks,
+                            prev_actions=b_actions,
+                            tracer=tracer,
+                        )
+                        (
+                            _,
+                            newlogprob2,
+                            entropy2,
+                            _,
+                            aux2,
+                            _,
+                        ) = agent1.get_action_and_auxiliary(
                             b_entities,
                             b_action_masks,
                             prev_actions=b_actions,
                             tracer=tracer,
                         )
                         newvalue = aux["value"]
+                        newvalue2 = aux2["value"]
+                        for p in set(
+                            list(newlogprob.keys()) + list(newlogprob2.keys())
+                        ):
+                            assert newlogprob[p].shape == newlogprob2[p].shape
+                        for e in set(list(entropy.keys()) + list(entropy2.keys())):
+                            assert entropy[e].shape == entropy2[e].shape
+                        for a in set(list(aux.keys()) + list(aux2.keys())):
+                            assert aux[a].shape == aux2[a].shape
+                        assert newvalue.shape == newvalue2.shape
 
                     with tracer.span("ratio"):
                         logratio = {
@@ -872,7 +925,7 @@ def train(args: argparse.Namespace) -> float:
                     with tracer.span("backward"):
                         loss.backward()
                 gradnorm = nn.utils.clip_grad_norm_(
-                    agent.parameters(), args.max_grad_norm
+                    agent1.parameters(), args.max_grad_norm
                 )
                 optimizer.step()
 

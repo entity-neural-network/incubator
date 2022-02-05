@@ -9,11 +9,13 @@ from rogue_net.codecraftnet.codecraftnet import (
     PolicyConfig,
     TransformerPolicy8HS,
 )
+import torch.nn as nn
 from ragged_buffer import RaggedBufferF32, RaggedBufferI64, RaggedBuffer
 
 
-class CCNetAdapter:
+class CCNetAdapter(nn.Module):
     def __init__(self, device: str) -> None:
+        super(CCNetAdapter, self).__init__()
         self.network = TransformerPolicy8HS(
             PolicyConfig(
                 agents=1,
@@ -45,7 +47,7 @@ class CCNetAdapter:
                 feat_is_visible=True,
                 feat_last_seen=False,
                 feat_map_size=True,
-                feat_mineral_claims=True,
+                feat_mineral_claims=False,
                 feat_unit_count=True,
                 harvest_action=False,
                 lock_build_action=False,
@@ -58,9 +60,6 @@ class CCNetAdapter:
             naction=8,
         ).to(device)
         self.device = device
-
-    def parameters(self) -> Any:
-        return self.network.parameters()
 
     def get_action_and_auxiliary(
         self,
@@ -80,20 +79,49 @@ class CCNetAdapter:
         oc = self.network.obs_config
         obs = torch.zeros(
             (entities["ally"].size0(), oc.stride()),
-        )
-        globals = entities["ally"].as_array()[
-            :, -self.network.obs_config.global_features() :
-        ]
-        obs[:, : oc.endglobals()] = torch.tensor(globals)
+        ).to(self.device)
         allies = entities["ally"]
+        globals = allies.as_array()[:, -self.network.obs_config.global_features() :]
+        obs[:, : oc.endglobals()] = torch.tensor(globals)
         for i in range(allies.size0()):
-            obs[i, oc.endglobals() : oc.endallies()] = torch.tensor(
-                allies[i].as_array()
+            obs[
+                i, oc.endglobals() : oc.endglobals() + allies.size1(i) * oc.dstride()
+            ] = torch.tensor(
+                allies[i].as_array()[:, : -self.network.obs_config.global_features()]
+            ).view(
+                -1
             )
         minerals = entities["mineral"]
         for i in range(minerals.size0()):
-            obs[i, oc.endenemies() : oc.endmins()] = torch.tensor(
-                minerals[i].as_array()
-            )
+            obs[
+                i, oc.endenemies() : oc.endenemies() + minerals.size1(i) * oc.mstride()
+            ] = torch.tensor(minerals[i].as_array()).view(-1)
 
-        __import__("ipdb").set_trace()
+        actions, logprobs, entropy, values, probs = self.network.evaluate(
+            obs,
+            torch.tensor(action_masks["act"].mask.as_array())
+            .view(allies.size0(), oc.allies, 8)
+            .to(self.device)
+            if "act" in action_masks
+            else torch.ones((allies.size0(), oc.allies, 8), dtype=torch.bool).to(
+                self.device
+            ),
+            None,
+        )
+        # print("ENTITIES", entities)
+        # TODO: variable number of actors
+        return (
+            {"act": RaggedBufferI64.from_array(actions.unsqueeze(-1).cpu().numpy())},
+            {"act": logprobs},
+            {"act": entropy.unsqueeze(-1)},
+            {"act": allies.size1()},
+            {"value": values.unsqueeze(-1)},
+            None,
+        )
+
+    def get_value(
+        self, entities: Dict[str, RaggedBufferF32], tracer: Tracer
+    ) -> torch.Tensor:
+        return self.get_action_and_auxiliary(
+            entities, action_masks={}, tracer=tracer, prev_actions=None
+        )[4]["value"]
