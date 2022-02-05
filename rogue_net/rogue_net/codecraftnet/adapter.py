@@ -107,7 +107,9 @@ class CCNetAdapter(nn.Module):
                 self.device
             ),
             privileged_obs=None,
-            prev_actions=torch.tensor(prev_actions["act"].as_array()).to(self.device) if prev_actions is not None else None,
+            prev_actions=torch.tensor(prev_actions["act"].as_array()).to(self.device)
+            if prev_actions is not None
+            else None,
         )
         # print("ENTITIES", entities)
         # TODO: variable number of actors

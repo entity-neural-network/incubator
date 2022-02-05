@@ -249,8 +249,7 @@ class CodeCraftVecEnv(VecEnv):
         self,
         num_envs: int,
         num_self_play: int,
-        #objective: Objective = Objective.ALLIED_WEALTH,
-        objective: Objective = Objective.DISTANCE_TO_ORIGIN,
+        objective: Objective = Objective.ALLIED_WEALTH,
         config: TaskConfig = TaskConfig(),
         stagger: bool = True,
         fair: bool = False,
@@ -323,7 +322,10 @@ class CodeCraftVecEnv(VecEnv):
         self.next_opponent_index = 0
 
         self.builds = objective.extra_builds()
-        if objective == Objective.ALLIED_WEALTH or objective == Objective.DISTANCE_TO_ORIGIN:
+        if (
+            objective == Objective.ALLIED_WEALTH
+            or objective == Objective.DISTANCE_TO_ORIGIN
+        ):
             self.custom_map = map_allied_wealth
             self.game_length = 1 * 60 * 60
         else:
@@ -747,7 +749,7 @@ class CodeCraftVecEnv(VecEnv):
                 ),
             },
             reward=np.array(rews),
-            #reward=self.last_act_0,
+            # reward=self.last_act_0,
             done=np.array(dones) == 1.0,
             end_of_episode_info=infos,
         )
