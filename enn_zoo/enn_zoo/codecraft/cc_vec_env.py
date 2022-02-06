@@ -21,6 +21,9 @@ from entity_gym.environment.environment import (
     EpisodeStats,
 )
 
+LAST_RAW_OBS = np.zeros((64, 65), dtype=np.float32)
+LAST_RAW_MASKS = np.zeros((64, 1, 8), dtype=np.float32)
+
 DRONE_FEATS = [
     "x",
     "y",
@@ -99,7 +102,7 @@ class CodeCraftEnv(Environment):
         return {
             # 0-5: turn/movement (4 is no turn, no movement)
             # 6: build [0,1,0,0,0] drone (if minerals > 5)
-            # 7: harvest
+            # 7: deposit resources
             "act": CategoricalActionSpace(
                 [
                     "move_left",
@@ -109,7 +112,7 @@ class CodeCraftEnv(Environment):
                     "halt",
                     "turn_right",
                     "build_1m",
-                    "harvest",
+                    "deposit_resources",
                     # feat_lock_build_action
                     # "unlock_build_action",
                     # "lock_build_action",
@@ -308,7 +311,6 @@ class CodeCraftVecEnv(VecEnv):
         self.randomize_idle = objective != Objective.ALLIED_WEALTH
         self.config = config
         self.create_game_delay = create_game_delay
-        self.last_act_0 = np.zeros(num_envs, dtype=np.float32)
 
         remaining_scripted = num_envs - 2 * num_self_play
         self.scripted_opponents = []
@@ -420,7 +422,14 @@ class CodeCraftVecEnv(VecEnv):
     def act(
         self, actions: Mapping[str, RaggedBufferI64], obs_filter: ObsSpace
     ) -> VecObs:
-        return self.step([list(row) for row in actions["act"].as_array()], obs_filter)
+        racts = actions["act"]
+        return self.step(
+            [
+                list(racts[i].as_array()) if racts.size1(i) > 0 else []
+                for i in range(racts.size0())
+            ],
+            obs_filter,
+        )
 
     def render(self, **kwargs: Any) -> npt.NDArray[np.uint8]:
         # TODO: @cswinter to provide rest API client for grabbing image state from CodeCraft
@@ -435,7 +444,7 @@ class CodeCraftVecEnv(VecEnv):
         obs_filter: ObsSpace,
         action_masks: Optional[Any] = None,
     ) -> VecObs:
-        self.last_act_0 = np.array([1.0 if a[0] == 0 else 0.0 for a in actions])
+        assert len(actions) == self.num_envs
         self.step_async(actions, action_masks)
         return self.observe(obs_filter)
 
@@ -688,6 +697,10 @@ class CodeCraftVecEnv(VecEnv):
         action_masks = obs[-action_mask_elems:].reshape(-1, obs_config.allies, naction)
 
         _obs = obs[: stride * self.num_envs].reshape(num_envs, -1)
+        global LAST_RAW_OBS
+        LAST_RAW_OBS[:] = _obs
+        global LAST_RAW_MASKS
+        LAST_RAW_MASKS[:] = action_masks
 
         globals = _obs[:, : obs_config.endglobals()]
 
@@ -699,8 +712,6 @@ class CodeCraftVecEnv(VecEnv):
             [allies, globals.reshape(num_envs, 1, obs_config.global_features())], axis=2
         )
         ally_not_padding = allies[:, :, 7] != 0
-        # TODO: hack
-        ally_not_padding[:, 0] = True
         ragged_allies = RaggedBufferF32.from_flattened(
             allies[ally_not_padding],
             ally_not_padding.sum(axis=1).astype(np.int64),
@@ -749,7 +760,6 @@ class CodeCraftVecEnv(VecEnv):
                 ),
             },
             reward=np.array(rews),
-            # reward=self.last_act_0,
             done=np.array(dones) == 1.0,
             end_of_episode_info=infos,
         )

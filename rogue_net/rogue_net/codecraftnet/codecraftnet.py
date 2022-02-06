@@ -421,14 +421,12 @@ class TransformerPolicy8HS(nn.Module):
                 observation.device
             )
             action_masks = torch.cat([action_masks, zeros], dim=2)
-        # Add small value to prevent crash when no action is possible
-        logits = logits.masked_fill(action_masks == 0, -1e9)
         action_dist = distributions.Categorical(logits=logits)
         if prev_actions is None:
             actions = action_dist.sample()
         else:
             actions = prev_actions
-        entropy = action_dist.entropy()[action_masks.sum(2) > 1]
+        entropy = action_dist.entropy()
         return (
             actions,
             action_dist.log_prob(actions),
@@ -670,7 +668,7 @@ class TransformerPolicy8HS(nn.Module):
             nearby_map = nearby_map.reshape(-1, self.d_agent)
             x = torch.cat([x, nearby_map], dim=1)
 
-        x = self.final_layer(x).squeeze(0)
+        x = self.final_layer(x)
         return x, active_agents, (pitems, pmask)
 
 
