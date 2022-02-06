@@ -726,6 +726,14 @@ def train(args: argparse.Namespace) -> float:
         tracer.start("optimize")
         b_inds = np.arange(args.batch_size)
         clipfracs = []
+
+        if args.norm_adv:
+            assert (
+                len(b_advantages) > 1
+            ), "Can't normalize advantages with minibatch size 1"
+            b_advantages = (b_advantages - b_advantages.mean()) / (
+                b_advantages.std() + 1e-8
+            )
         for epoch in range(args.update_epochs):
             np.random.shuffle(b_inds)
             for start in range(0, args.batch_size, args.minibatch_size):
@@ -795,13 +803,6 @@ def train(args: argparse.Namespace) -> float:
                         ]
 
                     mb_advantages = b_advantages[mb_inds]
-                    if args.norm_adv:
-                        assert (
-                            len(mb_advantages) > 1
-                        ), "Can't normalize advantages with minibatch size 1"
-                        mb_advantages = (mb_advantages - mb_advantages.mean()) / (
-                            mb_advantages.std() + 1e-8
-                        )
 
                     # TODO: we can elide the index op and get better performance when there is exactly one actor per action
                     # TODO: we can reuse the mb_advantages across all actions that have the same number of actors
