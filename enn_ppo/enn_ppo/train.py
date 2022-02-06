@@ -51,6 +51,8 @@ def parse_args(override_args: Optional[List[str]] = None) -> argparse.Namespace:
         help='JSON dictionary with keyword arguments for the environment')
     parser.add_argument('--learning-rate', type=float, default=2.5e-4,
         help='the learning rate of the optimizer')
+    parser.add_argument('--weight-decay', type=float, default=0.0,
+        help='the weight decay of the optimizer')
     parser.add_argument('--seed', type=int, default=1,
         help='seed of the experiment')
     parser.add_argument('--total-timesteps', type=int, default=25000,
@@ -606,7 +608,12 @@ def train(args: argparse.Namespace) -> float:
         feature_transforms=translate,
         relpos_encoding=relpos_encoding,
     ).to(device)
-    optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5)
+    optimizer = optim.AdamW(
+        agent.parameters(),
+        lr=args.learning_rate,
+        weight_decay=args.weight_decay,
+        eps=1e-5,
+    )
     if args.track:
         wandb.watch(agent)
 
