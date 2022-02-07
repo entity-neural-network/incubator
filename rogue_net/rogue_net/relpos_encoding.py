@@ -14,6 +14,7 @@ class RelposEncodingConfig:
     obs_space: ObsSpace
     d_head: int
     per_entity_values: bool = True
+    exclude_entities: Optional[List[str]] = None
 
     def __post_init__(self) -> None:
         assert len(self.extent) == len(self.position_features)
@@ -29,6 +30,7 @@ class RelposEncoding(nn.Module):
         self.positional_features = config.position_features
         self.n_entity = len(config.obs_space.entities)
         self.per_entity_values = config.per_entity_values
+        self.exclude_entities = config.exclude_entities if config.exclude_entities else []
         strides = []
         positions = 1
         for extent in config.extent:
@@ -54,7 +56,7 @@ class RelposEncoding(nn.Module):
                     for feature_name in config.position_features
                 ]
             )
-            for entity_name, entity in config.obs_space.entities.items()
+            for entity_name, entity in config.obs_space.entities.items() if entity_name not in self.exclude_entities
         }
 
     def keys_values(
@@ -72,7 +74,8 @@ class RelposEncoding(nn.Module):
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         positions = []
         for entity_name, features in x.items():
-            positions.append(features[:, self.position_feature_indices[entity_name]])
+            if entity_name not in self.exclude_entities:
+                positions.append(features[:, self.position_feature_indices[entity_name]])
         # Flat tensor of positions
         tpos = torch.cat(positions, dim=0)
         # Flat tensor of positions ordered by sample
