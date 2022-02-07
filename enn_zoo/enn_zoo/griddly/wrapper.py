@@ -48,19 +48,41 @@ class GriddlyEnv(Environment):
 
     def _to_griddly_action(self, action: Mapping[str, Action]) -> np.ndarray:
 
-        for action_name, a in action.items():
-            action_type = self._env.action_names.index(action_name)
-            assert isinstance(a, CategoricalAction)
-            # TODO: this only works if we have a single entity, otherwise we have to map the entityID to an x,y coordinate
-            action_id = a.actions[0]
+        if len(self._env.action_space_parts) > 2:
+            entity_actions = []
+            for action_name, a in action.items():
+                action_type = self._env.action_names.index(action_name)
+                for entity_id, action_id in a.items():
+                    entity_location = self.entity_locations[entity_id]
+                    entity_actions.append(
+                        np.array(
+                            [
+                                entity_location[0],
+                                entity_location[1],
+                                action_type,
+                                action_id,
+                            ]
+                        )
+                    )
 
-        return np.array([action_type, action_id])
+            return np.stack(entity_actions)
+        else:
+
+            for action_name, a in action.items():
+                action_type = self._env.action_names.index(action_name)
+                assert isinstance(a, CategoricalAction)
+                # TODO: this only works if we have a single entity, otherwise we have to map the entityID to an x,y coordinate
+                action_id = a.actions[0]
+
+            return np.array([action_type, action_id])
 
     def _make_observation(self, reward: int = 0, done: bool = False) -> Observation:
         griddly_entity_observation = self._entity_observer.observe(1)
         entities = griddly_entity_observation["Entities"]
         entity_ids = griddly_entity_observation["EntityIds"]
         entity_masks = griddly_entity_observation["EntityMasks"]
+
+        self.entity_locations = griddly_entity_observation["EntityLocations"]
 
         entities = {
             name: np.array(obs, dtype=np.float32) for name, obs in entities.items()

@@ -1,6 +1,6 @@
 Version: "0.1"
 Environment:
-  Name: Clusters
+  Name: Clusters Multi
   Description: Cluster the coloured objects together by pushing them against the static coloured blocks.
   Observers:
     Sprite2D:
@@ -9,72 +9,74 @@ Environment:
   Variables:
     - Name: box_count
       InitialValue: 0
+      PerPlayer: true
+    - Name: broken_boxes
+      InitialValue: 0
+      PerPlayer: true
   Player:
-    AvatarObject: avatar # The player can only control a single avatar in the game
+    Count: 1
   Termination:
     Win:
       - eq: [ box_count, 0 ]
     Lose:
-      - eq: [ broken_box:count, 1 ]
-      - eq: [ avatar:count, 0 ]
+      - gte: [ broken_boxes, 1 ]
       - gte: [ _steps, 500]
-
   Levels:
     - |
-      w w w w w w w w w w w w w
-      w . . . . . . . . . . . w
-      w . . b b . . . r . r . w
-      w . . . . b . . . . . . w
-      w . . . B . . . . . r . w
-      w . . . . . . . x . . . w
-      w . . . . b . . . . R . w
-      w . . . . . . b . . . . w
-      w . . . . . . . . A . . w
-      w w w w w w w w w w w w w
+      w  w  w  w  w  w  w  w  w  w  w  w  w
+      w  .  .  .  .  .  .  .  .  .  .  .  w
+      w  .  .  b1 b1 .  .  .  r1 .  r1 .  w
+      w  .  .  .  .  b1 .  .  .  .  .  .  w
+      w  .  .  .  B  .  .  .  .  .  r1 .  w
+      w  .  .  .  .  .  .  .  x  .  .  .  w
+      w  .  .  .  .  b1 .  .  .  .  R  .  w
+      w  .  .  .  .  .  .  b1 .  .  .  .  w
+      w  .  .  .  .  .  .  .  .  .  .  .  w
+      w  w  w  w  w  w  w  w  w  w  w  w  w
     - |
-      w w w w w w w w w w w w w
-      w . . . . . . . . . . . w
-      w . . b . . r . G g . . w
-      w . . . . x . . x . . . w
-      w . . . r . . g . . b . w
-      w . . . . R . . x . . . w
-      w . . g . . . r . . b . w
-      w . . x . x . . . B . . w
-      w . . . . . A . . . . . w
-      w w w w w w w w w w w w w
+      w  w  w  w  w  w  w  w  w  w  w  w  w
+      w  .  .  .  .  .  .  .  .  .  .  .  w
+      w  .  .  b1 .  .  r1 .  G  g1 .  .  w
+      w  .  .  .  .  x  .  .  x  .  .  .  w
+      w  .  .  .  r1 .  .  g1 .  .  b1 .  w
+      w  .  .  .  .  R  .  .  x  .  .  .  w
+      w  .  .  g1 .  .  .  r1 .  .  b1 .  w
+      w  .  .  x  .  x  .  .  .  B  .  .  w
+      w  .  .  .  .  .  .  .  .  .  .  .  w
+      w  w  w  w  w  w  w  w  w  w  w  w  w
     - |
-      w w w w w w w w w w w w w
-      w . . B . . R . . G . . w
-      w . . . . . . . . . . . w
-      w . . . . . . . . . . . w
-      w x x x x x . x x x x x w
-      w . . . . x . x . . . . w
-      w . b r . x . x . b g . w
-      w . g . . . . . . . r . w
-      w . . . . . A . . . . . w
-      w w w w w w w w w w w w w
+      w  w  w  w  w  w  w  w  w  w  w  w  w
+      w  .  .  B  .  .  R  .  .  G  .  .  w
+      w  .  .  .  .  .  .  .  .  .  .  .  w
+      w  .  .  .  .  .  .  .  .  .  .  .  w
+      w  x  x  x  x  x  .  x  x  x  x  x  w
+      w  .  .  .  .  x  .  x  .  .  .  .  w
+      w  .  b1 r1 .  x  .  x  .  b1 g1 .  w
+      w  .  g1 .  .  .  .  .  .  .  r1 .  w
+      w  .  .  .  .  .  .  .  .  .  .  .  w
+      w  w  w  w  w  w  w  w  w  w  w  w  w
     - |
-      w w w w w w w w w w w w w
-      w . . . . . . . . . . . w
-      w . . . b . r . . G . . w
-      w . . . . . g . . g . . w
-      w . . B . r . . . x . . w
-      w . . . . x x . g . . . w
-      w . . b . . . . . r . . w
-      w . . . . . b . . R . . w
-      w . . . . . A . . . . . w
-      w w w w w w w w w w w w w
+      w   w  w  w  w  w  w  w  w  w  w  w  w
+      w   .  .  .  .  .  .  .  .  .  .  .  w
+      w   .  .  .  b1 .  r1 .  .  G  .  .  w
+      w   .  .  .  .  .  g1 .  .  g1 .  .  w
+      w   .  .  B  .  r1 .  .  .  x  .  .  w
+      w   .  .  .  .  x  x  .  g1 .  .  .  w
+      w   .  .  b1 .  .  .  .  .  r1 .  .  w
+      w   .  .  .  .  .  b1 .  .  R  .  .  w
+      w   .  .  .  .  .  .  .  .  .  .  .  w
+      w   w  w  w  w  w  w  w  w  w  w  w  w
     - |
-      w w w w w w w w w w w w w
-      w . . . . . . . . . . . w
-      w . . . . . . b . . . . w
-      w . . x . . R . . x . . w
-      w . . . . b . . . . . . w
-      w . . g . . . . r . . . w
-      w . . . B . x . . G . . w
-      w . . . . g . . . . r . w
-      w . . . . . A . . . . . w
-      w w w w w w w w w w w w w
+      w  w  w  w  w  w  w  w  w  w  w  w  w
+      w  .  .  .  .  .  .  .  .  .  .  .  w
+      w  .  .  .  .  .  .  b1 .  .  .  .  w
+      w  .  .  x  .  .  R  .  .  x  .  .  w
+      w  .  .  .  .  b1 .  .  .  .  .  .  w
+      w  .  .  g1 .  .  .  .  r1 .  .  .  w
+      w  .  .  .  B  .  x  .  .  G  .  .  w
+      w  .  .  .  .  g1 .  .  .  .  r1 .  w
+      w  .  .  .  .  .  .  .  .  .  .  .  w
+      w  w  w  w  w  w  w  w  w  w  w  w  w
 Actions:
 
   # A simple action to count the number of boxes in the game at the start
@@ -93,48 +95,26 @@ Actions:
         Dst:
           Object: [ blue_box, red_box, green_box ]
 
-  # Define the move action
-  - Name: move
-    InputMapping:
-      Inputs:
-        1:
-          Description: Rotate left
-          OrientationVector: [ -1, 0 ]
-        2:
-          Description: Move forwards
-          OrientationVector: [ 0, -1 ]
-          VectorToDest: [ 0, -1 ]
-        3:
-          Description: Rotate right
-          OrientationVector: [ 1, 0 ]
-      Relative: true
+  - Name: push
     Behaviours:
 
-      # Avatar rotates
+      # Boxes break if they hit the spikes
       - Src:
-          Object: avatar
+          Object: [ blue_box, green_box, red_box ]
           Commands:
-            - rot: _dir
+            - incr: broken_boxes
+            - change_to: broken_box
+            - reward: -1
         Dst:
-          Object: avatar
+          Object: spike
 
-      # Avatar and boxes can move into empty space
+      # Boxes can pushed into empty space
       - Src:
-          Object: [ avatar, blue_box, green_box, red_box ]
+          Object: [ blue_box, green_box, red_box ]
           Commands:
             - mov: _dest
         Dst:
           Object: _empty
-
-      # Boxes can be pushed by the avatar
-      - Src:
-          Object: avatar
-          Commands:
-            - mov: _dest
-        Dst:
-          Object: [ blue_box, green_box, red_box ]
-          Commands:
-            - cascade: _dest
 
       # When boxes are pushed against the blocks they change
       - Src:
@@ -162,34 +142,8 @@ Actions:
         Dst:
           Object: green_block
 
-      # Boxes break if they hit the spikes
-      - Src:
-          Object: [ blue_box, green_box, red_box ]
-          Commands:
-            - change_to: broken_box
-            - reward: -1
-        Dst:
-          Object: spike
-
-      # Avatar dies if it hits the spikes
-      - Src:
-          Object: avatar
-          Commands:
-            - remove: true
-            - reward: -1
-        Dst:
-          Object: spike
 
 Objects:
-  - Name: avatar
-    MapCharacter: A
-    Observers:
-      Sprite2D:
-        - Image: gvgai/oryx/knight1.png
-      Block2D:
-        - Shape: triangle
-          Color: [ 0.0, 1.0, 0.0 ]
-          Scale: 0.8
 
   - Name: wall
     MapCharacter: w

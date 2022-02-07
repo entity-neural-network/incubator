@@ -551,8 +551,7 @@ def train(args: argparse.Namespace) -> float:
     if args.gym_id in ENV_REGISTRY:
         env_cls = ENV_REGISTRY[args.gym_id]
     elif args.gym_id in GRIDDLY_ENVS:
-        path, level = GRIDDLY_ENVS[args.gym_id]
-        env_cls = create_env(yaml_file=path, level=level)
+        env_cls = create_env(**GRIDDLY_ENVS[args.gym_id])
     elif args.gym_id == "CodeCraft":
         env_cls = CodeCraftEnv
     else:

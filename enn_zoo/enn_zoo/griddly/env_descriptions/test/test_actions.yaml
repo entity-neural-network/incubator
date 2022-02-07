@@ -1,0 +1,57 @@
+Version: "0.1"
+Environment:
+  Name: Test
+  Description: An environment only used for testing
+  Player:
+    AvatarObject: entity_1 # The player can only control a single avatar in the game
+  Levels:
+    - |
+      .  .  .  .  .
+      .  .  E  .  .
+      .  .  .  .  .
+      .  e  e  e  .
+      .  .  .  .  .
+Actions:
+
+  # This action will be ignored
+  - Name: internal_action
+    InputMapping:
+      Internal: true
+      Inputs:
+        1:
+          Description: "The only action here is to increment the box count"
+
+  # Two move actions that will be in the action space
+  - Name: move_entity_one
+    Behaviours:
+      - Src:
+          Object: entity_1
+          Commands:
+            - mov: _dest
+        Dst:
+          Object: _empty
+  - Name: remove_entity_two
+    Behaviours:
+      - Src:
+          Object: entity_1
+        Dst:
+          Object: entity_2
+          Commands:
+            - remove: true
+
+Objects:
+  - Name: entity_1
+    MapCharacter: E
+    Observers:
+      Block2D:
+        - Shape: square
+          Color: [ 0.0, 0.0, 1.0 ]
+          Scale: 1.0
+
+  - Name: entity_2
+    MapCharacter: e
+    Observers:
+      Block2D:
+        - Shape: circle
+          Color: [ 0.0, 0.0, 1.0 ]
+          Scale: 1.0
