@@ -10,7 +10,7 @@ entity_gym = {path = "entity_gym", develop = true}
 rogue_net = {path = "rogue_net", develop = true}
 enn_ppo = {path = "enn_ppo", develop = true}
 enn_zoo = {path = "enn_zoo", develop = true}
-griddly = {version = "^1.2.29"}
+griddly = {version = "^1.2.31"}
 
 [tool.poetry.dev-dependencies]
 black = "^21.11b1"

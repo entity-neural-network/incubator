@@ -28,7 +28,7 @@ def generate_obs_space(env: Any) -> ObsSpace:
     space = {"__global__": Entity(global_variables)}
     for name in env.object_names:
         space[name] = Entity(
-            ["x", "y", "z", "orientation", "player_id", *object_variable_map[name]]
+            ["x", "y", "z", "ox", "oy", "player_id", *object_variable_map[name]]
         )
 
     return ObsSpace(space)
