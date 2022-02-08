@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Dict, List, Mapping, Optional, Tuple, overload
 import torch.nn as nn
 import torch
@@ -14,7 +14,7 @@ class RelposEncodingConfig:
     obs_space: ObsSpace
     d_head: int
     per_entity_values: bool = True
-    exclude_entities: List[str] = []
+    exclude_entities: List[str] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         assert len(self.extent) == len(self.position_features)
