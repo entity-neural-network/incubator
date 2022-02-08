@@ -14,7 +14,7 @@ class RelposEncodingConfig:
     obs_space: ObsSpace
     d_head: int
     per_entity_values: bool = True
-    exclude_entities: Optional[List[str]] = None
+    exclude_entities: List[str] = []
 
     def __post_init__(self) -> None:
         assert len(self.extent) == len(self.position_features)
@@ -30,9 +30,7 @@ class RelposEncoding(nn.Module):
         self.positional_features = config.position_features
         self.n_entity = len(config.obs_space.entities)
         self.per_entity_values = config.per_entity_values
-        self.exclude_entities = (
-            config.exclude_entities if config.exclude_entities else []
-        )
+        self.exclude_entities = config.exclude_entities
         strides = []
         positions = 1
         for extent in config.extent:
