@@ -30,7 +30,8 @@ def test_griddly_wrapper() -> None:
         "x",
         "y",
         "z",
-        "orientation",
+        "ox",
+        "oy",
         "player_id",
         "entity_1_variable",
     ]
@@ -38,7 +39,8 @@ def test_griddly_wrapper() -> None:
         "x",
         "y",
         "z",
-        "orientation",
+        "ox",
+        "oy",
         "player_id",
         "entity_2_variable",
     ]
@@ -68,14 +70,14 @@ def test_griddly_wrapper() -> None:
     # Check the entities in the observation
     assert np.all(
         observation.features["entity_1"]
-        == np.array([[2, 2, 0, 0, 1, 5]], dtype=np.float32)
+        == np.array([[2, 2, 0, 0, 0, 1, 5]], dtype=np.float32)
     )
 
     print(np.sort(observation.features["entity_2"], axis=0))
-    print(np.array([[2, 3, 0, 0, 0, 10], [4, 4, 0, 0, 0, 10]], dtype=np.float32))
+    print(np.array([[2, 3, 0, 0, 0, 0, 10], [4, 4, 0, 0, 0, 0, 10]], dtype=np.float32))
     assert np.all(
         np.sort(observation.features["entity_2"], axis=0)
-        == np.array([[2, 3, 0, 0, 0, 10], [4, 4, 0, 0, 0, 10]], dtype=np.float32)
+        == np.array([[2, 3, 0, 0, 0, 0, 10], [4, 4, 0, 0, 0, 0, 10]], dtype=np.float32)
     )
 
     # Check the masks in the observation
