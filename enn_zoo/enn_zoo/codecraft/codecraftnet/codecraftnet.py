@@ -1,3 +1,5 @@
+from telnetlib import Telnet
+from typing import Any, Callable, Dict, Optional, Tuple, Type
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -126,22 +128,22 @@ class ObsConfig:
             ds += self.num_builds + 2
         return ds
 
-    def mstride(self):
+    def mstride(self) -> int:
         return 4 if self.feat_mineral_claims else 3
 
-    def tstride(self):
+    def tstride(self) -> int:
         return 4
 
-    def nonobs_features(self):
+    def nonobs_features(self) -> int:
         return 5
 
-    def enemies(self):
+    def enemies(self) -> int:
         return self.drones - self.allies
 
-    def total_drones(self):
+    def total_drones(self) -> int:
         return 2 * self.drones - self.allies
 
-    def stride(self):
+    def stride(self) -> int:
         return (
             self.global_features()
             + self.total_drones() * self.dstride()
@@ -149,40 +151,40 @@ class ObsConfig:
             + self.obs_map_tiles * self.tstride()
         )
 
-    def endglobals(self):
+    def endglobals(self) -> int:
         return self.global_features()
 
-    def endallies(self):
+    def endallies(self) -> int:
         return self.global_features() + self.dstride() * self.allies
 
-    def endenemies(self):
+    def endenemies(self) -> int:
         return self.global_features() + self.dstride() * self.drones
 
-    def endmins(self):
+    def endmins(self) -> int:
         return self.endenemies() + self.mstride() * self.obs_minerals
 
-    def endtiles(self):
+    def endtiles(self) -> int:
         return self.endmins() + self.tstride() * self.obs_map_tiles
 
-    def endallenemies(self):
+    def endallenemies(self) -> int:
         return self.endtiles() + self.dstride() * self.enemies()
 
-    def extra_actions(self):
+    def extra_actions(self) -> int:
         if self.lock_build_action:
             return 2
         else:
             return 0
 
     @property
-    def global_drones(self):
+    def global_drones(self) -> int:
         return self.obs_enemies if self.use_privileged else 0
 
     @property
-    def unit_count(self):
+    def unit_count(self) -> int:
         return self.feat_unit_count
 
     @property
-    def construction_progress(self):
+    def construction_progress(self) -> int:
         return self.feat_construction_progress
 
 
@@ -190,7 +192,7 @@ class TransformerPolicy8HS(nn.Module):
     def __init__(self, config: PolicyConfig, obs_config: ObsConfig, naction: int):
         super(TransformerPolicy8HS, self).__init__()
         assert (
-            obs_config.drones > 0 or obs_config.minerals > 0
+            obs_config.drones > 0 or obs_config.obs_minerals > 0
         ), "Must have at least one mineral or drones observation"
         assert obs_config.drones >= obs_config.allies
         assert not obs_config.use_privileged or (
@@ -204,6 +206,8 @@ class TransformerPolicy8HS(nn.Module):
         assert config.nmineral == obs_config.obs_minerals
         assert config.ntile == obs_config.obs_map_tiles
         assert config.nconstant == 0
+        assert config.nearby_map == False
+        assert config.item_item_attn_layers == 0
 
         self.version = "transformer_v8"
 
@@ -226,7 +230,7 @@ class TransformerPolicy8HS(nn.Module):
             self.global_drones = 0
 
         if config.norm == "none":
-            norm_fn = lambda x: nn.Sequential()
+            norm_fn: Callable[[int], nn.Module] = lambda n: nn.Sequential()
         elif config.norm == "batchnorm":
             norm_fn = lambda n: nn.BatchNorm2d(n)
         elif config.norm == "layernorm":
@@ -339,14 +343,6 @@ class TransformerPolicy8HS(nn.Module):
                 torch.normal(0, 1, (config.nconstant, config.d_item))
             )
 
-        if config.item_item_attn_layers > 0:
-            encoder_layer = nn.TransformerEncoderLayer(d_model=config.d_item, nhead=8)
-            self.item_item_attn = nn.TransformerEncoder(
-                encoder_layer, num_layers=config.item_item_attn_layers
-            )
-        else:
-            self.item_item_attn = None
-
         self.multihead_attention = nn.MultiheadAttention(
             embed_dim=config.d_agent,
             kdim=config.d_item,
@@ -359,23 +355,7 @@ class TransformerPolicy8HS(nn.Module):
         self.norm1 = nn.LayerNorm(config.d_agent)
         self.norm2 = nn.LayerNorm(config.d_agent)
 
-        self.map_channels = config.d_agent // (config.nm_nrings * config.nm_nrays)
-        map_item_channels = (
-            self.map_channels - 2 if self.hps.map_embed_offset else self.map_channels
-        )
-        self.downscale = nn.Linear(config.d_item, map_item_channels)
-        self.norm_map = norm_fn(map_item_channels)
-        self.conv1 = spatial.ZeroPaddedCylindricalConv2d(
-            self.map_channels, config.dff_ratio * self.map_channels, kernel_size=3
-        )
-        self.conv2 = spatial.ZeroPaddedCylindricalConv2d(
-            config.dff_ratio * self.map_channels, self.map_channels, kernel_size=3
-        )
-        self.norm_conv = norm_fn(self.map_channels)
-
         final_width = config.d_agent
-        if config.nearby_map:
-            final_width += config.d_agent
         self.final_layer = nn.Sequential(
             nn.Linear(final_width, config.d_agent * config.dff_ratio),
             nn.ReLU(),
@@ -398,11 +378,13 @@ class TransformerPolicy8HS(nn.Module):
 
         self.epsilon = 1e-8
 
-    def serialize(self):
+    def serialize(self) -> Dict[str, Any]:
         return self.state_dict()
 
     @classmethod
-    def deserialize(clz, state_dict, config, state):
+    def deserialize(
+        clz: Type["TransformerPolicy8HS"], state_dict: Any, config: Any, state: Any
+    ) -> "TransformerPolicy8HS":
         policy = TransformerPolicy8HS(
             config.policy,
             config.obs,
@@ -411,7 +393,13 @@ class TransformerPolicy8HS(nn.Module):
         policy.load_state_dict(state_dict)
         return policy
 
-    def evaluate(self, observation, action_masks, privileged_obs, prev_actions):
+    def evaluate(
+        self,
+        observation: torch.Tensor,
+        action_masks: torch.Tensor,
+        privileged_obs: Any,
+        prev_actions: Optional[torch.Tensor],
+    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, Any]:
         action_masks = action_masks[:, : self.agents, :]
         logits, v = self.forward(observation, privileged_obs, action_masks)
         logits = logits.view(-1, self.agents, self.naction)
@@ -435,90 +423,14 @@ class TransformerPolicy8HS(nn.Module):
             None,
         )
 
-    def backprop(
-        self,
-        hps,  #: Config,
-        obs,
-        actions,
-        old_logprobs,
-        returns,
-        value_loss_scale,
-        advantages,
-        old_values,
-        action_masks,
-        old_probs,
-        privileged_obs,
-        split_reward,
-    ):
-
-        action_masks = action_masks[:, : self.agents, :]
-        actions = actions[:, : self.agents]
-        old_logprobs = old_logprobs[:, : self.agents]
-
-        probs, values = self.forward(obs, privileged_obs, action_masks)
-        probs = probs.view(-1, self.agents, self.naction)
-
-        # add small value to prevent degenerate probability distribution when no action is possible
-        # gradients still get blocked by the action mask
-        probs = probs * action_masks + self.epsilon
-
-        agent_masks = (action_masks.sum(dim=2) > 1).float()
-        active_agents = torch.clamp_min(agent_masks.sum(dim=1), min=1)
-
-        dist = distributions.Categorical(probs)
-        entropy = dist.entropy()
-        logprobs = dist.log_prob(actions)
-        ratios = torch.exp(logprobs - old_logprobs)
-        advantages = advantages.view(-1, 1)
-        if split_reward:
-            advantages = advantages / active_agents.view(-1, 1)
-        vanilla_policy_loss = advantages * ratios * agent_masks
-        clipped_policy_loss = (
-            advantages
-            * torch.clamp(ratios, 1 - hps.ppo.cliprange, 1 + hps.ppo.cliprange)
-            * agent_masks
-        )
-        if hps.ppo.ppo:
-            policy_loss = (
-                -torch.min(vanilla_policy_loss, clipped_policy_loss).mean(dim=0).sum()
-            )
-        else:
-            policy_loss = -vanilla_policy_loss.mean(dim=0).sum()
-
-        approxkl = (old_probs * torch.log(old_probs / probs)).sum(dim=2).mean()
-        clipfrac = ((ratios - 1.0).abs() > hps.ppo.cliprange).sum().type(
-            torch.float32
-        ) / ratios.numel()
-
-        clipped_values = old_values + torch.clamp(
-            values - old_values, -hps.ppo.cliprange, hps.ppo.cliprange
-        )
-        vanilla_value_loss = (values - returns) ** 2
-        clipped_value_loss = (clipped_values - returns) ** 2
-        if hps.ppo.clip_vf:
-            value_loss = torch.max(vanilla_value_loss, clipped_value_loss).mean()
-        else:
-            value_loss = vanilla_value_loss.mean()
-
-        entropy_loss = -hps.optimizer.entropy_bonus * entropy.mean()
-
-        loss = policy_loss + value_loss_scale * value_loss + entropy_loss
-        loss /= hps.optimizer.batch_size / hps.optimizer.micro_batch_size
-        loss.backward()
-        return (
-            policy_loss.data.tolist(),
-            value_loss.data.tolist(),
-            -entropy_loss.data.tolist(),
-            approxkl.data.tolist(),
-            clipfrac.data.tolist(),
-        )
-
-    def forward(self, x, x_privileged, action_masks):
+    def forward(
+        self, x: torch.Tensor, x_privileged: Any, action_masks: torch.Tensor
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
         batch_size = x.size()[0]
         x, active_agents, (pitems, pmask) = self.latents(x, action_masks)
 
         if x.is_cuda:
-            vin = torch.cuda.FloatTensor(
+            vin = torch.cuda.FloatTensor(  # type: ignore
                 batch_size, self.d_agent * self.hps.dff_ratio
             ).fill_(0)
         else:
@@ -542,7 +454,9 @@ class TransformerPolicy8HS(nn.Module):
         # return active_agents.pad(logits), values
         return logits, values
 
-    def latents(self, x, action_masks):
+    def latents(
+        self, x: torch.Tensor, action_masks: torch.Tensor
+    ) -> Tuple[torch.Tensor, "SparseSequence", Tuple[torch.Tensor, torch.Tensor]]:
         batch_size = x.size()[0]
 
         endglobals = self.obs_config.endglobals()
@@ -649,25 +563,6 @@ class TransformerPolicy8HS(nn.Module):
         x = self.norm2(x + x2)
         x = x.view(-1, self.d_agent)
 
-        if self.hps.nearby_map:
-            items = self.norm_map(F.relu(self.downscale(items)))
-            items = items * (1 - mask.float().unsqueeze(-1))
-            nearby_map = spatial.single_batch_dim_spatial_scatter(
-                items=items[:, : (self.nitem - self.nconstant - self.ntile), :],
-                positions=relpos[:, : self.nitem - self.nconstant - self.ntile, :2],
-                nray=self.hps.nm_nrays,
-                nring=self.hps.nm_nrings,
-                inner_radius=self.hps.nm_ring_width,
-                embed_offsets=self.hps.map_embed_offset,
-            ).view(-1, self.map_channels, self.hps.nm_nrings, self.hps.nm_nrays)
-            if self.hps.map_conv:
-                nearby_map2 = self.conv2(F.relu(self.conv1(nearby_map)))
-                nearby_map2 = nearby_map2.permute(0, 3, 2, 1)
-                nearby_map = nearby_map.permute(0, 3, 2, 1)
-                nearby_map = self.norm_conv(nearby_map + nearby_map2)
-            nearby_map = nearby_map.reshape(-1, self.d_agent)
-            x = torch.cat([x, nearby_map], dim=1)
-
         x = self.final_layer(x)
         return x, active_agents, (pitems, pmask)
 
@@ -675,7 +570,7 @@ class TransformerPolicy8HS(nn.Module):
 # Computes a running mean/variance of input features and performs normalization.
 # https://www.johndcook.com/blog/standard_deviation/
 class InputNorm(nn.Module):
-    def __init__(self, num_features, cliprange=5):
+    def __init__(self, num_features: int, cliprange: float = 5) -> None:
         super(InputNorm, self).__init__()
 
         self.cliprange = cliprange
@@ -685,7 +580,7 @@ class InputNorm(nn.Module):
         self._stddev = None
         self._dirty = True
 
-    def update(self, input):
+    def update(self, input: torch.Tensor) -> None:
         self._dirty = True
         dbatch, dfeat = input.size()
 
@@ -713,34 +608,38 @@ class InputNorm(nn.Module):
             ).sum(dim=0)
             self.mean = new_mean
 
-    def forward(self, input, mask=None):
+    def forward(
+        self, input: torch.Tensor, mask: Optional[torch.Tensor] = None
+    ) -> torch.Tensor:
         with torch.no_grad():
             if self.training:
                 self.update(input)
-            if self.count > 1:
+            if self.count > 1:  # type: ignore
                 input = (input - self.mean) / self.stddev()
             input = torch.clamp(input, -self.cliprange, self.cliprange)
 
         return input
 
-    def stddev(self):
+    def stddev(self) -> torch.Tensor:
         if self._dirty:
-            sd = torch.sqrt(self.squares_sum / (self.count - 1))
+            sd = torch.sqrt(self.squares_sum / (self.count - 1))  # type: ignore
             sd[sd == 0] = 1
-            self._stddev = sd
+            self._stddev = sd  # type: ignore
             self._dirty = False
-        return self._stddev
+        return self._stddev  # type: ignore
 
 
 class InputEmbedding(nn.Module):
-    def __init__(self, d_in, d_model, norm_fn):
+    def __init__(
+        self, d_in: int, d_model: int, norm_fn: Callable[[int], nn.Module]
+    ) -> None:
         super(InputEmbedding, self).__init__()
 
         self.normalize = InputNorm(d_in)
         self.linear = nn.Linear(d_in, d_model)
         self.norm = norm_fn(d_model)
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = self.normalize(x)
         x = F.relu(self.linear(x))
         x = self.norm(x)
@@ -748,7 +647,9 @@ class InputEmbedding(nn.Module):
 
 
 class FFResblock(nn.Module):
-    def __init__(self, d_model, d_ff, norm_fn):
+    def __init__(
+        self, d_model: int, d_ff: int, norm_fn: Callable[[int], nn.Module]
+    ) -> None:
         super(FFResblock, self).__init__()
 
         self.linear_1 = nn.Linear(d_model, d_ff)
@@ -758,7 +659,9 @@ class FFResblock(nn.Module):
         # self.linear_2.weight.data.fill_(0.0)
         # self.linear_2.bias.data.fill_(0.0)
 
-    def forward(self, x, mask=None):
+    def forward(
+        self, x: torch.Tensor, mask: Optional[torch.Tensor] = None
+    ) -> torch.Tensor:
         x2 = self.linear_2(F.relu(self.linear_1(x)))
         x = self.norm(x + x2)
         return x
@@ -767,17 +670,17 @@ class FFResblock(nn.Module):
 class PosItemBlock(nn.Module):
     def __init__(
         self,
-        d_in,
-        d_model,
-        d_ff,
-        norm_fn,
-        resblock,
-        mask_feature,
-        count,
-        start,
-        end,
-        start_privileged=None,
-        end_privileged=None,
+        d_in: int,
+        d_model: int,
+        d_ff: int,
+        norm_fn: Callable[[int], nn.Module],
+        resblock: bool,
+        mask_feature: int,
+        count: int,
+        start: int,
+        end: int,
+        start_privileged: Optional[int] = None,
+        end_privileged: Optional[int] = None,
     ):
         super(PosItemBlock, self).__init__()
 
@@ -793,7 +696,9 @@ class PosItemBlock(nn.Module):
         self.start_privileged = start_privileged
         self.end_privileged = end_privileged
 
-    def forward(self, x, privileged=False):
+    def forward(
+        self, x: torch.Tensor, privileged: bool = False
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
         if privileged:
             x = x[:, self.start_privileged : self.end_privileged].view(
                 -1, self.count, self.d_in
@@ -802,7 +707,6 @@ class PosItemBlock(nn.Module):
             x = x[:, self.start : self.end].view(-1, self.count, self.d_in)
 
         select = x[:, :, self.mask_feature] != 0
-        # print("ITEM BLOCK", x)
 
         active = SparseSequence.from_mask(select)
         x_sparse = x[select]
@@ -815,13 +719,19 @@ class PosItemBlock(nn.Module):
             return active.pad(x_sparse), mask
         elif x.is_cuda:
             return (
-                torch.cuda.FloatTensor(x.size()[0], x.size()[1], self.d_model).fill_(0),
+                torch.cuda.FloatTensor(x.size()[0], x.size()[1], self.d_model).fill_(0),  # type: ignore
                 mask,
             )
         else:
             return torch.zeros(x.size()[0], x.size()[1], self.d_model), mask
 
-    def relpos(self, x, indices, origin, direction):
+    def relpos(
+        self,
+        x: torch.Tensor,
+        indices: torch.Tensor,
+        origin: torch.Tensor,
+        direction: torch.Tensor,
+    ) -> Tuple[torch.Tensor, torch.Tensor, "SparseSequence"]:
         batch_agents, _ = origin.size()
         x = x[:, self.start : self.end].view(-1, self.count, self.d_in)
         mask = (x[:, :, self.mask_feature] != 0)[indices]
@@ -835,14 +745,21 @@ class PosItemBlock(nn.Module):
 
 
 class ItemBlock(nn.Module):
-    def __init__(self, d_in, d_model, d_ff, norm_fn, resblock):
+    def __init__(
+        self,
+        d_in: int,
+        d_model: int,
+        d_ff: int,
+        norm_fn: Callable[[int], nn.Module],
+        resblock: bool,
+    ) -> None:
         super(ItemBlock, self).__init__()
 
         self.embedding = InputEmbedding(d_in, d_model, norm_fn)
         if resblock:
             self.resblock = FFResblock(d_model, d_ff, norm_fn)
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = self.embedding(x)
         if self.resblock is not None:
             x = self.resblock(x)
@@ -853,7 +770,7 @@ ARANGE_CACHED = None
 ARANGE_MAX = 0
 
 
-def arange(count, device):
+def arange(count: int, device: torch.device) -> torch.Tensor:
     global ARANGE_CACHED, ARANGE_MAX
     if count > ARANGE_MAX or ARANGE_CACHED is None:
         ARANGE_CACHED = torch.arange(0, count, device=device)
@@ -862,21 +779,21 @@ def arange(count, device):
 
 
 class SparseSequence:
-    def __init__(self, dbatch: int, dseq: int, select: torch.ByteTensor):
+    def __init__(self, dbatch: int, dseq: int, select: torch.Tensor):
         self.dbatch = dbatch
         self.dseq = dseq
         self.count = dbatch * dseq
         self.select = select
         self.flat_select = select.flatten()
-        self.sparse_count = select.sum().item()
+        self.sparse_count = int(select.sum().item())
         self.device = select.device
 
-        self._batch_index = None
-        self._seq_index = None
-        self._flat_index = None
+        self._batch_index: Optional[torch.Tensor] = None
+        self._seq_index: Optional[torch.Tensor] = None
+        self._flat_index: Optional[torch.Tensor] = None
 
     @property
-    def batch_index(self):
+    def batch_index(self) -> torch.Tensor:
         if self._batch_index is None:
             self._batch_index = arange(self.dbatch, self.device).repeat_interleave(
                 self.dseq
@@ -884,7 +801,7 @@ class SparseSequence:
         return self._batch_index
 
     @property
-    def seq_index(self):
+    def seq_index(self) -> torch.Tensor:
         if self._seq_index is None:
             self._seq_index = arange(self.dseq, self.device).repeat(self.dbatch)[
                 self.flat_select
@@ -892,24 +809,24 @@ class SparseSequence:
         return self._seq_index
 
     @property
-    def flat_index(self):
+    def flat_index(self) -> torch.Tensor:
         if self._flat_index is None:
             self._flat_index = arange(self.dseq * self.dbatch, self.device)[
                 self.flat_select
             ]
         return self._flat_index
 
-    def pad(self, x: torch.Tensor):
+    def pad(self, x: torch.Tensor) -> torch.Tensor:
         count, dfeat = x.size()
         assert count == self.sparse_count
         if x.is_cuda:
-            x_padded = torch.cuda.FloatTensor(self.count, dfeat).fill_(0)
+            x_padded = torch.cuda.FloatTensor(self.count, dfeat).fill_(0)  # type: ignore
         else:
             x_padded = torch.zeros(self.count, dfeat)
         scatter_add(x, index=self.flat_index, dim=0, out=x_padded)
-        return x_padded.view(self.dbatch, self.dseq, dfeat)
+        return x_padded.view(self.dbatch, self.dseq, dfeat) # type: ignore
 
     @staticmethod
-    def from_mask(select: torch.ByteTensor) -> "SparseSequence":
+    def from_mask(select: torch.Tensor) -> "SparseSequence":
         dbatch, dseq = select.size()
         return SparseSequence(dbatch, dseq, select)

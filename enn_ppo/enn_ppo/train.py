@@ -601,9 +601,7 @@ def train(args: argparse.Namespace) -> float:
     else:
         relpos_encoding = None
 
-    if args.codecraft_net:
-        agent = CCNetAdapter(device)  # type: ignore
-    else:
+    if not args.codecraft_net:
         agent = PPOActor(
             obs_space,
             action_space,
@@ -614,6 +612,8 @@ def train(args: argparse.Namespace) -> float:
             feature_transforms=translate,
             relpos_encoding=relpos_encoding,
         ).to(device)
+    else:
+        agent = CCNetAdapter(device)  # type: ignore
 
     optimizer = optim.AdamW(
         agent.parameters(),
