@@ -710,6 +710,8 @@ class CodeCraftVecEnv(VecEnv):
             [allies, globals.reshape(num_envs, 1, obs_config.global_features())], axis=2
         )
         ally_not_padding = allies[:, :, 7] != 0
+        # TODO: remove this once RogueNet deals better with observations with no entities
+        ally_not_padding[:, 0] = True
         ragged_allies = RaggedBufferF32.from_flattened(
             allies[ally_not_padding],
             ally_not_padding.sum(axis=1).astype(np.int64),
