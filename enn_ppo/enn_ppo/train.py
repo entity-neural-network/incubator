@@ -540,6 +540,7 @@ def run_eval(
     print(
         f"[eval] global_step={global_step} {'  '.join(f'{name}={value}' for name, value in metrics.items())}"
     )
+    eval_envs.close()
 
 
 def train(args: argparse.Namespace) -> float:
@@ -696,6 +697,23 @@ def train(args: argparse.Namespace) -> float:
     else:
         next_eval_step = None
 
+    def _run_eval() -> None:
+        run_eval(
+            env_cls,
+            eval_env_kwargs,
+            args.eval_num_envs,
+            eval_processes,
+            obs_space,
+            action_space,
+            agent,
+            device,
+            tracer,
+            writer,
+            rollout.global_step,
+            args.eval_capture_videos,
+            args.codecraft_eval,
+        )
+
     start_time = time.time()
     for update in range(1, num_updates + 1):
 
@@ -707,21 +725,7 @@ def train(args: argparse.Namespace) -> float:
             if not isinstance(eval_processes, int):
                 eval_processes = args.processes
 
-            run_eval(
-                env_cls,
-                eval_env_kwargs,
-                args.eval_num_envs,
-                eval_processes,
-                obs_space,
-                action_space,
-                agent,
-                device,
-                tracer,
-                writer,
-                rollout.global_step,
-                args.eval_capture_videos,
-                args.codecraft_eval,
-            )
+            _run_eval()
 
         tracer.start("update")
         if (
@@ -988,19 +992,7 @@ def train(args: argparse.Namespace) -> float:
             writer.add_scalar(f"trace/{callstack}", timing, global_step)
 
     if args.eval_interval is not None:
-        run_eval(
-            env_cls,
-            eval_env_kwargs,
-            args.eval_num_envs,
-            args.processes,
-            obs_space,
-            action_space,
-            agent,
-            device,
-            tracer,
-            writer,
-            rollout.global_step,
-        )
+        _run_eval()
 
     envs.close()
     writer.close()
