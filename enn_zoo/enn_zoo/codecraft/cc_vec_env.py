@@ -34,6 +34,7 @@ from entity_gym.environment.environment import (
 from .maps import map_allied_wealth, map_arena_tiny
 
 LAST_OBS = {}
+VERIFY = False
 
 DRONE_FEATS = [
     "x",

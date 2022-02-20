@@ -6,6 +6,7 @@ import torch.nn.functional as F
 import torch.distributions as distributions
 from torch_scatter import scatter_add, scatter_max
 import torch.distributed as dist
+import hyperstate
 
 from dataclasses import dataclass
 
@@ -188,7 +189,7 @@ class ObsConfig:
         return self.feat_construction_progress
 
 
-class TransformerPolicy8HS(nn.Module):
+class TransformerPolicy8HS(nn.Module, hyperstate.lazy.Serializable):
     def __init__(self, config: PolicyConfig, obs_config: ObsConfig, naction: int):
         super(TransformerPolicy8HS, self).__init__()
         assert (
@@ -354,6 +355,20 @@ class TransformerPolicy8HS(nn.Module):
         self.linear2 = nn.Linear(config.d_agent * config.dff_ratio, config.d_agent)
         self.norm1 = nn.LayerNorm(config.d_agent)
         self.norm2 = nn.LayerNorm(config.d_agent)
+
+        self.map_channels = config.d_agent // (config.nm_nrings * config.nm_nrays)
+        map_item_channels = (
+            self.map_channels - 2 if self.hps.map_embed_offset else self.map_channels
+        )
+        self.downscale = nn.Linear(config.d_item, map_item_channels)
+        self.norm_map = norm_fn(map_item_channels)
+        self.conv1 = spatial.ZeroPaddedCylindricalConv2d(
+            self.map_channels, config.dff_ratio * self.map_channels, kernel_size=3
+        )
+        self.conv2 = spatial.ZeroPaddedCylindricalConv2d(
+            config.dff_ratio * self.map_channels, self.map_channels, kernel_size=3
+        )
+        self.norm_conv = norm_fn(self.map_channels)
 
         final_width = config.d_agent
         self.final_layer = nn.Sequential(
