@@ -30,7 +30,9 @@ def map_allied_wealth(
     }
 
 
-def map_arena_tiny(randomize: bool, hardness: int, require_default_mothership: bool) -> Dict[str, Any]:
+def map_arena_tiny(
+    randomize: bool, hardness: int, require_default_mothership: bool
+) -> Dict[str, Any]:
     storage_modules = 1
     constructors = 1
     missiles_batteries = 1

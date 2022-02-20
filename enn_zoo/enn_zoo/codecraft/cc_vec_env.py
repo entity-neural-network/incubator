@@ -82,6 +82,7 @@ GLOBAL_FEATS = [
     "unit_count",
 ]
 
+
 class CodeCraftEnv(Environment):
     @classmethod
     def obs_space(cls) -> ObsSpace:
@@ -305,7 +306,10 @@ class CodeCraftVecEnv(VecEnv):
         self.last_map: Optional[Dict[str, Any]] = None
         self.randomize = randomize
         self.use_action_masks = use_action_masks
-        if objective == Objective.DISTANCE_TO_CRYSTAL or objective == Objective.ALLIED_WEALTH:
+        if (
+            objective == Objective.DISTANCE_TO_CRYSTAL
+            or objective == Objective.ALLIED_WEALTH
+        ):
             self.obs_config = ObsConfig(
                 allies=1, drones=1, minerals=10, tiles=0, num_builds=1
             )
@@ -445,7 +449,10 @@ class CodeCraftVecEnv(VecEnv):
         return self.observe(obs_config)
 
     def act(
-        self, actions: Mapping[str, RaggedBufferI64], obs_filter: ObsSpace, env_subset: Optional[List[int]] = None,
+        self,
+        actions: Mapping[str, RaggedBufferI64],
+        obs_filter: ObsSpace,
+        env_subset: Optional[List[int]] = None,
     ) -> VecObs:
         racts = actions["act"]
         return self.step(
@@ -718,7 +725,9 @@ class CodeCraftVecEnv(VecEnv):
 
         naction = self.base_naction + obs_config.extra_actions()
         action_mask_elems = naction * obs_config.allies * num_envs
-        action_masks = obs[-action_mask_elems:].reshape(-1, obs_config.allies, naction).copy()
+        action_masks = (
+            obs[-action_mask_elems:].reshape(-1, obs_config.allies, naction).copy()
+        )
         # Always allow doing nothing (required because on first step the all-0s entity will have an action mask of all 0s)
         action_masks[:, :, 4] = 1.0
 
