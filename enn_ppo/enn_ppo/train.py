@@ -38,6 +38,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.tensorboard import SummaryWriter
+import ragged_buffer
 from ragged_buffer import RaggedBufferF32, RaggedBufferI64, RaggedBuffer
 
 
@@ -92,8 +93,9 @@ def parse_args(override_args: Optional[List[str]] = None) -> argparse.Namespace:
         help='JSON dictionary with keyword arguments for the eval environment')
     parser.add_argument('--eval-processes', type=int, default=None,
                         help='The number of processes to use to collect evaluation data. The envs are split as equally as possible across the processes')
-    parser.add_argument('--eval-capture-videos',type=lambda x:bool(strtobool(x)), default=False, nargs='?', const=True,
+    parser.add_argument('--eval-capture-videos', type=lambda x:bool(strtobool(x)), default=False, nargs='?', const=True,
                         help='If --eval-render-videos is set, videos will be recorded of the environments during evaluation')
+    parser.add_argument('--codecraft-eval', type=lambda x:bool(strtobool(x)), default=False, nargs='?', const=True)
 
     # Network architecture
     parser.add_argument('--d-model', type=int, default=64,
@@ -254,7 +256,7 @@ class Rollout:
         envs: VecEnv,
         obs_space: ObsSpace,
         action_space: Mapping[str, ActionSpace],
-        agent: PPOActor,
+        agent: Union[PPOActor, List[Tuple[npt.NDArray[np.int64], PPOActor]]],
         device: torch.device,
         tracer: Tracer,
     ) -> None:
@@ -294,6 +296,13 @@ class Rollout:
             self.action_masks.clear()
             self.actions.clear()
             self.logprobs.clear()
+        if isinstance(self.agent, list):
+            allindices = np.concatenate([indices for indices, _ in self.agent])
+            invindex = np.zeros_like(allindices, dtype=np.int64)
+            for i, index in enumerate(allindices):
+                invindex[index] = i
+        else:
+            invindex = np.array([], dtype=np.int64)
 
         total_episodic_return = 0.0
         total_episodic_length = 0
@@ -318,19 +327,40 @@ class Rollout:
                 self.dones[step] = next_done
 
             with torch.no_grad(), self.tracer.span("forward"):
-                (
-                    action,
-                    probs_tensor,
-                    _,
-                    actor_counts,
-                    aux,
-                    logits,
-                ) = self.agent.get_action_and_auxiliary(
-                    next_obs.features, next_obs.action_masks, tracer=self.tracer
-                )
-                logprob = tensor_dict_to_ragged(
-                    RaggedBufferF32, probs_tensor, actor_counts
-                )
+                if isinstance(self.agent, list):
+                    actions = []
+                    for env_indices, agent in self.agent:
+                        a = agent.get_action_and_auxiliary(
+                            {
+                                name: feats[env_indices]
+                                for name, feats in next_obs.features.items()
+                            },
+                            {
+                                name: mask[env_indices]
+                                for name, mask in next_obs.action_masks.items()
+                            },
+                            self.tracer,
+                        )[0]
+                        actions.append((env_indices, a))
+                    action = {}
+                    for name in self.action_space.keys():
+                        action[name] = ragged_buffer.cat([a[1][name] for a in actions])[
+                            invindex
+                        ]
+                else:
+                    (
+                        action,
+                        probs_tensor,
+                        _,
+                        actor_counts,
+                        aux,
+                        logits,
+                    ) = self.agent.get_action_and_auxiliary(
+                        next_obs.features, next_obs.action_masks, tracer=self.tracer
+                    )
+                    logprob = tensor_dict_to_ragged(
+                        RaggedBufferF32, probs_tensor, actor_counts
+                    )
             if record_samples:
                 self.values[step] = aux["value"].flatten()
                 self.actions.extend(action)
@@ -364,7 +394,14 @@ class Rollout:
                     )
                     next_done = torch.tensor(next_obs.done).to(self.device).view(-1)
 
-            for eoei in next_obs.end_of_episode_info.values():
+            if isinstance(self.agent, list):
+                end_of_episode_infos = []
+                for i in self.agent[0][0]:
+                    if i in next_obs.end_of_episode_info:
+                        end_of_episode_infos.append(next_obs.end_of_episode_info[i])
+            else:
+                end_of_episode_infos = list(next_obs.end_of_episode_info.values())
+            for eoei in end_of_episode_infos:
                 total_episodic_return += eoei.total_reward
                 total_episodic_length += eoei.length
                 total_episodes += 1
@@ -444,10 +481,13 @@ def run_eval(
     writer: SummaryWriter,
     global_step: int,
     capture_videos: bool = False,
+    codecraft_eval: bool = False,
 ) -> None:
     # TODO: metrics are biased towards short episodes
     eval_envs: VecEnv
-    if processes > 1:
+    if codecraft_eval:
+        eval_envs = CodeCraftVecEnv(num_envs, stagger=False, fair=True, **env_kwargs)
+    elif processes > 1:
         eval_envs = ParallelEnvList(
             env_cls,
             env_kwargs,
@@ -455,14 +495,30 @@ def run_eval(
             processes,
         )
     else:
-        eval_envs = EnvList(
-            env_cls, args.eval_env_kwargs or env_kwargs, args.eval_num_envs
-        )
+        eval_envs = EnvList(env_cls, args.eval_env_kwargs or env_kwargs, num_envs)
+    if codecraft_eval:
+        random_agent = PPOActor(
+            obs_space,
+            dict(action_space),
+            d_model=args.d_model,
+            n_head=args.n_head,
+            n_layer=args.n_layer,
+            pooling_op=args.pooling_op,
+        ).to(device)
+        agents: Union[PPOActor, List[Tuple[npt.NDArray[np.int64], PPOActor]]] = [
+            (np.array([2 * i for i in range(num_envs // 2)]), agent),
+            (
+                np.array([2 * i + 1 for i in range(num_envs // 2)]),
+                random_agent,
+            ),
+        ]
+    else:
+        agents = agent
     eval_rollout = Rollout(
         eval_envs,
         obs_space=obs_space,
         action_space=action_space,
-        agent=agent,
+        agent=agents,
         device=device,
         tracer=tracer,
     )
@@ -572,7 +628,7 @@ def train(args: argparse.Namespace) -> float:
         eval_env_kwargs = env_kwargs
     envs: VecEnv
     if args.gym_id == "CodeCraft":
-        envs = CodeCraftVecEnv(args.num_envs, 0)
+        envs = CodeCraftVecEnv(args.num_envs, **env_kwargs)
     elif args.processes > 1:
         envs = ParallelEnvList(env_cls, env_kwargs, args.num_envs, args.processes)
     else:
@@ -664,6 +720,7 @@ def train(args: argparse.Namespace) -> float:
                 writer,
                 rollout.global_step,
                 args.eval_capture_videos,
+                args.codecraft_eval,
             )
 
         tracer.start("update")

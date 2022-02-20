@@ -7,7 +7,18 @@ from enn_zoo.codecraft import rest_client
 from enn_zoo.codecraft.rest_client import ObsConfig, Rules
 import numpy as np
 import numpy.typing as npt
-from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple, Type
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    List,
+    Mapping,
+    Optional,
+    Sequence,
+    Tuple,
+    Type,
+    Union,
+)
 from ragged_buffer import RaggedBufferF32, RaggedBufferI64, RaggedBufferBool
 from entity_gym.environment import VecEnv
 from entity_gym.environment.vec_env import VecCategoricalActionMask, VecObs
@@ -20,6 +31,7 @@ from entity_gym.environment.environment import (
     Observation,
     EpisodeStats,
 )
+from .maps import map_allied_wealth, map_arena_tiny
 
 LAST_OBS = {}
 
@@ -57,7 +69,8 @@ DRONE_FEATS = [
     "required_energy",
     # TODO: more than one build
     "constructing_1m",
-    # global features
+]
+GLOBAL_FEATS = [
     "relative_elapsed_time",
     "allied_score",
     "map_height",
@@ -75,7 +88,7 @@ class CodeCraftEnv(Environment):
     def obs_space(cls) -> ObsSpace:
         return ObsSpace(
             entities={
-                "ally": Entity(list(DRONE_FEATS)),
+                "ally": Entity(list(DRONE_FEATS) + list(GLOBAL_FEATS)),
                 "enemy": Entity(list(DRONE_FEATS)),
                 "mineral": Entity(
                     [
@@ -250,16 +263,12 @@ class CodeCraftVecEnv(VecEnv):
     def __init__(
         self,
         num_envs: int,
-        num_self_play: int,
-        objective: Objective = Objective.ALLIED_WEALTH,
+        objective: Union[Objective, str] = Objective.ALLIED_WEALTH,
         config: TaskConfig = TaskConfig(),
         stagger: bool = True,
         fair: bool = False,
         randomize: bool = False,
         use_action_masks: bool = True,
-        obs_config: ObsConfig = ObsConfig(
-            allies=1, drones=1, minerals=10, tiles=0, num_builds=1
-        ),
         hardness: int = 0,
         symmetric: float = 0.0,
         scripted_opponents: Optional[List[Tuple[str, int]]] = None,
@@ -277,6 +286,12 @@ class CodeCraftVecEnv(VecEnv):
         partial_score: float = 1.0,
         create_game_delay: float = 0.0,
     ) -> None:
+        if isinstance(objective, str):
+            objective = Objective(objective)
+        if objective.vs():
+            num_self_play = num_envs // 2
+        else:
+            num_self_play = 0
         assert num_envs >= 2 * num_self_play
         self.num_envs = num_envs
         self.objective = objective
@@ -291,7 +306,19 @@ class CodeCraftVecEnv(VecEnv):
         self.last_map: Optional[Dict[str, Any]] = None
         self.randomize = randomize
         self.use_action_masks = use_action_masks
-        self.obs_config = obs_config
+        if (
+            objective == Objective.DISTANCE_TO_CRYSTAL
+            or objective == Objective.ALLIED_WEALTH
+        ):
+            self.obs_config = ObsConfig(
+                allies=1, drones=1, minerals=10, tiles=0, num_builds=1
+            )
+        elif objective == Objective.ARENA_TINY:
+            self.obs_config = ObsConfig(
+                allies=1, drones=2, minerals=0, tiles=0, num_builds=1
+            )
+        else:
+            raise NotImplementedError()
         self.hardness = hardness
         self.symmetric = symmetric
         self.win_bonus = win_bonus
@@ -329,13 +356,16 @@ class CodeCraftVecEnv(VecEnv):
         ):
             self.custom_map = map_allied_wealth
             self.game_length = 1 * 60 * 60
+        elif objective == Objective.ARENA_TINY:
+            self.custom_map = map_arena_tiny
+            self.game_length = 1 * 60 * 60
         else:
             raise NotImplementedError(objective)
         if max_game_length is not None:
             self.game_length = max_game_length
         self.build_costs = [sum(modules) for modules in self.builds]
         self.base_naction = 8 + len(self.builds)
-        assert len(self.builds) + 1 == obs_config.num_builds
+        assert len(self.builds) + 1 == self.obs_config.num_builds
 
         self.game_count = 0
 
@@ -419,7 +449,10 @@ class CodeCraftVecEnv(VecEnv):
         return self.observe(obs_config)
 
     def act(
-        self, actions: Mapping[str, RaggedBufferI64], obs_filter: ObsSpace
+        self,
+        actions: Mapping[str, RaggedBufferI64],
+        obs_filter: ObsSpace,
+        env_subset: Optional[List[int]] = None,
     ) -> VecObs:
         racts = actions["act"]
         return self.step(
@@ -438,24 +471,23 @@ class CodeCraftVecEnv(VecEnv):
     def step(
         self,
         actions: List[List[int]],
-        # env_subset: Optional[List[int]] = None,
-        # obs_config: Optional[ObsConfig] = None,
         obs_filter: ObsSpace,
+        # obs_config: Optional[ObsConfig] = None,
         action_masks: Optional[Any] = None,
+        env_subset: Optional[List[int]] = None,
     ) -> VecObs:
         assert len(actions) == self.num_envs
-        self.step_async(actions, action_masks)
+        self.step_async(actions, action_masks, env_subset)
         return self.observe(obs_filter)
 
     def step_async(
         self,
         actions: List[List[int]],
-        # env_subset: Optional[List[int]] = None,
         action_masks: Optional[Any] = None,
+        env_subset: Optional[List[int]] = None,
     ) -> None:
         game_actions = []
-        # games = [self.games[env] for env in env_subset] if env_subset else self.games
-        games = self.games
+        games = [self.games[env] for env in env_subset] if env_subset else self.games
         for (i, ((game_id, player_id, opponent), player_actions)) in enumerate(
             zip(games, actions)
         ):
@@ -693,7 +725,11 @@ class CodeCraftVecEnv(VecEnv):
 
         naction = self.base_naction + obs_config.extra_actions()
         action_mask_elems = naction * obs_config.allies * num_envs
-        action_masks = obs[-action_mask_elems:].reshape(-1, obs_config.allies, naction)
+        action_masks = (
+            obs[-action_mask_elems:].reshape(-1, obs_config.allies, naction).copy()
+        )
+        # Always allow doing nothing (required because on first step the all-0s entity will have an action mask of all 0s)
+        action_masks[:, :, 4] = 1.0
 
         _obs = obs[: stride * self.num_envs].reshape(num_envs, -1)
         global LAST_OBS
@@ -744,7 +780,7 @@ class CodeCraftVecEnv(VecEnv):
         batch = VecObs(
             features={
                 "ally": ragged_allies,
-                # "enemy": ragged_enemies,
+                "enemy": ragged_enemies,
                 "mineral": ragged_minerals,
                 # "tile": ragged_tiles,
             },
@@ -832,55 +868,3 @@ def dist2(x1: float, y1: float, x2: float, y2: float) -> float:
     dx = x1 - x2
     dy = y1 - y2
     return dx * dx + dy * dy
-
-
-def map_allied_wealth(
-    randomize: bool, hardness: int, require_default_mothership: bool
-) -> Dict[str, Any]:
-    map_width = 6000
-    map_height = 3750
-    mineral_count = 25
-    angle = 2 * np.pi * np.random.rand()
-    spawn_x = (map_width // 2 - 100) * np.sin(angle)
-    spawn_y = (map_height // 2 - 100) * np.cos(angle)
-
-    return {
-        "mapWidth": map_width,
-        "mapHeight": map_height,
-        "minerals": mineral_count * [(1, 1)],
-        "player1Drones": [
-            drone_dict(
-                spawn_x,
-                spawn_y,
-                constructors=2,
-                storage_modules=4,
-                engines=4,
-                resources=0,
-            )
-        ],
-        "player2Drones": [drone_dict(-spawn_x, -spawn_y, shield_generators=10)],
-    }
-
-
-def drone_dict(
-    x: int,
-    y: int,
-    storage_modules: int = 0,
-    missile_batteries: int = 0,
-    constructors: int = 0,
-    engines: int = 0,
-    shield_generators: int = 0,
-    long_range_missiles: int = 0,
-    resources: int = 0,
-) -> Dict[str, int]:
-    return {
-        "xPos": x,
-        "yPos": y,
-        "resources": resources,
-        "storageModules": storage_modules,
-        "missileBatteries": missile_batteries,
-        "constructors": constructors,
-        "engines": engines,
-        "shieldGenerators": shield_generators,
-        "longRangeMissiles": long_range_missiles,
-    }
