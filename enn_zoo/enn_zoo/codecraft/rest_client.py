@@ -31,7 +31,7 @@ class ObsConfig:
     feat_mineral_claims: bool = False
     harvest_action: bool = False
     lock_build_action: bool = False
-    feat_dist_to_wall: bool = False
+    feat_dist_to_wall: bool = True
     unit_count: bool = True
     construction_progress: bool = True
 

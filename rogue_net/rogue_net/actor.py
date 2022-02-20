@@ -178,8 +178,15 @@ class Actor(nn.Module):
 
         tracer.start("auxiliary_heads")
         if self.auxiliary_heads:
-            pooled = torch_scatter.scatter(
-                src=x.data, dim=0, index=x.batch_index, reduce="mean"
+            pooled = torch.zeros(
+                x.lengths.size(0), x.data.size(1), device=x.data.device
+            )
+            torch_scatter.scatter(
+                src=x.data,
+                dim=0,
+                index=x.batch_index,
+                reduce="mean",
+                out=pooled,
             )
             auxiliary_values = {
                 name: module(pooled) for name, module in self.auxiliary_heads.items()

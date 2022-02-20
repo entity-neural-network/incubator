@@ -27,6 +27,7 @@ import numpy.typing as npt
 from entity_gym.examples import ENV_REGISTRY
 from enn_zoo.griddly import GRIDDLY_ENVS, create_env
 from enn_zoo.codecraft.cc_vec_env import CodeCraftEnv, CodeCraftVecEnv
+from enn_zoo.codecraft.codecraftnet.adapter import CCNetAdapter
 from entity_gym.serialization import SampleRecordingVecEnv
 from enn_ppo.simple_trace import Tracer
 from rogue_net.relpos_encoding import RelposEncodingConfig
@@ -109,6 +110,8 @@ def parse_args(override_args: Optional[List[str]] = None) -> argparse.Namespace:
         help='if set, translate positions to be centered on a given entity. Example: --translate=\'{"reference_entity": "SnakeHead", "position_features": ["x", "y"]}\'')
     parser.add_argument('--relpos-encoding', type=str, default=None,
         help='configuration for relative positional encoding. Example: --relpos-encoding=\'{"extent": [10, 10], "position_features": ["x", "y"]}\'')
+    # Use the DeepCodeCraft policy network instead of RogueNet. Only works with the CodeCraft environment and added mainly for debugging purposes.
+    parser.add_argument('--codecraft-net', type=lambda x:bool(strtobool(x)), default=False, nargs='?', const=True, help=argparse.SUPPRESS)
 
     # Algorithm specific arguments
     parser.add_argument('--num-envs', type=int, default=4,
@@ -598,16 +601,20 @@ def train(args: argparse.Namespace) -> float:
     else:
         relpos_encoding = None
 
-    agent = PPOActor(
-        obs_space,
-        action_space,
-        d_model=args.d_model,
-        n_head=args.n_head,
-        n_layer=args.n_layer,
-        pooling_op=args.pooling_op,
-        feature_transforms=translate,
-        relpos_encoding=relpos_encoding,
-    ).to(device)
+    if not args.codecraft_net:
+        agent = PPOActor(
+            obs_space,
+            action_space,
+            d_model=args.d_model,
+            n_head=args.n_head,
+            n_layer=args.n_layer,
+            pooling_op=args.pooling_op,
+            feature_transforms=translate,
+            relpos_encoding=relpos_encoding,
+        ).to(device)
+    else:
+        agent = CCNetAdapter(device)  # type: ignore
+
     optimizer = optim.AdamW(
         agent.parameters(),
         lr=args.learning_rate,
@@ -720,6 +727,7 @@ def train(args: argparse.Namespace) -> float:
         tracer.start("optimize")
         b_inds = np.arange(args.batch_size)
         clipfracs = []
+
         for epoch in range(args.update_epochs):
             np.random.shuffle(b_inds)
             for start in range(0, args.batch_size, args.minibatch_size):
@@ -788,6 +796,7 @@ def train(args: argparse.Namespace) -> float:
                             ).mean()
                         ]
 
+                    # TODO: not invariant to microbatch size, should be normalizing full batch or minibatch instead
                     mb_advantages = b_advantages[mb_inds]
                     if args.norm_adv:
                         assert (

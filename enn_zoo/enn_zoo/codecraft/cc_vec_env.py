@@ -21,6 +21,8 @@ from entity_gym.environment.environment import (
     EpisodeStats,
 )
 
+LAST_OBS = {}
+
 DRONE_FEATS = [
     "x",
     "y",
@@ -46,11 +48,11 @@ DRONE_FEATS = [
     # lock_build_action
     # "build_action_locked",
     # feat_dist_to_wall
-    # "distance_to_wall_0",
-    # "distance_to_wall_1",
-    # "distance_to_wall_2",
-    # "distance_to_wall_3",
-    # "distance_to_wall_4",
+    "distance_to_wall_0",
+    "distance_to_wall_1",
+    "distance_to_wall_2",
+    "distance_to_wall_3",
+    "distance_to_wall_4",
     "available_energy",
     "required_energy",
     # TODO: more than one build
@@ -99,7 +101,7 @@ class CodeCraftEnv(Environment):
         return {
             # 0-5: turn/movement (4 is no turn, no movement)
             # 6: build [0,1,0,0,0] drone (if minerals > 5)
-            # 7: harvest
+            # 7: deposit resources
             "act": CategoricalActionSpace(
                 [
                     "move_left",
@@ -109,7 +111,7 @@ class CodeCraftEnv(Environment):
                     "halt",
                     "turn_right",
                     "build_1m",
-                    "harvest",
+                    "deposit_resources",
                     # feat_lock_build_action
                     # "unlock_build_action",
                     # "lock_build_action",
@@ -321,7 +323,10 @@ class CodeCraftVecEnv(VecEnv):
         self.next_opponent_index = 0
 
         self.builds = objective.extra_builds()
-        if objective == Objective.ALLIED_WEALTH:
+        if (
+            objective == Objective.ALLIED_WEALTH
+            or objective == Objective.DISTANCE_TO_ORIGIN
+        ):
             self.custom_map = map_allied_wealth
             self.game_length = 1 * 60 * 60
         else:
@@ -416,7 +421,14 @@ class CodeCraftVecEnv(VecEnv):
     def act(
         self, actions: Mapping[str, RaggedBufferI64], obs_filter: ObsSpace
     ) -> VecObs:
-        return self.step([list(row) for row in actions["act"].as_array()], obs_filter)
+        racts = actions["act"]
+        return self.step(
+            [
+                list(racts[i].as_array()) if racts.size1(i) > 0 else []
+                for i in range(racts.size0())
+            ],
+            obs_filter,
+        )
 
     def render(self, **kwargs: Any) -> npt.NDArray[np.uint8]:
         # TODO: @cswinter to provide rest API client for grabbing image state from CodeCraft
@@ -431,6 +443,7 @@ class CodeCraftVecEnv(VecEnv):
         obs_filter: ObsSpace,
         action_masks: Optional[Any] = None,
     ) -> VecObs:
+        assert len(actions) == self.num_envs
         self.step_async(actions, action_masks)
         return self.observe(obs_filter)
 
@@ -454,7 +467,7 @@ class CodeCraftVecEnv(VecEnv):
                     action_masks_drone = action_masks_i[drone_index]
                 # 0-5: turn/movement (4 is no turn, no movement)
                 # 6: build [0,1,0,0,0] drone (if minerals > 5)
-                # 7: harvest
+                # 7: deposit resources
                 move = False
                 harvest = False
                 turn = 0
@@ -683,6 +696,9 @@ class CodeCraftVecEnv(VecEnv):
         action_masks = obs[-action_mask_elems:].reshape(-1, obs_config.allies, naction)
 
         _obs = obs[: stride * self.num_envs].reshape(num_envs, -1)
+        global LAST_OBS
+        LAST_OBS["obs"] = _obs
+        LAST_OBS["masks"] = action_masks
 
         globals = _obs[:, : obs_config.endglobals()]
 
@@ -694,7 +710,7 @@ class CodeCraftVecEnv(VecEnv):
             [allies, globals.reshape(num_envs, 1, obs_config.global_features())], axis=2
         )
         ally_not_padding = allies[:, :, 7] != 0
-        # TODO: hack
+        # TODO: remove this once RogueNet deals better with observations with no entities
         ally_not_padding[:, 0] = True
         ragged_allies = RaggedBufferF32.from_flattened(
             allies[ally_not_padding],
