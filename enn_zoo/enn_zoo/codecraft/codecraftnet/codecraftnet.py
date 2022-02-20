@@ -824,7 +824,7 @@ class SparseSequence:
         else:
             x_padded = torch.zeros(self.count, dfeat)
         scatter_add(x, index=self.flat_index, dim=0, out=x_padded)
-        return x_padded.view(self.dbatch, self.dseq, dfeat) # type: ignore
+        return x_padded.view(self.dbatch, self.dseq, dfeat)  # type: ignore
 
     @staticmethod
     def from_mask(select: torch.Tensor) -> "SparseSequence":
