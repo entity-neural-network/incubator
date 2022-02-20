@@ -505,18 +505,20 @@ def run_eval(
             n_layer=args.n_layer,
             pooling_op=args.pooling_op,
         ).to(device)
-        agent = [
+        agents: Union[PPOActor, List[Tuple[npt.NDArray[np.int64], PPOActor]]] = [
             (np.array([2 * i for i in range(num_envs // 2)]), agent),
             (
                 np.array([2 * i + 1 for i in range(num_envs // 2)]),
                 random_agent,
             ),
         ]
+    else:
+        agents = agent
     eval_rollout = Rollout(
         eval_envs,
         obs_space=obs_space,
         action_space=action_space,
-        agent=agent,
+        agent=agents,
         device=device,
         tracer=tracer,
     )
