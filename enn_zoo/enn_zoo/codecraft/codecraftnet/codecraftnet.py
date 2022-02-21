@@ -417,7 +417,6 @@ class TransformerPolicy8HS(nn.Module, hyperstate.lazy.Serializable):
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, Any]:
         action_masks = action_masks[:, : self.agents, :]
         logits, v = self.forward(observation, privileged_obs, action_masks)
-        # logits = logits.view(-1, self.agents, self.naction)
         if action_masks.size(2) != self.naction:
             nbatch, nagent, naction = action_masks.size()
             zeros = torch.zeros(nbatch, nagent, self.naction - naction).to(
@@ -435,7 +434,7 @@ class TransformerPolicy8HS(nn.Module, hyperstate.lazy.Serializable):
             action_dist.log_prob(actions),
             entropy,
             v,
-            None,
+            action_dist.logits,
         )
 
     def forward(

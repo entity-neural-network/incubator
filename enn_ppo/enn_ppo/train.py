@@ -288,7 +288,11 @@ class Rollout:
         self.rendered: Optional[npt.NDArray[np.uint8]] = None
 
     def run(
-        self, steps: int, record_samples: bool, capture_videos: bool = False
+        self,
+        steps: int,
+        record_samples: bool,
+        capture_videos: bool = False,
+        capture_logits: bool = False,
     ) -> Tuple[VecObs, torch.Tensor, Dict[str, float]]:
         """
         Run the agent for a number of steps. Returns next_obs, next_done, and a dictionary of statistics.
@@ -377,7 +381,7 @@ class Rollout:
 
             with self.tracer.span("step"):
                 if isinstance(self.envs, SampleRecordingVecEnv):
-                    if args.capture_logits:
+                    if capture_logits:
                         ragged_logits: Optional[
                             Dict[str, RaggedBufferF32]
                         ] = tensor_dict_to_ragged(
@@ -496,7 +500,9 @@ def run_eval(
     # TODO: metrics are biased towards short episodes
     eval_envs: VecEnv
     if codecraft_eval:
-        eval_envs = CodeCraftVecEnv(num_envs, stagger=False, symmetric=True, **env_kwargs)
+        eval_envs = CodeCraftVecEnv(
+            num_envs, stagger=False, symmetric=True, **env_kwargs
+        )
     elif processes > 1:
         eval_envs = ParallelEnvList(
             env_cls,
@@ -541,7 +547,10 @@ def run_eval(
         tracer=tracer,
     )
     _, _, metrics = eval_rollout.run(
-        args.eval_steps, record_samples=False, capture_videos=capture_videos
+        args.eval_steps,
+        record_samples=False,
+        capture_videos=capture_videos,
+        capture_logits=record_logits,
     )
 
     if capture_videos:
@@ -768,7 +777,9 @@ def train(args: argparse.Namespace) -> float:
 
         tracer.start("rollout")
 
-        next_obs, next_done, metrics = rollout.run(args.num_steps, record_samples=True)
+        next_obs, next_done, metrics = rollout.run(
+            args.num_steps, record_samples=True, capture_logits=args.capture_logits
+        )
         for name, value in metrics.items():
             writer.add_scalar(name, value, rollout.global_step)
         print(

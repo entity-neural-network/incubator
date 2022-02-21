@@ -67,8 +67,10 @@ class CategoricalActionHead(nn.Module):
                 torch.zeros((0, self.n_choice), dtype=torch.float32, device=device),
             )
 
-        actors = torch.tensor((mask.actors + index_offsets).as_array()).to(
-            x.data.device
+        actors = (
+            torch.tensor((mask.actors + index_offsets).as_array())
+            .to(x.data.device)
+            .squeeze(-1)
         )
         actor_embeds = x.data[actors]
         logits = self.proj(actor_embeds)
@@ -84,10 +86,10 @@ class CategoricalActionHead(nn.Module):
         if prev_actions is None:
             action = dist.sample()
         else:
-            action = torch.tensor(prev_actions.as_array()).to(x.data.device)
+            action = torch.tensor(prev_actions.as_array().squeeze(-1)).to(x.data.device)
         logprob = dist.log_prob(action)
         entropy = dist.entropy()
-        return action, lengths, logprob, entropy, logits
+        return action, lengths, logprob, entropy, dist.logits
 
 
 class PaddedSelectEntityActionHead(nn.Module):

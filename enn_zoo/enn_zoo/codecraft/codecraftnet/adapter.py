@@ -143,7 +143,7 @@ class CCNetAdapter(nn.Module):
         if prev_actions is None and VERIFY:
             assert np.array_equal(LAST_OBS["obs"], obs.cpu().numpy())
             assert np.array_equal(LAST_OBS["masks"], masks.cpu().float().numpy())
-        actions, logprobs, entropy, values, probs = self.network.evaluate(
+        actions, logprobs, entropy, values, logits = self.network.evaluate(
             obs,
             masks,
             privileged_obs=None,
@@ -165,7 +165,7 @@ class CCNetAdapter(nn.Module):
             {"act": entropy.unsqueeze(-1)},
             {"act": allies.size1()},
             {"value": values.unsqueeze(-1)},
-            {},
+            {"act": logits},
         )
 
     def get_value(

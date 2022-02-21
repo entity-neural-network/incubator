@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import List, Optional, Tuple, Dict
+from typing import List, Literal, Optional, Tuple, Dict
 from enn_ppo.simple_trace import Tracer
 from entity_gym.environment.vec_env import VecActionMask
 from entity_gym.serialization import Trace
@@ -23,6 +23,7 @@ class DataSet:
     actions: RaggedBatchDict[np.int64]
     logprobs: RaggedBatchDict[np.float32]
     masks: RaggedActionDict
+    logits: Optional[RaggedBatchDict[np.float32]]
     batch_size: int
     frames: int
 
@@ -33,18 +34,26 @@ class DataSet:
         entities = RaggedBatchDict(RaggedBufferF32)
         actions = RaggedBatchDict(RaggedBufferI64)
         logprobs = RaggedBatchDict(RaggedBufferF32)
+        logits = RaggedBatchDict(RaggedBufferF32)
         masks = RaggedActionDict()
         for e in episodes:
             entities.extend(e.entities)
             actions.extend(e.actions)
             logprobs.extend(e.logprobs)
             masks.extend(e.masks)
+            logits.extend(e.logits)
 
         frames = (
             next(iter(entities.buffers.values())).size0() // batch_size
         ) * batch_size
         return DataSet(
-            entities, actions, logprobs, masks, batch_size=batch_size, frames=frames
+            entities,
+            actions,
+            logprobs,
+            masks,
+            logits if len(logits.buffers) > 0 else None,
+            batch_size=batch_size,
+            frames=frames,
         )
 
     @property
@@ -58,6 +67,7 @@ class DataSet:
         Dict[str, RaggedBufferI64],
         Dict[str, RaggedBufferF32],
         Dict[str, VecActionMask],
+        Optional[Dict[str, RaggedBufferF32]],
     ]:
         if self.permutation is None:
             indices = np.arange(n * self.batch_size, (n + 1) * self.batch_size)
@@ -68,6 +78,7 @@ class DataSet:
             self.actions[indices],
             self.logprobs[indices],
             self.masks[indices],
+            self.logits[indices] if self.logits is not None else None,
         )
 
     def shuffle(self) -> None:
@@ -92,11 +103,12 @@ def compute_loss(
     model: AutoActor,
     batch: int,
     ds: DataSet,
+    loss_fn: Literal["kl", "mse"],
     tracer: Tracer,
     device: torch.device,
 ) -> Tuple[torch.Tensor, float]:
-    entities, actions, logprobs, masks = ds.batch(batch)
-    _, newlogprob, entropy, _, aux, _ = model.get_action_and_auxiliary(
+    entities, actions, logprobs, masks, logits = ds.batch(batch)
+    _, newlogprob, entropy, _, aux, newlogits = model.get_action_and_auxiliary(
         entities=entities,
         action_masks=masks,
         prev_actions=actions,
@@ -105,14 +117,29 @@ def compute_loss(
     loss = torch.tensor(0.0, device=device)
     for actname, target_logprob in logprobs.items():
         # Create normalized distributions
-        logprob = newlogprob[actname]
-        dist = torch.cat([logprob, (1 - logprob.exp()).log()], dim=1)
-        target = torch.tensor(target_logprob.as_array(), device=device)
-        target_dist = torch.cat([target.exp(), 1 - target.exp()], dim=1)
-        loss += F.kl_div(
-            dist,
-            target_dist,
-        )
+        if loss_fn == "kl":
+            if logits is None:
+                logprob = newlogprob[actname]
+                dist = torch.cat([logprob, (1 - logprob.exp()).log()], dim=1)
+                target = torch.tensor(target_logprob.as_array(), device=device)
+                target_dist = torch.cat([target.exp(), 1 - target.exp()], dim=1)
+                loss += F.kl_div(
+                    dist,
+                    target_dist,
+                )
+            else:
+                dist = newlogits[actname]
+                target_dist = torch.tensor(logits[actname].as_array(), device=device)
+                loss += F.kl_div(
+                    dist,
+                    target_dist.exp(),
+                )
+        elif loss_fn == "mse":
+            logprob = newlogprob[actname]
+            target = torch.tensor(target_logprob.as_array(), device=device)
+            loss += F.mse_loss(logprob.masked_fill(mask=logprob==float('-inf'), value=0.0), target.masked_fill(mask=target==float('-inf'), value=0.0))
+            if torch.any(logprob == float('-inf')):
+                __import__('ipdb').set_trace()
     return loss, sum(e.mean().item() for _, e in entropy.items())
 
 
@@ -123,6 +150,7 @@ def train(
     epochs: int,
     lr: float,
     max_grad_norm: float,
+    loss_fn: Literal["kl", "mse"],
     log_interval: int,
     track: bool,
     device: torch.device,
@@ -133,7 +161,7 @@ def train(
     for epoch in range(epochs + 1):
         test_loss = 0.0
         for test_batch in range(testds.nbatch):
-            loss, _ = compute_loss(model, test_batch, testds, tracer, device)
+            loss, _ = compute_loss(model, test_batch, testds, loss_fn, tracer, device)
             test_loss = loss.item()
         print(f"Test loss {test_loss:.4f}")
         if track:
@@ -151,7 +179,7 @@ def train(
         model.train()
         for batch in range(trainds.nbatch):
             optimizer.zero_grad()
-            loss, entropy = compute_loss(model, batch, trainds, tracer, device)
+            loss, entropy = compute_loss(model, batch, trainds, loss_fn, tracer, device)
             loss.backward()
             gradnorm = nn.utils.clip_grad_norm_(model.parameters(), max_grad_norm)
             optimizer.step()
@@ -176,6 +204,7 @@ def train(
 @click.option("--batch-size", default=512, help="Batch size")
 @click.option("--lr", default=1e-4, help="Learning rate")
 @click.option("--max-grad-norm", default=100.0, help="Max gradient norm")
+@click.option("--loss-fn", default="mse", help='Loss function ("kl" or "mse")')
 @click.option("--log-interval", default=10, help="Log interval")
 @click.option("--filepath", default="enhanced250m-b.blob", help="Filepath to load from")
 @click.option("--track/--no-track", default=False, help="Whether to log metrics to W&B")
@@ -193,6 +222,7 @@ def main(
     batch_size: int,
     lr: float,
     max_grad_norm: float,
+    loss_fn: str,
     log_interval: int,
     filepath: str,
     track: bool,
@@ -223,11 +253,14 @@ def main(
                 "batch_size": batch_size,
                 "lr": lr,
                 "max_grad_norm": max_grad_norm,
+                "loss_fn": loss_fn,
                 "log_interval": log_interval,
                 "filepath": filepath,
             },
         )
         wandb.watch(model)
+
+    assert loss_fn == "kl" or loss_fn == "mse"
 
     train(
         model=model,
@@ -236,6 +269,7 @@ def main(
         epochs=epochs,
         lr=lr,
         max_grad_norm=max_grad_norm,
+        loss_fn=loss_fn,  # type: ignore
         log_interval=log_interval,
         track=track,
         device=device,

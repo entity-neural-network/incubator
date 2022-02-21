@@ -54,6 +54,10 @@ def ragged_buffer_decode(obj: Any) -> Any:
                 return RaggedBufferF32.from_flattened(flattened, lengths)
             elif dtype == int:
                 return RaggedBufferI64.from_flattened(flattened, lengths)
+            elif dtype == bool:
+                return RaggedBufferBool.from_flattened(flattened, lengths)
+            else:
+                raise ValueError(f"Unsupported RaggedBuffer dtype: {dtype}")
         elif "__classname__" in obj:
             classname = obj["__classname__"]
             if classname in WHITELIST:
