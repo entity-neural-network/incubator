@@ -137,9 +137,12 @@ def compute_loss(
         elif loss_fn == "mse":
             logprob = newlogprob[actname]
             target = torch.tensor(target_logprob.as_array(), device=device)
-            loss += F.mse_loss(logprob.masked_fill(mask=logprob==float('-inf'), value=0.0), target.masked_fill(mask=target==float('-inf'), value=0.0))
-            if torch.any(logprob == float('-inf')):
-                __import__('ipdb').set_trace()
+            loss += F.mse_loss(
+                logprob.masked_fill(mask=logprob == float("-inf"), value=0.0),
+                target.masked_fill(mask=target == float("-inf"), value=0.0),
+            )
+            if torch.any(logprob == float("-inf")):
+                __import__("ipdb").set_trace()
     return loss, sum(e.mean().item() for _, e in entropy.items())
 
 
