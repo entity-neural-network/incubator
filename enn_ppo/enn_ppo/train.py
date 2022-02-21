@@ -218,7 +218,13 @@ def tensor_dict_to_ragged(
     d: Dict[str, torch.Tensor],
     lengths: Dict[str, np.ndarray],
 ) -> Dict[str, RaggedBuffer[ScalarType]]:
-    return {k: rb_cls.from_flattened(v.cpu().numpy(), lengths[k]) for k, v in d.items()}
+    result = {}
+    for k, v in d.items():
+        flattened = v.cpu().numpy()
+        if flattened.ndim == 1:
+            flattened = flattened.reshape(-1, 1)
+        result[k] = rb_cls.from_flattened(flattened, lengths[k])
+    return result
 
 
 class PPOActor(AutoActor):
@@ -860,7 +866,9 @@ def train(args: argparse.Namespace) -> float:
                     with tracer.span("ratio"):
                         logratio = {
                             k: newlogprob[k]
-                            - torch.tensor(b_logprobs[k].as_array()).to(device)
+                            - torch.tensor(b_logprobs[k].as_array())
+                            .squeeze(-1)
+                            .to(device)
                             for k in newlogprob.keys()
                         }
                         ratio = {k: l.exp() for k, l in logratio.items()}
