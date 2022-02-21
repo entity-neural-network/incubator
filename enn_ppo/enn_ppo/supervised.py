@@ -78,8 +78,9 @@ def load_dataset(filepath: str, batch_size: int) -> Tuple[Trace, DataSet, DataSe
     trace = Trace.deserialize(open(filepath, "rb").read(), progress_bar=True)
     episodes = trace.episodes(progress_bar=True)
 
-    test = episodes[-2:]
-    train = episodes[:-2]
+    test_episodes = max(len(episodes) // 20, 1) * 2
+    test = episodes[-test_episodes:]
+    train = episodes[:-test_episodes]
     return (
         trace,
         DataSet.from_episodes(train, batch_size=batch_size),

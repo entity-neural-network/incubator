@@ -496,7 +496,7 @@ def run_eval(
     # TODO: metrics are biased towards short episodes
     eval_envs: VecEnv
     if codecraft_eval:
-        eval_envs = CodeCraftVecEnv(num_envs, stagger=False, fair=True, **env_kwargs)
+        eval_envs = CodeCraftVecEnv(num_envs, stagger=False, symmetric=True, **env_kwargs)
     elif processes > 1:
         eval_envs = ParallelEnvList(
             env_cls,
