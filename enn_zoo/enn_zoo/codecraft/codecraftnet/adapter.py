@@ -161,7 +161,7 @@ class CCNetAdapter(nn.Module):
             }
             if "act" in action_masks
             else {},
-            {"act": logprobs},
+            {"act": logprobs.reshape(-1, 1)},
             {"act": entropy.unsqueeze(-1)},
             {"act": allies.size1()},
             {"value": values.unsqueeze(-1)},

@@ -95,6 +95,10 @@ def parse_args(override_args: Optional[List[str]] = None) -> argparse.Namespace:
                         help='The number of processes to use to collect evaluation data. The envs are split as equally as possible across the processes')
     parser.add_argument('--eval-capture-videos', type=lambda x:bool(strtobool(x)), default=False, nargs='?', const=True,
                         help='If --eval-render-videos is set, videos will be recorded of the environments during evaluation')
+    parser.add_argument('--eval-capture-samples', type=str, default=None,
+                        help='if set, write the samples from evals to this file')
+    parser.add_argument('--eval-capture-logits', type=lambda x:bool(strtobool(x)), default=False, nargs='?', const=True,
+                        help='If --eval-capture-samples is set, record full logits of the agent')
     parser.add_argument('--codecraft-eval', type=lambda x:bool(strtobool(x)), default=False, nargs='?', const=True)
     parser.add_argument('--codecraft-eval-opponent', type=str, default=None)
 
@@ -482,6 +486,8 @@ def run_eval(
     writer: SummaryWriter,
     global_step: int,
     capture_videos: bool = False,
+    record_samples: Optional[str] = None,
+    record_logits: bool = False,
     codecraft_eval: bool = False,
     eval_opponent: Optional[str] = None,
 ) -> None:
@@ -499,26 +505,29 @@ def run_eval(
     else:
         eval_envs = EnvList(env_cls, args.eval_env_kwargs or env_kwargs, num_envs)
     if codecraft_eval:
-        if eval_opponent is None:
-            opponent = PPOActor(
-                obs_space,
-                dict(action_space),
-                d_model=args.d_model,
-                n_head=args.n_head,
-                n_layer=args.n_layer,
-                pooling_op=args.pooling_op,
-            ).to(device)
-        else:
-            opponent = CCNetAdapter(device, load_from=eval_opponent)  # type: ignore
-        agents: Union[PPOActor, List[Tuple[npt.NDArray[np.int64], PPOActor]]] = [
-            (np.array([2 * i for i in range(num_envs // 2)]), agent),
-            (
-                np.array([2 * i + 1 for i in range(num_envs // 2)]),
-                opponent,
-            ),
-        ]
+        # if eval_opponent is None:
+        #     opponent = PPOActor(
+        #         obs_space,
+        #         dict(action_space),
+        #         d_model=args.d_model,
+        #         n_head=args.n_head,
+        #         n_layer=args.n_layer,
+        #         pooling_op=args.pooling_op,
+        #     ).to(device)
+        # else:
+        #     opponent =
+        # agents: Union[PPOActor, List[Tuple[npt.NDArray[np.int64], PPOActor]]] = [
+        #     (np.array([2 * i for i in range(num_envs // 2)]), agent),
+        #     (
+        #         np.array([2 * i + 1 for i in range(num_envs // 2)]),
+        #         opponent,
+        #     ),
+        # ]
+        agents: Union[PPOActor, List[Tuple[npt.NDArray[np.int64], PPOActor]]] = CCNetAdapter(device, load_from=eval_opponent)  # type: ignore
     else:
         agents = agent
+    if record_samples:
+        eval_envs = SampleRecordingVecEnv(eval_envs, record_samples)
     eval_rollout = Rollout(
         eval_envs,
         obs_space=obs_space,
@@ -528,7 +537,7 @@ def run_eval(
         tracer=tracer,
     )
     _, _, metrics = eval_rollout.run(
-        args.eval_steps, record_samples=False, capture_videos=capture_videos
+        args.eval_steps, record_samples=record_samples, capture_videos=capture_videos
     )
 
     if capture_videos:
@@ -703,6 +712,10 @@ def train(args: argparse.Namespace) -> float:
     else:
         next_eval_step = None
 
+    eval_processes = args.eval_processes
+    if not isinstance(eval_processes, int):
+        eval_processes = args.processes
+
     def _run_eval() -> None:
         run_eval(
             env_cls,
@@ -717,6 +730,8 @@ def train(args: argparse.Namespace) -> float:
             writer,
             rollout.global_step,
             args.eval_capture_videos,
+            args.eval_capture_samples,
+            args.eval_capture_logits,
             args.codecraft_eval,
             args.codecraft_eval_opponent,
         )
@@ -726,12 +741,6 @@ def train(args: argparse.Namespace) -> float:
 
         if next_eval_step is not None and rollout.global_step >= next_eval_step:
             next_eval_step += args.eval_interval
-
-            # If eval processes is no set, we just use the same number of processes as the train loop
-            eval_processes = args.eval_processes
-            if not isinstance(eval_processes, int):
-                eval_processes = args.processes
-
             _run_eval()
 
         tracer.start("update")

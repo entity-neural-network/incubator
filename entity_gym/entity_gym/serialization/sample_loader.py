@@ -70,21 +70,22 @@ class Trace:
                         episodes[e].entities[name] = feats[i]
                     else:
                         episodes[e].entities[name].extend(feats[i])
-                for name, acts in sample.actions[i].items():
+                for name, acts in sample.actions.items():
                     if name not in episodes[e].actions:
-                        episodes[e].actions[name] = [acts]
+                        episodes[e].actions[name] = [acts[i]]
                     else:
-                        episodes[e].actions[name].append(acts)
+                        episodes[e].actions[name].append(acts[i])
                 for name, logprobs in sample.probs.items():
                     if name not in episodes[e].logprobs:
                         episodes[e].logprobs[name] = logprobs[i]
                     else:
                         episodes[e].logprobs[name].extend(logprobs[i])
-                for name, logits in sample.logits.items():
-                    if name not in episodes[e].logits:
-                        episodes[e].logits[name] = logits[i]
-                    else:
-                        episodes[e].logits[name].extend(logits[i])
+                if sample.logits is not None:
+                    for name, logits in sample.logits.items():
+                        if name not in episodes[e].logits:
+                            episodes[e].logits[name] = logits[i]
+                        else:
+                            episodes[e].logits[name].extend(logits[i])
             prev_episodes = sample.episode
         return sorted(
             [e for e in episodes.values() if e.complete or include_incomplete],
