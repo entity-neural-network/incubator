@@ -184,7 +184,7 @@ def train(
         for batch in range(trainds.nbatch):
             optimizer.zero_grad()
             if anneal_lr:
-                frac = 1.0 - (epoch * trainds.frames + batch * trainds.nbatch) / (
+                frac = 1.0 - (epoch * trainds.frames + batch * trainds.batch_size) / (
                     epochs * trainds.frames
                 )
                 lrnow = frac * lr
