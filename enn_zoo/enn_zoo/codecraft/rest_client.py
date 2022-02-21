@@ -265,7 +265,7 @@ def observe_batch_raw(
             response = requests.get(url, json=json, stream=True)
             response.raise_for_status()
             response_bytes = response.content
-            return np.frombuffer(response_bytes, dtype=np.float32)  # type: ignore
+            return np.frombuffer(response_bytes, dtype=np.float32)
         except requests.exceptions.ConnectionError as e:
             retries -= 1
             logging.info(f"Connection error on {url} with json={json}, retrying: {e}")

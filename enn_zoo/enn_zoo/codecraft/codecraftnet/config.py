@@ -443,7 +443,6 @@ class Config(Versioned):
 
     def validate(self) -> None:
         assert self.rosteps % self.optimizer.batch_size == 0
-        assert self.eval.eval_envs % 4 == 0
 
     @classmethod
     def version(clz) -> int:
