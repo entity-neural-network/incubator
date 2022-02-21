@@ -14,6 +14,8 @@ WHITELIST = {
     "VecSelectEntityActionMask": VecSelectEntityActionMask,
     "SelectEntityAction": SelectEntityAction,
     "CategoricalAction": CategoricalAction,
+    "SelectEntityActionSpace": SelectEntityActionSpace,
+    "CategoricalActionSpace": CategoricalActionSpace,
     "Entity": Entity,
     "EpisodeStats": EpisodeStats,
 }
