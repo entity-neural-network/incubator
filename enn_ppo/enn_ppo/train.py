@@ -85,6 +85,8 @@ def parse_args(override_args: Optional[List[str]] = None) -> argparse.Namespace:
     # Evals
     parser.add_argument('--eval-interval', type=int, default=None,
         help='number of global steps between evaluations')
+    parser.add_argument('--eval-on-step-0', type=lambda x:bool(strtobool(x)), default=True, nargs='?', const=True,
+        help='whether to run eval on step 0')
     parser.add_argument('--eval-steps', type=int, default=None,
         help='number of sequential steps to evaluate for')
     parser.add_argument('--eval-num-envs', type=int, default=None,
@@ -727,7 +729,10 @@ def train(args: argparse.Namespace) -> float:
     )
 
     if args.eval_interval is not None:
-        next_eval_step: Optional[int] = 0
+        if args.eval_on_step_0:
+            next_eval_step: Optional[int] = 0
+        else:
+            next_eval_step = args.eval_interval
     else:
         next_eval_step = None
 
