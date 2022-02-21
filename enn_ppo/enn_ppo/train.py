@@ -865,7 +865,7 @@ def train(args: argparse.Namespace) -> float:
                         ]
 
                     # TODO: not invariant to microbatch size, should be normalizing full batch or minibatch instead
-                    mb_advantages = b_advantages[mb_inds]
+                    mb_advantages = b_advantages[mb_inds]  # type: ignore
                     if args.norm_adv:
                         assert (
                             len(mb_advantages) > 1
@@ -917,17 +917,17 @@ def train(args: argparse.Namespace) -> float:
                     with tracer.span("value_loss"):
                         newvalue = newvalue.view(-1)
                         if args.clip_vloss:
-                            v_loss_unclipped = (newvalue - b_returns[mb_inds]) ** 2
-                            v_clipped = b_values[mb_inds] + torch.clamp(
-                                newvalue - b_values[mb_inds],
+                            v_loss_unclipped = (newvalue - b_returns[mb_inds]) ** 2  # type: ignore
+                            v_clipped = b_values[mb_inds] + torch.clamp(  # type: ignore
+                                newvalue - b_values[mb_inds],  # type: ignore
                                 -args.clip_coef,
                                 args.clip_coef,
                             )
-                            v_loss_clipped = (v_clipped - b_returns[mb_inds]) ** 2
+                            v_loss_clipped = (v_clipped - b_returns[mb_inds]) ** 2  # type: ignore
                             v_loss_max = torch.max(v_loss_unclipped, v_loss_clipped)
                             v_loss = 0.5 * v_loss_max.mean()
                         else:
-                            v_loss = 0.5 * ((newvalue - b_returns[mb_inds]) ** 2).mean()
+                            v_loss = 0.5 * ((newvalue - b_returns[mb_inds]) ** 2).mean()  # type: ignore
 
                     # TODO: what's correct way of combining entropy loss from multiple actions/actors on the same timestep?
                     if args.anneal_entropy:
