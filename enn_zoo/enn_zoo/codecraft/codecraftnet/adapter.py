@@ -129,7 +129,9 @@ class CCNetAdapter(nn.Module):
             assert isinstance(act_masks, RaggedBufferBool)  # type: ignore
             for i in range(allies.size0()):
                 if allies.size1(i) > 0:
-                    masks[i, :allies.size1(i)] = torch.tensor(act_masks[i].as_array()).view(allies.size1(i), -1)
+                    masks[i, : allies.size1(i)] = torch.tensor(
+                        act_masks[i].as_array()
+                    ).view(allies.size1(i), -1)
         else:
             masks = torch.ones((allies.size0(), oc.allies, 8), dtype=torch.bool).to(
                 self.device
