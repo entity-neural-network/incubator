@@ -29,8 +29,8 @@ def test_empty_actors() -> None:
         ),
         prev_actions=None,
     )
-    assert action.shape == (0, 1)
+    assert action.shape == (0,)
     assert np.array_equal(lengths, np.array([0, 0, 0, 0]))
-    assert logprob.shape == (0, 1)
-    assert entropy.shape == (0, 1)
+    assert logprob.shape == (0,)
+    assert entropy.shape == (0,)
     assert logits.shape == (0, 2)
