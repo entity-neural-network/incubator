@@ -101,6 +101,7 @@ def parse_args(override_args: Optional[List[str]] = None) -> argparse.Namespace:
                         help='If --eval-capture-samples is set, record full logits of the agent')
     parser.add_argument('--codecraft-eval', type=lambda x:bool(strtobool(x)), default=False, nargs='?', const=True)
     parser.add_argument('--codecraft-eval-opponent', type=str, default=None)
+    parser.add_argument('--codecraft-only-opponent', type=lambda x:bool(strtobool(x)), default=False, nargs='?', const=True)
 
     # Network architecture
     parser.add_argument('--d-model', type=int, default=64,
@@ -490,6 +491,7 @@ def run_eval(
     record_logits: bool = False,
     codecraft_eval: bool = False,
     eval_opponent: Optional[str] = None,
+    codecraft_only_opponent: bool = False,
 ) -> None:
     # TODO: metrics are biased towards short episodes
     eval_envs: VecEnv
@@ -505,25 +507,27 @@ def run_eval(
     else:
         eval_envs = EnvList(env_cls, args.eval_env_kwargs or env_kwargs, num_envs)
     if codecraft_eval:
-        # if eval_opponent is None:
-        #     opponent = PPOActor(
-        #         obs_space,
-        #         dict(action_space),
-        #         d_model=args.d_model,
-        #         n_head=args.n_head,
-        #         n_layer=args.n_layer,
-        #         pooling_op=args.pooling_op,
-        #     ).to(device)
-        # else:
-        #     opponent =
-        # agents: Union[PPOActor, List[Tuple[npt.NDArray[np.int64], PPOActor]]] = [
-        #     (np.array([2 * i for i in range(num_envs // 2)]), agent),
-        #     (
-        #         np.array([2 * i + 1 for i in range(num_envs // 2)]),
-        #         opponent,
-        #     ),
-        # ]
-        agents: Union[PPOActor, List[Tuple[npt.NDArray[np.int64], PPOActor]]] = CCNetAdapter(device, load_from=eval_opponent)  # type: ignore
+        if codecraft_only_opponent:
+            agents: Union[PPOActor, List[Tuple[npt.NDArray[np.int64], PPOActor]]] = CCNetAdapter(device, load_from=eval_opponent)  # type: ignore
+        else:
+            if eval_opponent is None:
+                opponent = PPOActor(
+                    obs_space,
+                    dict(action_space),
+                    d_model=args.d_model,
+                    n_head=args.n_head,
+                    n_layer=args.n_layer,
+                    pooling_op=args.pooling_op,
+                ).to(device)
+            else:
+                opponent = CCNetAdapter(device, load_from=eval_opponent)  # type: ignore
+            agents = [
+                (np.array([2 * i for i in range(num_envs // 2)]), agent),
+                (
+                    np.array([2 * i + 1 for i in range(num_envs // 2)]),
+                    opponent,
+                ),
+            ]
     else:
         agents = agent
     if record_samples:
@@ -537,7 +541,7 @@ def run_eval(
         tracer=tracer,
     )
     _, _, metrics = eval_rollout.run(
-        args.eval_steps, record_samples=record_samples, capture_videos=capture_videos
+        args.eval_steps, record_samples=False, capture_videos=capture_videos
     )
 
     if capture_videos:
@@ -734,6 +738,7 @@ def train(args: argparse.Namespace) -> float:
             args.eval_capture_logits,
             args.codecraft_eval,
             args.codecraft_eval_opponent,
+            args.codecraft_only_opponent,
         )
 
     start_time = time.time()

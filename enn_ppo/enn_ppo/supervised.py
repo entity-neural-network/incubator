@@ -1,0 +1,245 @@
+from dataclasses import dataclass
+from typing import List, Optional, Tuple, Dict
+from enn_ppo.simple_trace import Tracer
+from entity_gym.environment.vec_env import VecActionMask
+from entity_gym.serialization import Trace
+from entity_gym.serialization.sample_loader import Episode
+from ragged_buffer import RaggedBufferF32, RaggedBufferI64
+from enn_ppo.train import RaggedActionDict, RaggedBatchDict
+from rogue_net.actor import AutoActor
+import click
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from torch.optim import AdamW
+import numpy as np
+import numpy.typing as npt
+import wandb
+
+
+@dataclass
+class DataSet:
+    entities: RaggedBatchDict[np.float32]
+    actions: RaggedBatchDict[np.int64]
+    logprobs: RaggedBatchDict[np.float32]
+    masks: RaggedActionDict
+    batch_size: int
+    frames: int
+
+    permutation: Optional[npt.NDArray[np.int64]] = None
+
+    @classmethod
+    def from_episodes(cls, episodes: List[Episode], batch_size: int) -> "DataSet":
+        entities = RaggedBatchDict(RaggedBufferF32)
+        actions = RaggedBatchDict(RaggedBufferI64)
+        logprobs = RaggedBatchDict(RaggedBufferF32)
+        masks = RaggedActionDict()
+        for e in episodes:
+            entities.extend(e.entities)
+            actions.extend(e.actions)
+            logprobs.extend(e.logprobs)
+            masks.extend(e.masks)
+
+        frames = (
+            next(iter(entities.buffers.values())).size0() // batch_size
+        ) * batch_size
+        return DataSet(
+            entities, actions, logprobs, masks, batch_size=batch_size, frames=frames
+        )
+
+    @property
+    def nbatch(self) -> int:
+        return self.frames // self.batch_size
+
+    def batch(
+        self, n: int
+    ) -> Tuple[
+        Dict[str, RaggedBufferF32],
+        Dict[str, RaggedBufferI64],
+        Dict[str, RaggedBufferF32],
+        Dict[str, VecActionMask],
+    ]:
+        if self.permutation is None:
+            indices = np.arange(n * self.batch_size, (n + 1) * self.batch_size)
+        else:
+            indices = self.permutation[n * self.batch_size : (n + 1) * self.batch_size]
+        return (
+            self.entities[indices],
+            self.actions[indices],
+            self.logprobs[indices],
+            self.masks[indices],
+        )
+
+    def shuffle(self) -> None:
+        self.permutation = np.random.permutation(self.frames)
+
+
+def load_dataset(filepath: str, batch_size: int) -> Tuple[Trace, DataSet, DataSet]:
+    trace = Trace.deserialize(open(filepath, "rb").read(), progress_bar=True)
+    episodes = trace.episodes(progress_bar=True)
+
+    test = episodes[-2:]
+    train = episodes[:-2]
+    return (
+        trace,
+        DataSet.from_episodes(train, batch_size=batch_size),
+        DataSet.from_episodes(test, batch_size=batch_size),
+    )
+
+
+def compute_loss(
+    model: AutoActor,
+    batch: int,
+    ds: DataSet,
+    tracer: Tracer,
+    device: torch.device,
+) -> Tuple[torch.Tensor, float]:
+    entities, actions, logprobs, masks = ds.batch(batch)
+    _, newlogprob, entropy, _, aux, _ = model.get_action_and_auxiliary(
+        entities=entities,
+        action_masks=masks,
+        prev_actions=actions,
+        tracer=tracer,
+    )
+    loss = torch.tensor(0.0, device=device)
+    for actname, target_logprob in logprobs.items():
+        # Create normalized distributions
+        logprob = newlogprob[actname]
+        dist = torch.cat([logprob, (1 - logprob.exp()).log()], dim=1)
+        target = torch.tensor(target_logprob.as_array(), device=device)
+        target_dist = torch.cat([target.exp(), 1 - target.exp()], dim=1)
+        loss += F.kl_div(
+            dist,
+            target_dist,
+        )
+    return loss, sum(e.mean().item() for _, e in entropy.items())
+
+
+def train(
+    model: AutoActor,
+    trainds: DataSet,
+    testds: DataSet,
+    epochs: int,
+    lr: float,
+    max_grad_norm: float,
+    log_interval: int,
+    track: bool,
+    device: torch.device,
+) -> None:
+    tracer = Tracer(cuda=device == "cuda")
+
+    optimizer = AdamW(model.parameters(), lr=lr)
+    for epoch in range(epochs + 1):
+        test_loss = 0.0
+        for test_batch in range(testds.nbatch):
+            loss, _ = compute_loss(model, test_batch, testds, tracer, device)
+            test_loss = loss.item()
+        print(f"Test loss {test_loss:.4f}")
+        if track:
+            wandb.log(
+                {
+                    "test_loss": test_loss,
+                    "epoch": epoch,
+                    "frame": epoch * trainds.frames,
+                }
+            )
+        if epoch == epochs:
+            break
+
+        trainds.shuffle()
+        model.train()
+        for batch in range(trainds.nbatch):
+            optimizer.zero_grad()
+            loss, entropy = compute_loss(model, batch, trainds, tracer, device)
+            loss.backward()
+            gradnorm = nn.utils.clip_grad_norm_(model.parameters(), max_grad_norm)
+            optimizer.step()
+            if batch % log_interval == 0:
+                print(
+                    f"Epoch {epoch}/{epochs}, Batch {batch}/{trainds.nbatch}, Loss {loss.item():.4f}, Entropy {entropy:.4f}"
+                )
+            if track:
+                wandb.log(
+                    {
+                        "train_loss": loss.item(),
+                        "train_entropy": entropy,
+                        "gradnorm": gradnorm,
+                        "epoch": epoch,
+                        "frame": batch * trainds.batch_size + epoch * trainds.frames,
+                    },
+                )
+
+
+@click.command()
+@click.option("--epochs", default=10, help="Number of epochs to train for")
+@click.option("--batch-size", default=512, help="Batch size")
+@click.option("--lr", default=1e-4, help="Learning rate")
+@click.option("--max-grad-norm", default=100.0, help="Max gradient norm")
+@click.option("--log-interval", default=10, help="Log interval")
+@click.option("--filepath", default="enhanced250m-b.blob", help="Filepath to load from")
+@click.option("--track/--no-track", default=False, help="Whether to log metrics to W&B")
+@click.option(
+    "--wandb-project-name", type=str, default="enn-bc", help="the wandb's project name"
+)
+@click.option(
+    "--wandb-entity",
+    type=str,
+    default="entity-neural-network",
+    help="the entity (team) of wandb's project",
+)
+def main(
+    epochs: int,
+    batch_size: int,
+    lr: float,
+    max_grad_norm: float,
+    log_interval: int,
+    filepath: str,
+    track: bool,
+    wandb_project_name: str,
+    wandb_entity: str,
+) -> None:
+    trace, traindata, testdata = load_dataset(filepath, batch_size)
+
+    if torch.cuda.is_available():
+        device = torch.device("cuda")
+    else:
+        device = torch.device("cpu")
+    # TODO: compute input normalization once at the beginning and then freeze it
+    model = AutoActor(
+        obs_space=trace.obs_space,
+        action_space=trace.action_space,
+        d_model=256,
+        n_head=4,
+        n_layer=2,
+    ).to(device)
+
+    if track:
+        wandb.init(
+            project=wandb_project_name,
+            entity=wandb_entity,
+            config={
+                "epochs": epochs,
+                "batch_size": batch_size,
+                "lr": lr,
+                "max_grad_norm": max_grad_norm,
+                "log_interval": log_interval,
+                "filepath": filepath,
+            },
+        )
+        wandb.watch(model)
+
+    train(
+        model=model,
+        trainds=traindata,
+        testds=testdata,
+        epochs=epochs,
+        lr=lr,
+        max_grad_norm=max_grad_norm,
+        log_interval=log_interval,
+        track=track,
+        device=device,
+    )
+
+
+if __name__ == "__main__":
+    main()

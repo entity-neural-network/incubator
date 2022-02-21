@@ -18,8 +18,7 @@ moviepy = "^1.0.3"
 enn_zoo = {path = "../enn_zoo", develop = true}
 entity_gym = {path = "../entity_gym", develop = true}
 rogue_net = {path = "../rogue_net", develop = true}
-
-[tool.poetry.dev-dependencies]
+click = "^8.0.4"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
