@@ -1,3 +1,4 @@
+from abc import abstractmethod
 from collections import defaultdict
 from dataclasses import dataclass
 from enum import Enum
@@ -31,9 +32,10 @@ from entity_gym.environment.environment import (
     Observation,
     EpisodeStats,
 )
-from .maps import map_allied_wealth, map_arena_tiny
+from .maps import map_allied_wealth, map_arena_tiny, map_enhanced
 
 LAST_OBS = {}
+VERIFY = False
 
 DRONE_FEATS = [
     "x",
@@ -53,8 +55,8 @@ DRONE_FEATS = [
     "is_stunned",
     "is_enemy",
     # feat_last_seen
-    # "time_since_visible",
-    # "missile_cooldown",
+    "time_since_visible",
+    "missile_cooldown",
     "long_range_missile_chargeup",
     "is_visible",
     # lock_build_action
@@ -67,7 +69,6 @@ DRONE_FEATS = [
     "distance_to_wall_4",
     "available_energy",
     "required_energy",
-    # TODO: more than one build
     "constructing_1m",
 ]
 GLOBAL_FEATS = [
@@ -81,68 +82,6 @@ GLOBAL_FEATS = [
     "cost_multiplier_1m",
     "unit_count",
 ]
-
-
-class CodeCraftEnv(Environment):
-    @classmethod
-    def obs_space(cls) -> ObsSpace:
-        return ObsSpace(
-            entities={
-                "ally": Entity(list(DRONE_FEATS) + list(GLOBAL_FEATS)),
-                "enemy": Entity(list(DRONE_FEATS)),
-                "mineral": Entity(
-                    [
-                        "x",
-                        "y",
-                        "size",
-                        # "claimed",
-                    ]
-                ),
-                "tile": Entity(
-                    [
-                        "x",
-                        "y",
-                        "last_visited_time",
-                        "visited",
-                    ]
-                ),
-            }
-        )
-
-    @classmethod
-    def action_space(cls) -> Dict[str, ActionSpace]:
-        return {
-            # 0-5: turn/movement (4 is no turn, no movement)
-            # 6: build [0,1,0,0,0] drone (if minerals > 5)
-            # 7: deposit resources
-            "act": CategoricalActionSpace(
-                [
-                    "move_left",
-                    "move_forward",
-                    "move_right",
-                    "turn_left",
-                    "halt",
-                    "turn_right",
-                    "build_1m",
-                    "deposit_resources",
-                    # feat_lock_build_action
-                    # "unlock_build_action",
-                    # "lock_build_action",
-                ]
-            )
-        }
-
-    def reset(self) -> Observation:
-        raise NotImplementedError
-
-    def act(self, action: Mapping[str, Action]) -> Observation:
-        raise NotImplementedError
-
-    def close(self) -> None:
-        pass
-
-    def env_cls(self) -> Type["Environment"]:
-        return self.__class__
 
 
 class Objective(Enum):
@@ -227,6 +166,122 @@ class Objective(Enum):
             ]
         else:
             return []
+
+
+def codecraft_env_class(objective: Union[Objective, str]) -> Type[Environment]:
+    if isinstance(objective, str):
+        objective = Objective(objective)
+
+    extra_build_actions = [
+        "build_"
+        + "".join(
+            [
+                f"{count}{letter}"
+                for count, letter in zip(build, ["s", "m", "c", "e", "p", "l"])
+                if count > 0
+            ]
+        )
+        for build in objective.extra_builds()
+    ]
+    extra_drone_features = [
+        "constructing_"
+        + "".join(
+            [
+                f"{count}{letter}"
+                for count, letter in zip(build, ["s", "m", "c", "e", "p", "l"])
+                if count > 0
+            ]
+        )
+        for build in objective.extra_builds()
+    ]
+    extra_global_features = [
+        "cost_multiplier_"
+        + "".join(
+            [
+                f"{count}{letter}"
+                for count, letter in zip(build, ["s", "m", "c", "e", "p", "l"])
+                if count > 0
+            ]
+        )
+        for build in objective.extra_builds()
+    ]
+    drone_features = list(DRONE_FEATS) + extra_drone_features
+    global_features = list(GLOBAL_FEATS)
+    global_features[-1:-1] = extra_global_features
+
+    class CodeCraftEnv(Environment):
+        @classmethod
+        def obs_space(cls) -> ObsSpace:
+            return ObsSpace(
+                entities={
+                    "ally": Entity(drone_features + global_features),
+                    "enemy": Entity(drone_features),
+                    "mineral": Entity(
+                        [
+                            "x",
+                            "y",
+                            "size",
+                            "claimed",
+                        ]
+                    ),
+                    "tile": Entity(
+                        [
+                            "x",
+                            "y",
+                            "last_visited_time",
+                            "visited",
+                        ]
+                    ),
+                }
+            )
+
+        @classmethod
+        def action_space(cls) -> Dict[str, ActionSpace]:
+            return {
+                # 0-5: turn/movement (4 is no turn, no movement)
+                # 6: build [0,1,0,0,0] drone (if minerals > 5)
+                # 7: deposit resources
+                "act": CategoricalActionSpace(
+                    [
+                        "move_left",
+                        "move_forward",
+                        "move_right",
+                        "turn_left",
+                        "halt",
+                        "turn_right",
+                        "build_1m",
+                        "deposit_resources",
+                        # feat_lock_build_action
+                        # "unlock_build_action",
+                        # "lock_build_action",
+                    ]
+                    + extra_build_actions
+                )
+            }
+
+        def reset(self) -> Observation:
+            raise NotImplementedError
+
+        def act(self, action: Mapping[str, Action]) -> Observation:
+            raise NotImplementedError
+
+        def close(self) -> None:
+            pass
+
+        def env_cls(self) -> Type["Environment"]:
+            return self.__class__
+
+        @classmethod
+        @abstractmethod
+        def objective(cls) -> Objective:
+            pass
+
+        @classmethod
+        @abstractmethod
+        def extra_build_actions(cls) -> List[str]:
+            pass
+
+    return CodeCraftEnv
 
 
 @dataclass
@@ -317,6 +372,14 @@ class CodeCraftVecEnv(VecEnv):
             self.obs_config = ObsConfig(
                 allies=1, drones=2, minerals=0, tiles=0, num_builds=1
             )
+        elif objective == Objective.ENHANCED:
+            self.obs_config = ObsConfig(
+                allies=20,
+                drones=40,
+                minerals=5,
+                tiles=5,
+                num_builds=1 + len(objective.extra_builds()),
+            )
         else:
             raise NotImplementedError()
         self.hardness = hardness
@@ -359,6 +422,9 @@ class CodeCraftVecEnv(VecEnv):
         elif objective == Objective.ARENA_TINY:
             self.custom_map = map_arena_tiny
             self.game_length = 1 * 60 * 60
+        elif objective == Objective.ENHANCED:
+            self.game_length = 3 * 60 * 60
+            self.custom_map = map_enhanced
         else:
             raise NotImplementedError(objective)
         if max_game_length is not None:
@@ -457,7 +523,7 @@ class CodeCraftVecEnv(VecEnv):
         racts = actions["act"]
         return self.step(
             [
-                list(racts[i].as_array()) if racts.size1(i) > 0 else []
+                list(racts[i].as_array().reshape(-1)) if racts.size1(i) > 0 else []
                 for i in range(racts.size0())
             ],
             obs_filter,
@@ -743,7 +809,13 @@ class CodeCraftVecEnv(VecEnv):
             num_envs, obs_config.allies, obs_config.dstride()
         )
         allies = np.concatenate(
-            [allies, globals.reshape(num_envs, 1, obs_config.global_features())], axis=2
+            [
+                allies,
+                globals.reshape(num_envs, 1, obs_config.global_features()).repeat(
+                    allies.shape[1], axis=1
+                ),
+            ],
+            axis=2,
         )
         ally_not_padding = allies[:, :, 7] != 0
         # TODO: remove this once RogueNet deals better with observations with no entities
@@ -782,7 +854,7 @@ class CodeCraftVecEnv(VecEnv):
                 "ally": ragged_allies,
                 "enemy": ragged_enemies,
                 "mineral": ragged_minerals,
-                # "tile": ragged_tiles,
+                "tile": ragged_tiles,
             },
             action_masks={
                 "act": VecCategoricalActionMask(
@@ -854,8 +926,8 @@ class CodeCraftVecEnv(VecEnv):
     def __len__(self) -> int:
         return self.num_envs
 
-    def env_cls(cls) -> Type[Environment]:
-        return CodeCraftEnv
+    def env_cls(self) -> Type[Environment]:
+        return codecraft_env_class(self.objective)
 
 
 def dist(x1: float, y1: float, x2: float, y2: float) -> float:

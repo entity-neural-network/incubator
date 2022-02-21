@@ -21,15 +21,15 @@ class ObsConfig:
     tiles: int
     num_builds: int
     relative_positions: bool = False
-    feat_last_seen: bool = False
+    feat_last_seen: bool = True
     feat_map_size: bool = True
     feat_is_visible: bool = True
     feat_abstime: bool = True
     v2: bool = True
     feat_rule_msdm: bool = True
     feat_rule_costs: bool = True
-    feat_mineral_claims: bool = False
-    harvest_action: bool = False
+    feat_mineral_claims: bool = True
+    harvest_action: bool = True
     lock_build_action: bool = False
     feat_dist_to_wall: bool = True
     unit_count: bool = True
@@ -265,7 +265,7 @@ def observe_batch_raw(
             response = requests.get(url, json=json, stream=True)
             response.raise_for_status()
             response_bytes = response.content
-            return np.frombuffer(response_bytes, dtype=np.float32)  # type: ignore
+            return np.frombuffer(response_bytes, dtype=np.float32)
         except requests.exceptions.ConnectionError as e:
             retries -= 1
             logging.info(f"Connection error on {url} with json={json}, retrying: {e}")
