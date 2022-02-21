@@ -3,6 +3,7 @@ from typing import (
     Dict,
     List,
     Optional,
+    Tuple,
 )
 from dataclasses import dataclass, field
 from hyperstate import schema_evolution_cli
@@ -31,7 +32,7 @@ class Objective(Enum):
     MICRO_PRACTICE = "MICRO_PRACTICE"
     SCOUT = "SCOUT"
 
-    def vs(self):
+    def vs(self) -> bool:
         if (
             self == Objective.ALLIED_WEALTH
             or self == Objective.DISTANCE_TO_CRYSTAL
@@ -55,15 +56,15 @@ class Objective(Enum):
         else:
             raise Exception(f"Objective.vs not implemented for {self}")
 
-    def naction(self):
+    def naction(self) -> int:
         return 8 + len(self.extra_builds())
 
-    def builds(self):
+    def builds(self) -> List[Tuple[int, int, int, int, int, int]]:
         b = self.extra_builds()
         b.append((0, 1, 0, 0, 0, 0))
         return b
 
-    def extra_builds(self):
+    def extra_builds(self) -> List[Tuple[int, int, int, int, int, int]]:
         # [storageModules, missileBatteries, constructors, engines, shieldGenerators]
         if self == Objective.ARENA:
             return [(1, 0, 1, 0, 0, 0), (0, 2, 0, 0, 0, 0), (0, 1, 0, 0, 1, 0)]
@@ -210,13 +211,13 @@ class ObsConfig:
     # TODO: hack
     feat_rule_msdm = True
     feat_rule_costs = True
-    num_builds = None
+    num_builds = 0
 
     @property
-    def drones(self):
+    def drones(self) -> int:
         return self.allies + self.obs_enemies
 
-    def global_features(self):
+    def global_features(self) -> int:
         gf = 2
         if self.feat_map_size:
             gf += 2
@@ -230,7 +231,7 @@ class ObsConfig:
             gf += 1
         return gf
 
-    def dstride(self):
+    def dstride(self) -> int:
         ds = 17
         if self.feat_last_seen:
             ds += 2
@@ -244,22 +245,22 @@ class ObsConfig:
             ds += self.num_builds + 2
         return ds
 
-    def mstride(self):
+    def mstride(self) -> int:
         return 4 if self.feat_mineral_claims else 3
 
-    def tstride(self):
+    def tstride(self) -> int:
         return 4
 
-    def nonobs_features(self):
+    def nonobs_features(self) -> int:
         return 5
 
-    def enemies(self):
+    def enemies(self) -> int:
         return self.drones - self.allies
 
-    def total_drones(self):
+    def total_drones(self) -> int:
         return 2 * self.drones - self.allies
 
-    def stride(self):
+    def stride(self) -> int:
         return (
             self.global_features()
             + self.total_drones() * self.dstride()
@@ -267,40 +268,40 @@ class ObsConfig:
             + self.obs_map_tiles * self.tstride()
         )
 
-    def endglobals(self):
+    def endglobals(self) -> int:
         return self.global_features()
 
-    def endallies(self):
+    def endallies(self) -> int:
         return self.global_features() + self.dstride() * self.allies
 
-    def endenemies(self):
+    def endenemies(self) -> int:
         return self.global_features() + self.dstride() * self.drones
 
-    def endmins(self):
+    def endmins(self) -> int:
         return self.endenemies() + self.mstride() * self.obs_minerals
 
-    def endtiles(self):
+    def endtiles(self) -> int:
         return self.endmins() + self.tstride() * self.obs_map_tiles
 
-    def endallenemies(self):
+    def endallenemies(self) -> int:
         return self.endtiles() + self.dstride() * self.enemies()
 
-    def extra_actions(self):
+    def extra_actions(self) -> int:
         if self.lock_build_action:
             return 2
         else:
             return 0
 
     @property
-    def global_drones(self):
+    def global_drones(self) -> int:
         return self.obs_enemies if self.use_privileged else 0
 
     @property
-    def unit_count(self):
+    def unit_count(self) -> bool:
         return self.feat_unit_count
 
     @property
-    def construction_progress(self):
+    def construction_progress(self) -> bool:
         return self.feat_construction_progress
 
 
@@ -318,7 +319,7 @@ class EvalConfig:
 @dataclass
 class PPOConfig:
     # Total number of timesteps
-    steps: int = 10e6
+    steps: int = int(10e6)
     # Number of environments
     num_envs: int = 64
     # Number of self-play environments (each provides two environments)
@@ -417,7 +418,6 @@ class AdrConfig:
     max_hardness: float = 150
     # Number of timesteps steps after which hardness starts to increase
     hardness_offset: float = 1e6
-    variety: float = 0.7
 
 
 @dataclass
@@ -432,16 +432,16 @@ class Config(Versioned):
     wandb: bool = True
     trial: Optional[int] = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         self.obs.feat_rule_msdm = self.task.rule_rng_fraction > 0 or self.task.adr
         self.obs.feat_rule_costs = self.task.rule_cost_rng > 0 or self.task.adr
         self.obs.num_builds = len(self.task.objective.builds())
 
     @property
-    def rosteps(self):
+    def rosteps(self) -> int:
         return self.ppo.num_envs * self.ppo.seq_rosteps
 
-    def validate(self):
+    def validate(self) -> None:
         assert self.rosteps % self.optimizer.batch_size == 0
         assert self.eval.eval_envs % 4 == 0
 

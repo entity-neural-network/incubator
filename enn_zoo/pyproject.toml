@@ -6,6 +6,8 @@ authors = ["Clemens Winter <clemenswinter1@gmail.com>"]
 
 [tool.poetry.dependencies]
 python = ">=3.8.0,<3.10"
+# TODO: gym 0.22.0 incompatible with griddly
+gym = "0.21.0"
 griddly = {version = "^1.2.29"}
 requests = "^2.27.1"
 orjson = "^3.6.5"
