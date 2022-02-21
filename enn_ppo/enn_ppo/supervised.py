@@ -152,6 +152,7 @@ def train(
     testds: DataSet,
     epochs: int,
     lr: float,
+    anneal_lr: bool,
     max_grad_norm: float,
     loss_fn: Literal["kl", "mse"],
     log_interval: int,
@@ -182,6 +183,15 @@ def train(
         model.train()
         for batch in range(trainds.nbatch):
             optimizer.zero_grad()
+            if anneal_lr:
+                frac = 1.0 - (epoch * trainds.frames + batch * trainds.nbatch) / (
+                    epochs * trainds.frames
+                )
+                lrnow = frac * lr
+                optimizer.param_groups[0]["lr"] = lrnow
+            else:
+                lrnow = lr
+
             loss, entropy = compute_loss(model, batch, trainds, loss_fn, tracer, device)
             loss.backward()
             gradnorm = nn.utils.clip_grad_norm_(model.parameters(), max_grad_norm)
@@ -198,6 +208,7 @@ def train(
                         "gradnorm": gradnorm,
                         "epoch": epoch,
                         "frame": batch * trainds.batch_size + epoch * trainds.frames,
+                        "lr": lrnow,
                     },
                 )
 
@@ -206,6 +217,7 @@ def train(
 @click.option("--epochs", default=10, help="Number of epochs to train for")
 @click.option("--batch-size", default=512, help="Batch size")
 @click.option("--lr", default=1e-4, help="Learning rate")
+@click.option("--anneal-lr/--no-anneal-lr", default=True, help="Anneal learning rate")
 @click.option("--max-grad-norm", default=100.0, help="Max gradient norm")
 @click.option("--loss-fn", default="mse", help='Loss function ("kl" or "mse")')
 @click.option("--log-interval", default=10, help="Log interval")
@@ -224,6 +236,7 @@ def main(
     epochs: int,
     batch_size: int,
     lr: float,
+    anneal_lr: bool,
     max_grad_norm: float,
     loss_fn: str,
     log_interval: int,
@@ -255,6 +268,7 @@ def main(
                 "epochs": epochs,
                 "batch_size": batch_size,
                 "lr": lr,
+                "anneal_lr": anneal_lr,
                 "max_grad_norm": max_grad_norm,
                 "loss_fn": loss_fn,
                 "log_interval": log_interval,
@@ -271,6 +285,7 @@ def main(
         testds=testdata,
         epochs=epochs,
         lr=lr,
+        anneal_lr=anneal_lr,
         max_grad_norm=max_grad_norm,
         loss_fn=loss_fn,  # type: ignore
         log_interval=log_interval,
