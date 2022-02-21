@@ -60,10 +60,10 @@ class CategoricalActionHead(nn.Module):
         lengths = mask.actors.size1()
         if len(mask.actors) == 0:
             return (
-                torch.zeros((0, 1), dtype=torch.int64, device=device),
+                torch.zeros((0), dtype=torch.int64, device=device),
                 lengths,
-                torch.zeros((0, 1), dtype=torch.float32, device=device),
-                torch.zeros((0, 1), dtype=torch.float32, device=device),
+                torch.zeros((0), dtype=torch.float32, device=device),
+                torch.zeros((0), dtype=torch.float32, device=device),
                 torch.zeros((0, self.n_choice), dtype=torch.float32, device=device),
             )
 
@@ -121,11 +121,11 @@ class PaddedSelectEntityActionHead(nn.Module):
         actor_lengths = mask.actors.size1()
         if len(mask.actors) == 0:
             return (
-                torch.zeros((0, 1), dtype=torch.int64, device=device),
+                torch.zeros((0), dtype=torch.int64, device=device),
                 actor_lengths,
-                torch.zeros((0, 1), dtype=torch.float32, device=device),
-                torch.zeros((0, 1), dtype=torch.float32, device=device),
-                torch.zeros((0, 1), dtype=torch.float32, device=device),
+                torch.zeros((0), dtype=torch.float32, device=device),
+                torch.zeros((0), dtype=torch.float32, device=device),
+                torch.zeros((0), dtype=torch.float32, device=device),
             )
 
         actors = torch.tensor(
@@ -184,10 +184,7 @@ class PaddedSelectEntityActionHead(nn.Module):
         if prev_actions is None:
             action = dist.sample()
         else:
-            action = (
-                torch.tensor(prev_actions.as_array(), device=device)
-                .flatten()
-            )
+            action = torch.tensor(prev_actions.as_array(), device=device).flatten()
             padded_actions = torch.ones(
                 (logits.size(0) * logits.size(1)), dtype=torch.long, device=device
             )
