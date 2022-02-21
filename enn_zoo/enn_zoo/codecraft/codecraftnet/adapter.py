@@ -90,7 +90,7 @@ class CCNetAdapter(nn.Module):
             if allies.size1(i) > 0:
                 globals = torch.tensor(
                     allies[i].as_array()[
-                        :, -self.network.obs_config.global_features() :
+                        0, -self.network.obs_config.global_features() :
                     ]
                 ).view(-1)
                 obs[i, : oc.endglobals()] = globals
@@ -115,21 +115,21 @@ class CCNetAdapter(nn.Module):
                 i, oc.endenemies() : oc.endenemies() + minerals.size1(i) * oc.mstride()
             ] = torch.tensor(minerals[i].as_array()).view(-1)
 
-        # tiles = entities["tile"]
-        # for i in range(tiles.size0()):
-        #     obs[
-        #         i, oc.endmins() : oc.endmins() + tiles.size1(i) * oc.tstride()
-        #     ] = torch.tensor(tiles[i].as_array()).view(-1)
+        tiles = entities["tile"]
+        for i in range(tiles.size0()):
+            obs[
+                i, oc.endmins() : oc.endmins() + tiles.size1(i) * oc.tstride()
+            ] = torch.tensor(tiles[i].as_array()).view(-1)
 
         if "act" in action_masks:
-            masks = torch.zeros((allies.size0(), oc.allies, 8), dtype=torch.bool).to(
-                self.device
-            )
+            masks = torch.zeros(
+                (allies.size0(), oc.allies, 7 + oc.num_builds), dtype=torch.bool
+            ).to(self.device)
             act_masks = action_masks["act"].mask  # type: ignore
             assert isinstance(act_masks, RaggedBufferBool)  # type: ignore
             for i in range(allies.size0()):
                 if allies.size1(i) > 0:
-                    masks[i, :] = torch.tensor(act_masks[i].as_array()).view(-1)
+                    masks[i, :allies.size1(i)] = torch.tensor(act_masks[i].as_array()).view(allies.size1(i), -1)
         else:
             masks = torch.ones((allies.size0(), oc.allies, 8), dtype=torch.bool).to(
                 self.device
@@ -153,7 +153,7 @@ class CCNetAdapter(nn.Module):
         return (
             {
                 "act": RaggedBufferI64.from_flattened(
-                    actions.cpu().numpy(),
+                    actions.reshape(-1, 1).cpu().numpy(),
                     lengths=allies.size1(),  # (masks.sum(dim=2) > 0).sum(dim=1).cpu().numpy(),
                 )
             }

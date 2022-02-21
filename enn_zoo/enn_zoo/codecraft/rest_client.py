@@ -21,17 +21,17 @@ class ObsConfig:
     tiles: int
     num_builds: int
     relative_positions: bool = False
-    feat_last_seen: bool = False
+    feat_last_seen: bool = True
     feat_map_size: bool = True
     feat_is_visible: bool = True
     feat_abstime: bool = True
     v2: bool = True
     feat_rule_msdm: bool = True
     feat_rule_costs: bool = True
-    feat_mineral_claims: bool = False
-    harvest_action: bool = False
+    feat_mineral_claims: bool = True
+    harvest_action: bool = True
     lock_build_action: bool = False
-    feat_dist_to_wall: bool = False
+    feat_dist_to_wall: bool = True
     unit_count: bool = True
     construction_progress: bool = True
 

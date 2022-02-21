@@ -26,7 +26,7 @@ import numpy as np
 import numpy.typing as npt
 from entity_gym.examples import ENV_REGISTRY
 from enn_zoo.griddly import GRIDDLY_ENVS, create_env
-from enn_zoo.codecraft.cc_vec_env import CodeCraftEnv, CodeCraftVecEnv
+from enn_zoo.codecraft.cc_vec_env import codecraft_env_class, CodeCraftVecEnv
 from enn_zoo.codecraft.codecraftnet.adapter import CCNetAdapter
 from entity_gym.serialization import SampleRecordingVecEnv
 from enn_ppo.simple_trace import Tracer
@@ -509,7 +509,7 @@ def run_eval(
                 pooling_op=args.pooling_op,
             ).to(device)
         else:
-            opponent = CCNetAdapter(device, load_from=eval_opponent)
+            opponent = CCNetAdapter(device, load_from=eval_opponent)  # type: ignore
         agents: Union[PPOActor, List[Tuple[npt.NDArray[np.int64], PPOActor]]] = [
             (np.array([2 * i for i in range(num_envs // 2)]), agent),
             (
@@ -615,23 +615,24 @@ def train(args: argparse.Namespace) -> float:
     device = torch.device("cuda" if cuda else "cpu")
     tracer = Tracer(cuda=cuda)
 
+    env_kwargs = json.loads(args.env_kwargs)
+    if args.eval_env_kwargs is not None:
+        eval_env_kwargs = json.loads(args.eval_env_kwargs)
+    else:
+        eval_env_kwargs = env_kwargs
+
     if args.gym_id in ENV_REGISTRY:
         env_cls = ENV_REGISTRY[args.gym_id]
     elif args.gym_id in GRIDDLY_ENVS:
         env_cls = create_env(**GRIDDLY_ENVS[args.gym_id])
     elif args.gym_id == "CodeCraft":
-        env_cls = CodeCraftEnv
+        env_cls = codecraft_env_class(env_kwargs.get("objective", "ALLIED_WEALTH"))
     else:
         raise KeyError(
             f"Unknown gym_id: {args.gym_id}\nAvailable environments: {list(ENV_REGISTRY.keys()) + list(GRIDDLY_ENVS.keys())}"
         )
 
     # env setup
-    env_kwargs = json.loads(args.env_kwargs)
-    if args.eval_env_kwargs is not None:
-        eval_env_kwargs = json.loads(args.eval_env_kwargs)
-    else:
-        eval_env_kwargs = env_kwargs
     envs: VecEnv
     if args.gym_id == "CodeCraft":
         envs = CodeCraftVecEnv(args.num_envs, **env_kwargs)
