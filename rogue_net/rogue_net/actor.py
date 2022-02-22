@@ -31,9 +31,15 @@ ScalarType = TypeVar("ScalarType", bound=np.generic, covariant=True)
 def tensor_dict_to_ragged(
     rb_cls: Type[RaggedBuffer[ScalarType]],
     d: Dict[str, torch.Tensor],
-    lengths: Dict[str, npt.NDArray[np.int64]],
+    lengths: Dict[str, np.ndarray],
 ) -> Dict[str, RaggedBuffer[ScalarType]]:
-    return {k: rb_cls.from_flattened(v.cpu().numpy(), lengths[k]) for k, v in d.items()}
+    result = {}
+    for k, v in d.items():
+        flattened = v.cpu().numpy()
+        if flattened.ndim == 1:
+            flattened = flattened.reshape(-1, 1)
+        result[k] = rb_cls.from_flattened(flattened, lengths[k])
+    return result
 
 
 class Actor(nn.Module):

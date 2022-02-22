@@ -60,15 +60,17 @@ class CategoricalActionHead(nn.Module):
         lengths = mask.actors.size1()
         if len(mask.actors) == 0:
             return (
-                torch.zeros((0, 1), dtype=torch.int64, device=device),
+                torch.zeros((0), dtype=torch.int64, device=device),
                 lengths,
-                torch.zeros((0, 1), dtype=torch.float32, device=device),
-                torch.zeros((0, 1), dtype=torch.float32, device=device),
+                torch.zeros((0), dtype=torch.float32, device=device),
+                torch.zeros((0), dtype=torch.float32, device=device),
                 torch.zeros((0, self.n_choice), dtype=torch.float32, device=device),
             )
 
-        actors = torch.tensor((mask.actors + index_offsets).as_array()).to(
-            x.data.device
+        actors = (
+            torch.tensor((mask.actors + index_offsets).as_array())
+            .to(x.data.device)
+            .squeeze(-1)
         )
         actor_embeds = x.data[actors]
         logits = self.proj(actor_embeds)
@@ -84,10 +86,10 @@ class CategoricalActionHead(nn.Module):
         if prev_actions is None:
             action = dist.sample()
         else:
-            action = torch.tensor(prev_actions.as_array()).to(x.data.device)
+            action = torch.tensor(prev_actions.as_array().squeeze(-1)).to(x.data.device)
         logprob = dist.log_prob(action)
         entropy = dist.entropy()
-        return action, lengths, logprob, entropy, logits
+        return action, lengths, logprob, entropy, dist.logits
 
 
 class PaddedSelectEntityActionHead(nn.Module):
@@ -119,14 +121,16 @@ class PaddedSelectEntityActionHead(nn.Module):
         actor_lengths = mask.actors.size1()
         if len(mask.actors) == 0:
             return (
-                torch.zeros((0, 1), dtype=torch.int64, device=device),
+                torch.zeros((0), dtype=torch.int64, device=device),
                 actor_lengths,
-                torch.zeros((0, 1), dtype=torch.float32, device=device),
-                torch.zeros((0, 1), dtype=torch.float32, device=device),
-                torch.zeros((0, 1), dtype=torch.float32, device=device),
+                torch.zeros((0), dtype=torch.float32, device=device),
+                torch.zeros((0), dtype=torch.float32, device=device),
+                torch.zeros((0), dtype=torch.float32, device=device),
             )
 
-        actors = torch.tensor((mask.actors + index_offsets).as_array(), device=device)
+        actors = torch.tensor(
+            (mask.actors + index_offsets).as_array(), device=device
+        ).squeeze(-1)
         actor_embeds = x.data[actors]
         queries = self.query_proj(actor_embeds).squeeze(1)
         max_actors = actor_lengths.max()
@@ -147,7 +151,9 @@ class PaddedSelectEntityActionHead(nn.Module):
         query_mask = query_mask.view(len(actor_lengths), max_actors)
 
         actee_lengths = mask.actees.size1()
-        actees = torch.tensor((mask.actees + index_offsets).as_array(), device=device)
+        actees = torch.tensor(
+            (mask.actees + index_offsets).as_array(), device=device
+        ).squeeze(-1)
         actee_embeds = x.data[actees]
         keys = self.key_proj(actee_embeds).squeeze(1)
         max_actees = actee_lengths.max()
@@ -187,10 +193,10 @@ class PaddedSelectEntityActionHead(nn.Module):
         logprob = dist.log_prob(action)
         entropy = dist.entropy()
         return (
-            action.flatten()[qindices].view(-1, 1),
+            action.flatten()[qindices],
             actor_lengths,
-            logprob.flatten()[qindices].view(-1, 1),
-            entropy.flatten()[qindices].view(-1, 1),
+            logprob.flatten()[qindices],
+            entropy.flatten()[qindices],
             logits,
         )
 

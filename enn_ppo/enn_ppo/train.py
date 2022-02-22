@@ -85,6 +85,8 @@ def parse_args(override_args: Optional[List[str]] = None) -> argparse.Namespace:
     # Evals
     parser.add_argument('--eval-interval', type=int, default=None,
         help='number of global steps between evaluations')
+    parser.add_argument('--eval-on-step-0', type=lambda x:bool(strtobool(x)), default=True, nargs='?', const=True,
+        help='whether to run eval on step 0')
     parser.add_argument('--eval-steps', type=int, default=None,
         help='number of sequential steps to evaluate for')
     parser.add_argument('--eval-num-envs', type=int, default=None,
@@ -95,8 +97,13 @@ def parse_args(override_args: Optional[List[str]] = None) -> argparse.Namespace:
                         help='The number of processes to use to collect evaluation data. The envs are split as equally as possible across the processes')
     parser.add_argument('--eval-capture-videos', type=lambda x:bool(strtobool(x)), default=False, nargs='?', const=True,
                         help='If --eval-render-videos is set, videos will be recorded of the environments during evaluation')
+    parser.add_argument('--eval-capture-samples', type=str, default=None,
+                        help='if set, write the samples from evals to this file')
+    parser.add_argument('--eval-capture-logits', type=lambda x:bool(strtobool(x)), default=False, nargs='?', const=True,
+                        help='If --eval-capture-samples is set, record full logits of the agent')
     parser.add_argument('--codecraft-eval', type=lambda x:bool(strtobool(x)), default=False, nargs='?', const=True)
     parser.add_argument('--codecraft-eval-opponent', type=str, default=None)
+    parser.add_argument('--codecraft-only-opponent', type=lambda x:bool(strtobool(x)), default=False, nargs='?', const=True)
 
     # Network architecture
     parser.add_argument('--d-model', type=int, default=64,
@@ -213,7 +220,13 @@ def tensor_dict_to_ragged(
     d: Dict[str, torch.Tensor],
     lengths: Dict[str, np.ndarray],
 ) -> Dict[str, RaggedBuffer[ScalarType]]:
-    return {k: rb_cls.from_flattened(v.cpu().numpy(), lengths[k]) for k, v in d.items()}
+    result = {}
+    for k, v in d.items():
+        flattened = v.cpu().numpy()
+        if flattened.ndim == 1:
+            flattened = flattened.reshape(-1, 1)
+        result[k] = rb_cls.from_flattened(flattened, lengths[k])
+    return result
 
 
 class PPOActor(AutoActor):
@@ -283,7 +296,11 @@ class Rollout:
         self.rendered: Optional[npt.NDArray[np.uint8]] = None
 
     def run(
-        self, steps: int, record_samples: bool, capture_videos: bool = False
+        self,
+        steps: int,
+        record_samples: bool,
+        capture_videos: bool = False,
+        capture_logits: bool = False,
     ) -> Tuple[VecObs, torch.Tensor, Dict[str, float]]:
         """
         Run the agent for a number of steps. Returns next_obs, next_done, and a dictionary of statistics.
@@ -372,7 +389,7 @@ class Rollout:
 
             with self.tracer.span("step"):
                 if isinstance(self.envs, SampleRecordingVecEnv):
-                    if args.capture_logits:
+                    if capture_logits:
                         ragged_logits: Optional[
                             Dict[str, RaggedBufferF32]
                         ] = tensor_dict_to_ragged(
@@ -482,13 +499,18 @@ def run_eval(
     writer: SummaryWriter,
     global_step: int,
     capture_videos: bool = False,
+    record_samples: Optional[str] = None,
+    record_logits: bool = False,
     codecraft_eval: bool = False,
     eval_opponent: Optional[str] = None,
+    codecraft_only_opponent: bool = False,
 ) -> None:
     # TODO: metrics are biased towards short episodes
     eval_envs: VecEnv
     if codecraft_eval:
-        eval_envs = CodeCraftVecEnv(num_envs, stagger=False, fair=True, **env_kwargs)
+        eval_envs = CodeCraftVecEnv(
+            num_envs, stagger=False, symmetric=True, **env_kwargs
+        )
     elif processes > 1:
         eval_envs = ParallelEnvList(
             env_cls,
@@ -499,26 +521,31 @@ def run_eval(
     else:
         eval_envs = EnvList(env_cls, args.eval_env_kwargs or env_kwargs, num_envs)
     if codecraft_eval:
-        if eval_opponent is None:
-            opponent = PPOActor(
-                obs_space,
-                dict(action_space),
-                d_model=args.d_model,
-                n_head=args.n_head,
-                n_layer=args.n_layer,
-                pooling_op=args.pooling_op,
-            ).to(device)
+        if codecraft_only_opponent:
+            agents: Union[PPOActor, List[Tuple[npt.NDArray[np.int64], PPOActor]]] = CCNetAdapter(device, load_from=eval_opponent)  # type: ignore
         else:
-            opponent = CCNetAdapter(device, load_from=eval_opponent)  # type: ignore
-        agents: Union[PPOActor, List[Tuple[npt.NDArray[np.int64], PPOActor]]] = [
-            (np.array([2 * i for i in range(num_envs // 2)]), agent),
-            (
-                np.array([2 * i + 1 for i in range(num_envs // 2)]),
-                opponent,
-            ),
-        ]
+            if eval_opponent is None:
+                opponent = PPOActor(
+                    obs_space,
+                    dict(action_space),
+                    d_model=args.d_model,
+                    n_head=args.n_head,
+                    n_layer=args.n_layer,
+                    pooling_op=args.pooling_op,
+                ).to(device)
+            else:
+                opponent = CCNetAdapter(device, load_from=eval_opponent)  # type: ignore
+            agents = [
+                (np.array([2 * i for i in range(num_envs // 2)]), agent),
+                (
+                    np.array([2 * i + 1 for i in range(num_envs // 2)]),
+                    opponent,
+                ),
+            ]
     else:
         agents = agent
+    if record_samples:
+        eval_envs = SampleRecordingVecEnv(eval_envs, record_samples)
     eval_rollout = Rollout(
         eval_envs,
         obs_space=obs_space,
@@ -528,7 +555,10 @@ def run_eval(
         tracer=tracer,
     )
     _, _, metrics = eval_rollout.run(
-        args.eval_steps, record_samples=False, capture_videos=capture_videos
+        args.eval_steps,
+        record_samples=False,
+        capture_videos=capture_videos,
+        capture_logits=record_logits,
     )
 
     if capture_videos:
@@ -699,9 +729,16 @@ def train(args: argparse.Namespace) -> float:
     )
 
     if args.eval_interval is not None:
-        next_eval_step: Optional[int] = 0
+        if args.eval_on_step_0:
+            next_eval_step: Optional[int] = 0
+        else:
+            next_eval_step = args.eval_interval
     else:
         next_eval_step = None
+
+    eval_processes = args.eval_processes
+    if not isinstance(eval_processes, int):
+        eval_processes = args.processes
 
     def _run_eval() -> None:
         run_eval(
@@ -717,8 +754,11 @@ def train(args: argparse.Namespace) -> float:
             writer,
             rollout.global_step,
             args.eval_capture_videos,
+            args.eval_capture_samples,
+            args.eval_capture_logits,
             args.codecraft_eval,
             args.codecraft_eval_opponent,
+            args.codecraft_only_opponent,
         )
 
     start_time = time.time()
@@ -726,12 +766,6 @@ def train(args: argparse.Namespace) -> float:
 
         if next_eval_step is not None and rollout.global_step >= next_eval_step:
             next_eval_step += args.eval_interval
-
-            # If eval processes is no set, we just use the same number of processes as the train loop
-            eval_processes = args.eval_processes
-            if not isinstance(eval_processes, int):
-                eval_processes = args.processes
-
             _run_eval()
 
         tracer.start("update")
@@ -754,7 +788,9 @@ def train(args: argparse.Namespace) -> float:
 
         tracer.start("rollout")
 
-        next_obs, next_done, metrics = rollout.run(args.num_steps, record_samples=True)
+        next_obs, next_done, metrics = rollout.run(
+            args.num_steps, record_samples=True, capture_logits=args.capture_logits
+        )
         for name, value in metrics.items():
             writer.add_scalar(name, value, rollout.global_step)
         print(
@@ -835,7 +871,9 @@ def train(args: argparse.Namespace) -> float:
                     with tracer.span("ratio"):
                         logratio = {
                             k: newlogprob[k]
-                            - torch.tensor(b_logprobs[k].as_array()).to(device)
+                            - torch.tensor(b_logprobs[k].as_array())
+                            .squeeze(-1)
+                            .to(device)
                             for k in newlogprob.keys()
                         }
                         ratio = {k: l.exp() for k, l in logratio.items()}
