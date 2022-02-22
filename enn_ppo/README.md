@@ -2,40 +2,18 @@
 
 PPO implementation compatible with Entity Gym.
 
+Example usage:
 
+```bash
+poetry run python enn_ppo/enn_ppo/train.py
+```
 
+To run behavioral cloning on recorded samples:
 
-
-## WORK IN PROGRESS Implementation details
-
-The `rewards`, `dones`, and `values` can be stored in fixed-size preallocated tensors
-as usual, since there is only one value per timestep and environment.
-Observations, actions, and logprobs don't have a fixed shape and therefore require
-special handling that differs during rollout and optimization.
-
-### Rollouts
-
-On each rollout step, environments return a `List[Observation]` and expect a `List[Dict[str, Action]]`.
-
-Each observation has two components:
-
-- `entities: Dict[str, np.ndarray]` maps each entity type to a (num_entity, num_feats) array of features.
-- `action_masks: Mapping[str, ActionMask]` maps each action type to a list of indices of entities that can perform that action.
-
-- `List[]
-
-Each observation has a `Dict[str, np.ndarray]` 
-- shuffling
-- batching
-
-### Optimization
-
-
-
-### Ragged batch tensors
-
-
-
-### Issues and possible improvements 
-
-
+```bash
+# Download data (261MB)
+# Larger 5GB file with 1M samples: https://www.dropbox.com/s/o7jf4r7m0xtm80p/enhanced250m-1m-v2.blob?dl=1
+wget 'https://www.dropbox.com/s/es84ml3wltxdmnh/enhanced250m-60k.blob?dl=1' -O enhanced250m-60k.blob
+# Run training
+poetry run python enn_ppo/enn_ppo/supervised.py --batch-size=1024 --lr=0.001 --filepath=enhanced250m-1m-60m.blob --track
+```
