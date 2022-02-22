@@ -226,7 +226,7 @@ def train(
                         device,
                     )
                     test_loss += loss.item()
-                test_loss /= (fast_eval_samples // testds.batch_size)
+                test_loss /= fast_eval_samples // testds.batch_size
                 print(f"Fast test loss {test_loss:.4f}")
                 if track:
                     wandb.log(
