@@ -84,6 +84,19 @@ class DataSet:
     def shuffle(self) -> None:
         self.permutation = np.random.permutation(self.frames)
 
+    def deterministic_shuffle(self) -> None:
+        average_episode_length = self.frames // len(self.entities.buffers)
+        perm = np.zeros(self.frames, dtype=np.int64)
+        index = 0
+        offset = 0
+        for i in range(self.frames):
+            perm[i] = index
+            index += average_episode_length * 3
+            if index >= self.frames:
+                offset += 1
+                index = offset
+        self.permutation = perm
+
 
 def load_dataset(filepath: str, batch_size: int) -> Tuple[Trace, DataSet, DataSet]:
     trace = Trace.deserialize(open(filepath, "rb").read(), progress_bar=True)
@@ -136,7 +149,7 @@ def compute_loss(
                 )
         elif loss_fn == "mse":
             logprob = newlogprob[actname]
-            target = torch.tensor(target_logprob.as_array(), device=device)
+            target = torch.tensor(target_logprob.as_array().squeeze(-1), device=device)
             loss += F.mse_loss(
                 logprob.masked_fill(mask=logprob == float("-inf"), value=0.0),
                 target.masked_fill(mask=target == float("-inf"), value=0.0),
@@ -155,6 +168,8 @@ def train(
     anneal_lr: bool,
     max_grad_norm: float,
     loss_fn: Literal["kl", "mse"],
+    fast_eval_interval: int,
+    fast_eval_samples: int,
     log_interval: int,
     track: bool,
     device: torch.device,
@@ -182,11 +197,10 @@ def train(
         trainds.shuffle()
         model.train()
         for batch in range(trainds.nbatch):
+            frame = batch * trainds.batch_size + epoch * trainds.frames
             optimizer.zero_grad()
             if anneal_lr:
-                frac = 1.0 - (epoch * trainds.frames + batch * trainds.batch_size) / (
-                    epochs * trainds.frames
-                )
+                frac = 1.0 - frame / (epochs * trainds.frames)
                 lrnow = frac * lr
                 optimizer.param_groups[0]["lr"] = lrnow
             else:
@@ -200,6 +214,28 @@ def train(
                 print(
                     f"Epoch {epoch}/{epochs}, Batch {batch}/{trainds.nbatch}, Loss {loss.item():.4f}, Entropy {entropy:.4f}"
                 )
+            if frame % fast_eval_interval == 0:
+                test_loss = 0.0
+                for test_batch in range(fast_eval_samples // testds.batch_size):
+                    loss, _ = compute_loss(
+                        model,
+                        test_batch,
+                        testds,
+                        loss_fn,
+                        tracer,
+                        device,
+                    )
+                    test_loss += loss.item()
+                test_loss /= (fast_eval_samples // testds.batch_size)
+                print(f"Fast test loss {test_loss:.4f}")
+                if track:
+                    wandb.log(
+                        {
+                            "fast_test_loss": test_loss,
+                            "epoch": epoch,
+                            "frame": frame,
+                        }
+                    )
             if track:
                 wandb.log(
                     {
@@ -207,7 +243,7 @@ def train(
                         "train_entropy": entropy,
                         "gradnorm": gradnorm,
                         "epoch": epoch,
-                        "frame": batch * trainds.batch_size + epoch * trainds.frames,
+                        "frame": frame,
                         "lr": lrnow,
                     },
                 )
@@ -220,6 +256,16 @@ def train(
 @click.option("--anneal-lr/--no-anneal-lr", default=True, help="Anneal learning rate")
 @click.option("--max-grad-norm", default=100.0, help="Max gradient norm")
 @click.option("--loss-fn", default="mse", help='Loss function ("kl" or "mse")')
+@click.option(
+    "--fast-eval-interval",
+    default=32768,
+    help="Interval at which to evaluate with subset of test data.",
+)
+@click.option(
+    "--fast-eval-samples",
+    default=8192,
+    help="Number of samples to use in fast evaluation.",
+)
 @click.option("--log-interval", default=10, help="Log interval")
 @click.option("--filepath", default="enhanced250m-b.blob", help="Filepath to load from")
 @click.option("--track/--no-track", default=False, help="Whether to log metrics to W&B")
@@ -239,6 +285,8 @@ def main(
     anneal_lr: bool,
     max_grad_norm: float,
     loss_fn: str,
+    fast_eval_interval: int,
+    fast_eval_samples: int,
     log_interval: int,
     filepath: str,
     track: bool,
@@ -246,6 +294,7 @@ def main(
     wandb_entity: str,
 ) -> None:
     trace, traindata, testdata = load_dataset(filepath, batch_size)
+    testdata.deterministic_shuffle()
 
     if torch.cuda.is_available():
         device = torch.device("cuda")
@@ -288,6 +337,8 @@ def main(
         anneal_lr=anneal_lr,
         max_grad_norm=max_grad_norm,
         loss_fn=loss_fn,  # type: ignore
+        fast_eval_interval=fast_eval_interval,
+        fast_eval_samples=fast_eval_samples,
         log_interval=log_interval,
         track=track,
         device=device,
