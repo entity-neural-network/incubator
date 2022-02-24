@@ -10,7 +10,6 @@ import numpy as np
 import ragged_buffer
 from rogue_net.relpos_encoding import (
     RelposEncoding,
-    RelposEncodingConfig,
 )
 from rogue_net.ragged_tensor import RaggedTensor
 from rogue_net.translate_positions import TranslatePositions
@@ -51,7 +50,6 @@ class Actor(nn.Module):
         action_heads: nn.ModuleDict,
         auxiliary_heads: Optional[nn.ModuleDict] = None,
         feature_transforms: Optional[TranslatePositions] = None,
-        relpos_encoding: Optional[RelposEncoding] = None,
     ):
         super(Actor, self).__init__()
 
@@ -215,37 +213,21 @@ class Actor(nn.Module):
 class AutoActor(Actor):
     def __init__(
         self,
+        tf: TransformerConfig,
         obs_space: ObsSpace,
         action_space: Dict[str, ActionSpace],
-        d_model: int,
-        n_head: int,
         d_qk: int = 16,
         auxiliary_heads: Optional[nn.ModuleDict] = None,
-        n_layer: int = 1,
-        pooling_op: Optional[str] = None,
         feature_transforms: Optional[TranslatePositions] = None,
-        relpos_encoding: Optional[RelposEncodingConfig] = None,
     ):
-        assert pooling_op in (None, "mean", "max", "meanmax")
-        self.d_model = d_model
+        self.d_model = tf.d_model
         if feature_transforms is not None:
             obs_space = feature_transforms.transform_obs_space(obs_space)
         super().__init__(
-            embedding_creator.create_embeddings(obs_space, d_model),
+            embedding_creator.create_embeddings(obs_space, tf.d_model),
             action_space,
-            Transformer(
-                TransformerConfig(
-                    d_model=d_model,
-                    n_head=n_head,
-                    n_layer=n_layer,
-                    pooling=pooling_op,  # type: ignore
-                    relpos_encoding=relpos_encoding,
-                )
-            ),
-            head_creator.create_action_heads(action_space, d_model, d_qk),
+            Transformer(tf, obs_space),
+            head_creator.create_action_heads(action_space, tf.d_model, d_qk),
             auxiliary_heads=auxiliary_heads,
             feature_transforms=feature_transforms,
-            relpos_encoding=RelposEncoding(relpos_encoding)
-            if relpos_encoding
-            else None,
         )

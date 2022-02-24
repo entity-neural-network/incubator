@@ -7,11 +7,10 @@ from ragged_buffer import RaggedBufferI64
 from entity_gym.environment import ObsSpace
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, eq=False)
 class RelposEncodingConfig:
     extent: List[int]
     position_features: List[str]
-    obs_space: ObsSpace
     d_head: int
     per_entity_values: bool = True
     exclude_entities: List[str] = field(default_factory=list)
@@ -20,25 +19,22 @@ class RelposEncodingConfig:
         assert len(self.extent) == len(self.position_features)
 
 
-class RelposEncoding(nn.Module):
-    def __init__(
-        self,
-        config: RelposEncodingConfig,
-    ) -> None:
-        super().__init__()
-        self.d_head = config.d_head
-        self.positional_features = config.position_features
-        self.n_entity = len(config.obs_space.entities)
-        self.per_entity_values = config.per_entity_values
-        self.exclude_entities = config.exclude_entities
+class RelposEncoding(nn.Module, RelposEncodingConfig):
+    def __init__(self, config: RelposEncodingConfig, obs_space: ObsSpace) -> None:
+        nn.Module.__init__(self)
+        RelposEncodingConfig.__init__(self, **config.__dict__)
+
+        self.n_entity = len(obs_space.entities)
         strides = []
         positions = 1
-        for extent in config.extent:
+        for extent in self.extent:
             strides.append(float(positions))
             positions *= 2 * extent + 1
         self.positions = positions
         self.register_buffer("strides", torch.tensor(strides).unsqueeze(0))
-        self.register_buffer("extent", torch.tensor(config.extent).view(1, 1, 1, -1))
+        self.register_buffer(
+            "extent_tensor", torch.tensor(self.extent).view(1, 1, 1, -1)
+        )
         # TODO: tune embedding init scale
         self.keys = nn.Embedding(self.positions, self.d_head)
         self.values = nn.Embedding(
@@ -56,7 +52,7 @@ class RelposEncoding(nn.Module):
                     for feature_name in config.position_features
                 ]
             )
-            for entity_name, entity in config.obs_space.entities.items()
+            for entity_name, entity in obs_space.entities.items()
             if entity_name not in self.exclude_entities
         }
 
@@ -92,16 +88,16 @@ class RelposEncoding(nn.Module):
             entity_type = entity_type.reshape(shape.size0(), shape.size1(0), 1)
 
         # Batch x Seq x Seq x Pos relative positions
-        relative_positions = tpos.unsqueeze(1) - tpos.unsqueeze(2)
+        relative_positions = (tpos.unsqueeze(1) - tpos.unsqueeze(2)) / 50.0
 
         clamped_positions = torch.max(
             torch.min(
-                self.extent,  # type: ignore
+                self.extent_tensor,  # type: ignore
                 relative_positions,
             ),
-            -self.extent,  # type: ignore
+            -self.extent_tensor,  # type: ignore
         )
-        positive_positions = clamped_positions + self.extent
+        positive_positions = clamped_positions + self.extent_tensor
         indices = (positive_positions * self.strides).sum(dim=-1).long()
 
         # Batch x Seq x Seq x d_model
