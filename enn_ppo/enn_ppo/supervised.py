@@ -109,6 +109,9 @@ class DataSet:
         frames = (
             next(iter(entities.buffers.values())).size0() // batch_size
         ) * batch_size
+        if frames == 0:
+            frames = next(iter(entities.buffers.values())).size0()
+            batch_size = frames
         return DataSet(
             entities,
             actions,
@@ -168,11 +171,11 @@ def load_dataset(filepath: str, batch_size: int) -> Tuple[Trace, DataSet, DataSe
     test_episodes = max(len(episodes) // 20, 1) * 2
     test = episodes[-test_episodes:]
     train = episodes[:-test_episodes]
-    return (
-        trace,
-        DataSet.from_episodes(train, batch_size=batch_size),
-        DataSet.from_episodes(test, batch_size=batch_size),
-    )
+    trainds = DataSet.from_episodes(train, batch_size=batch_size)
+    testds = DataSet.from_episodes(test, batch_size=batch_size)
+    print(f"{trainds.frames} training samples")
+    print(f"{testds.frames} test samples")
+    return trace, trainds, testds
 
 
 def compute_loss(
@@ -312,6 +315,9 @@ def train(
 def main(cfg: Config) -> None:
     """Trains a supervised model on samples recorded from an entity-gym environment."""
     trace, traindata, testdata = load_dataset(cfg.dataset_path, cfg.optim.batch_size)
+    if testdata.frames < cfg.fast_eval_samples:
+        print(f"WARNING: fast_eval_samples {cfg.fast_eval_samples} is larger than test dataset {testdata.frames}")
+        cfg.fast_eval_samples = testdata.frames
     testdata.deterministic_shuffle()
 
     if torch.cuda.is_available():
