@@ -316,7 +316,9 @@ def main(cfg: Config) -> None:
     """Trains a supervised model on samples recorded from an entity-gym environment."""
     trace, traindata, testdata = load_dataset(cfg.dataset_path, cfg.optim.batch_size)
     if testdata.frames < cfg.fast_eval_samples:
-        print(f"WARNING: fast_eval_samples {cfg.fast_eval_samples} is larger than test dataset {testdata.frames}")
+        print(
+            f"WARNING: fast_eval_samples {cfg.fast_eval_samples} is larger than test dataset {testdata.frames}"
+        )
         cfg.fast_eval_samples = testdata.frames
     testdata.deterministic_shuffle()
 

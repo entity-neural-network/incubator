@@ -217,6 +217,7 @@ class Transformer(nn.Module):
             self.relpos_encoding: Optional[RelposEncoding] = RelposEncoding(
                 config.relpos_encoding,
                 obs_space,
+                dhead=config.d_model // config.n_head,
             )
         else:
             self.relpos_encoding = None
