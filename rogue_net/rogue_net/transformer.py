@@ -2,6 +2,7 @@ import logging
 from dataclasses import dataclass
 from typing import Dict, Literal, Mapping, Optional, Tuple, Union
 import math
+from entity_gym.environment.environment import ObsSpace
 from numpy import dtype
 from ragged_buffer import RaggedBufferI64
 
@@ -17,6 +18,19 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class TransformerConfig:
+    """Transformer network hyperparameters.
+
+    Attributes:
+        embd_pdrop: Dropout probability for embedding layer.
+        resid_pdrop: Dropout probability for residual branches.
+        attn_pdrop: Dropout probability for attention.
+        n_layer: Number of transformer layers.
+        n_head: Number of attention heads.
+        d_model: Dimension of embedding.
+        pooling: Replace attention with "mean", "max", or "meanmax" pooling.
+        relpos_encoding: Relative positional encoding settings.
+    """
+
     embd_pdrop: float = 0.0
     resid_pdrop: float = 0.0
     attn_pdrop: float = 0.0
@@ -194,14 +208,16 @@ class Block(nn.Module):
 
 
 class Transformer(nn.Module):
-    def __init__(self, config: TransformerConfig) -> None:
+    def __init__(self, config: TransformerConfig, obs_space: ObsSpace) -> None:
         super().__init__()
 
         self.drop = nn.Dropout(config.embd_pdrop)
         self.blocks = nn.Sequential(*[Block(config) for _ in range(config.n_layer)])
         if config.relpos_encoding is not None:
             self.relpos_encoding: Optional[RelposEncoding] = RelposEncoding(
-                config.relpos_encoding
+                config.relpos_encoding,
+                obs_space,
+                dhead=config.d_model // config.n_head,
             )
         else:
             self.relpos_encoding = None

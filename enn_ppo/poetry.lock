@@ -124,7 +124,7 @@ numpy = "*"
 
 [[package]]
 name = "cmd2"
-version = "2.3.3"
+version = "2.4.0"
 description = "cmd2 - quickly build feature-rich and user-friendly interactive command line applications in Python"
 category = "main"
 optional = false
@@ -133,7 +133,7 @@ python-versions = ">=3.6"
 [package.dependencies]
 attrs = ">=16.3.0"
 pyperclip = ">=1.6"
-pyreadline3 = {version = "*", markers = "sys_platform == \"win32\" and python_version >= \"3.8\""}
+pyreadline3 = {version = "*", markers = "sys_platform == \"win32\""}
 wcwidth = ">=0.1.7"
 
 [package.extras]
@@ -194,6 +194,17 @@ python-versions = "*"
 six = ">=1.4.0"
 
 [[package]]
+name = "docstring-parser"
+version = "0.13"
+description = "\"Parse Python docstrings in reST, Google and Numpydoc format\""
+category = "main"
+optional = false
+python-versions = ">=3.6"
+
+[package.extras]
+test = ["pytest", "black"]
+
+[[package]]
 name = "enn-zoo"
 version = "0.1.0"
 description = "A collections of environments which can be used with entity-neural-networks"
@@ -204,7 +215,7 @@ develop = true
 
 [package.dependencies]
 griddly = "1.2.31"
-hyperstate = "^0.1.3"
+hyperstate = "^0.2.0"
 orjson = "^3.6.5"
 requests = "^2.27.1"
 types-requests = "^2.27.7"
@@ -361,8 +372,8 @@ python-versions = "*"
 
 [[package]]
 name = "hyperstate"
-version = "0.1.3"
-description = "Library for managing hyperparameters and mutable state in machine learning training systems."
+version = "0.2.6"
+description = "Library for managing hyperparameters and mutable state of machine learning training systems."
 category = "main"
 optional = false
 python-versions = ">=3.8,<4.0"
@@ -370,6 +381,7 @@ python-versions = ">=3.8,<4.0"
 [package.dependencies]
 click = ">=8.0.3,<9.0.0"
 dill = ">=0.3.4,<0.4.0"
+docstring-parser = ">=0.13,<0.14"
 msgpack = ">=1.0.3,<2.0.0"
 msgpack-numpy = ">=0.4.7,<0.5.0"
 python-ron = ">=0.1.6,<0.2.0"
@@ -839,7 +851,7 @@ numpy = ">=1.17.3,<1.25.0"
 
 [[package]]
 name = "sentry-sdk"
-version = "1.5.5"
+version = "1.5.6"
 description = "Python client for Sentry (https://sentry.io)"
 category = "main"
 optional = false
@@ -997,7 +1009,7 @@ telegram = ["requests"]
 
 [[package]]
 name = "types-requests"
-version = "2.27.10"
+version = "2.27.11"
 description = "Typing stubs for requests"
 category = "main"
 optional = false
@@ -1107,7 +1119,7 @@ testing = ["pytest (>=6)", "pytest-checkdocs (>=2.4)", "pytest-flake8", "pytest-
 [metadata]
 lock-version = "1.1"
 python-versions = ">=3.8,<3.10"
-content-hash = "5a3ffed296f476e17e2ce1b2629076ac6b8e8c6c052cf02337d75212eaba18fc"
+content-hash = "c54f2682e34dad64b015eec6172703fbc43252775814dfaf2b6d05c6e9c3fb1e"
 
 [metadata.files]
 absl-py = [
@@ -1155,8 +1167,8 @@ cmaes = [
     {file = "cmaes-0.8.2.tar.gz", hash = "sha256:1c04ba23ded925ef13b96f42cfbd667a905ea5b80754c750e6448b9fcda96a5d"},
 ]
 cmd2 = [
-    {file = "cmd2-2.3.3-py3-none-any.whl", hash = "sha256:871713244c1f31defa3250149ba3ed071130be33bc755f39b84ae7ef6f721951"},
-    {file = "cmd2-2.3.3.tar.gz", hash = "sha256:750d7eb04d55c3bc2a413e191bc177856f388102de47d11f2210a35266543640"},
+    {file = "cmd2-2.4.0-py3-none-any.whl", hash = "sha256:6fe6d46099edaf4a99163c191aeb4babfd7e4dfbac6009f423ecc8370895b58f"},
+    {file = "cmd2-2.4.0.tar.gz", hash = "sha256:090909ab6c8ecee40813cec759e61dd6e70c8227a1a8e96082f5f2b0d394bc77"},
 ]
 colorama = [
     {file = "colorama-0.4.4-py2.py3-none-any.whl", hash = "sha256:9f47eda37229f68eee03b24b9748937c7dc3868f906e8ba69fbcbdd3bc5dc3e2"},
@@ -1177,6 +1189,9 @@ dill = [
 docker-pycreds = [
     {file = "docker-pycreds-0.4.0.tar.gz", hash = "sha256:6ce3270bcaf404cc4c3e27e4b6c70d3521deae82fb508767870fdbf772d584d4"},
     {file = "docker_pycreds-0.4.0-py2.py3-none-any.whl", hash = "sha256:7266112468627868005106ec19cd0d722702d2b7d5912a28e19b826c3d37af49"},
+]
+docstring-parser = [
+    {file = "docstring_parser-0.13.tar.gz", hash = "sha256:66dd7eac7232202bf220fd98a5f11491863c01f958a75fdd535c7eccac9ced78"},
 ]
 enn-zoo = []
 entity-gym = []
@@ -1318,8 +1333,8 @@ gym-notices = [
     {file = "gym_notices-0.0.4-py3-none-any.whl", hash = "sha256:933712d50f415e441b72ab6fe42c5007a1e8208c5944dbb0d9b75be3fcb7b58b"},
 ]
 hyperstate = [
-    {file = "hyperstate-0.1.3-py3-none-any.whl", hash = "sha256:20e97d985483592c711d4b8d858b63767bf337b71acc9e54f0a5935c68fae06c"},
-    {file = "hyperstate-0.1.3.tar.gz", hash = "sha256:ecd32718e7bd9bda750a7197047fb19eae03fd89fcb523219198d8d0a17021e8"},
+    {file = "hyperstate-0.2.6-py3-none-any.whl", hash = "sha256:e411c2f6571ed02b11f4bbe9c5764e03c389f98038bcb380c04015853ec8459f"},
+    {file = "hyperstate-0.2.6.tar.gz", hash = "sha256:a1caec10e9018efc60824990c735a676cbe12e272ba1aee428149917775955fe"},
 ]
 idna = [
     {file = "idna-3.3-py3-none-any.whl", hash = "sha256:84d9dd047ffa80596e0f246e2eab0b391788b0503584e8945f2368256d2735ff"},
@@ -1772,8 +1787,8 @@ scipy = [
     {file = "scipy-1.8.0.tar.gz", hash = "sha256:31d4f2d6b724bc9a98e527b5849b8a7e589bf1ea630c33aa563eda912c9ff0bd"},
 ]
 sentry-sdk = [
-    {file = "sentry-sdk-1.5.5.tar.gz", hash = "sha256:98fd155fa5d5fec1dbabed32a1a4ae2705f1edaa5dae4e7f7b62a384ba30e759"},
-    {file = "sentry_sdk-1.5.5-py2.py3-none-any.whl", hash = "sha256:3817274fba2498c8ebf6b896ee98ac916c5598706340573268c07bf2bb30d831"},
+    {file = "sentry-sdk-1.5.6.tar.gz", hash = "sha256:ac2a50128409d57655279817aedcb7800cace1f76b266f3dd62055d5afd6e098"},
+    {file = "sentry_sdk-1.5.6-py2.py3-none-any.whl", hash = "sha256:1ab34e3851a34aeb3d1af1a0f77cec73978c4e9698e5210d050e4932953cb241"},
 ]
 shortuuid = [
     {file = "shortuuid-1.0.8-py3-none-any.whl", hash = "sha256:44a7a86bcf24dbaba2e626cf80c779926b7c3a0d31a3a013e0d3cd1077707d23"},
@@ -1848,8 +1863,8 @@ tqdm = [
     {file = "tqdm-4.62.3.tar.gz", hash = "sha256:d359de7217506c9851b7869f3708d8ee53ed70a1b8edbba4dbcb47442592920d"},
 ]
 types-requests = [
-    {file = "types-requests-2.27.10.tar.gz", hash = "sha256:5dcb088fcaa778efeee6b7fc46967037e983fbfb9fec02594578bd33fd75e555"},
-    {file = "types_requests-2.27.10-py3-none-any.whl", hash = "sha256:6cb4fb0bbcbc585c57eeee6ffe5a47638dc89706b8d290ec89a77213fc5bad1a"},
+    {file = "types-requests-2.27.11.tar.gz", hash = "sha256:6a7ed24b21780af4a5b5e24c310b2cd885fb612df5fd95584d03d87e5f2a195a"},
+    {file = "types_requests-2.27.11-py3-none-any.whl", hash = "sha256:506279bad570c7b4b19ac1f22e50146538befbe0c133b2cea66a9b04a533a859"},
 ]
 types-urllib3 = [
     {file = "types-urllib3-1.26.9.tar.gz", hash = "sha256:abd2d4857837482b1834b4817f0587678dcc531dbc9abe4cde4da28cef3f522c"},

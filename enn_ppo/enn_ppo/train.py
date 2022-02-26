@@ -13,7 +13,6 @@ from typing import (
     List,
     Mapping,
     Optional,
-    Sequence,
     Tuple,
     Type,
     TypeVar,
@@ -34,6 +33,7 @@ from rogue_net.relpos_encoding import RelposEncodingConfig
 from rogue_net.actor import AutoActor
 from rogue_net import head_creator
 from rogue_net.translate_positions import TranslatePositions
+from rogue_net.transformer import TransformerConfig
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -232,30 +232,22 @@ def tensor_dict_to_ragged(
 class PPOActor(AutoActor):
     def __init__(
         self,
+        tf: TransformerConfig,
         obs_space: ObsSpace,
         action_space: Dict[str, ActionSpace],
-        d_model: int = 64,
-        n_head: int = 1,
         d_qk: int = 16,
-        n_layer: int = 1,
-        pooling_op: Optional[str] = None,
         feature_transforms: Optional[TranslatePositions] = None,
-        relpos_encoding: Optional[RelposEncodingConfig] = None,
     ):
         auxiliary_heads = nn.ModuleDict(
-            {"value": head_creator.create_value_head(d_model)}
+            {"value": head_creator.create_value_head(tf.d_model)}
         )
         super().__init__(
+            tf,
             obs_space,
             action_space,
-            d_model,
-            n_head,
             d_qk,
             auxiliary_heads,
-            n_layer=n_layer,
-            pooling_op=pooling_op,
             feature_transforms=feature_transforms,
-            relpos_encoding=relpos_encoding,
         )
 
     def get_value(
@@ -526,12 +518,9 @@ def run_eval(
         else:
             if eval_opponent is None:
                 opponent = PPOActor(
+                    TransformerConfig(),
                     obs_space,
                     dict(action_space),
-                    d_model=args.d_model,
-                    n_head=args.n_head,
-                    n_layer=args.n_layer,
-                    pooling_op=args.pooling_op,
                 ).to(device)
             else:
                 opponent = CCNetAdapter(device, load_from=eval_opponent)  # type: ignore
@@ -687,8 +676,6 @@ def train(args: argparse.Namespace) -> float:
 
     if args.relpos_encoding:
         relpos_encoding: Optional[RelposEncodingConfig] = RelposEncodingConfig(
-            d_head=args.d_model // args.n_head,
-            obs_space=obs_space,
             **json.loads(args.relpos_encoding),
         )
     else:
@@ -696,14 +683,16 @@ def train(args: argparse.Namespace) -> float:
 
     if not args.codecraft_net:
         agent = PPOActor(
+            TransformerConfig(
+                d_model=args.d_model,
+                n_head=args.n_head,
+                n_layer=args.n_layer,
+                pooling=args.pooling_op,
+                relpos_encoding=relpos_encoding,
+            ),
             obs_space,
             action_space,
-            d_model=args.d_model,
-            n_head=args.n_head,
-            n_layer=args.n_layer,
-            pooling_op=args.pooling_op,
             feature_transforms=translate,
-            relpos_encoding=relpos_encoding,
         ).to(device)
     else:
         agent = CCNetAdapter(device)  # type: ignore

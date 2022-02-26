@@ -1,4 +1,6 @@
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
+import os
+from pathlib import Path
 from typing import List, Literal, Optional, Tuple, Dict
 from enn_ppo.simple_trace import Tracer
 from entity_gym.environment.vec_env import VecActionMask
@@ -8,6 +10,7 @@ from ragged_buffer import RaggedBufferF32, RaggedBufferI64
 from enn_ppo.train import RaggedActionDict, RaggedBatchDict
 from rogue_net.actor import AutoActor
 import click
+from rogue_net.transformer import Transformer, TransformerConfig
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -15,6 +18,66 @@ from torch.optim import AdamW
 import numpy as np
 import numpy.typing as npt
 import wandb
+import hyperstate
+
+
+@dataclass
+class OptimizerConfig:
+    """Optimizer hyperparameters
+
+    Attributes:
+        lr: learning rate
+        anneal_lr: anneal learning rate
+        max_grad_norm: max gradient norm
+        batch_size: batch size
+    """
+
+    lr: float = 1e-4
+    anneal_lr: bool = True
+    max_grad_norm: float = 100.0
+    batch_size: int = 512
+
+
+@dataclass
+class WandbConfig:
+    """W&B tracking settings.
+
+    Args:
+        track: whether to track metrics to W&B
+        project_name: the wandb's project name
+        entity: the entity (team) of wandb's project
+    """
+
+    track: bool = False
+    project_name: str = "enn-bc"
+    entity: str = "entity-neural-network"
+
+
+@dataclass
+class Config:
+    """Supervised training configuration.
+
+    Args:
+        optim: optimizer configuration
+        wandb: wandb tracking settings
+        model: transformer network hyperparameters
+        dataset_path: file to load training/test dataset from
+        epochs: number of epochs to train for
+        loss_fn: loss function ("kl" or "mse")
+        log_interval: print out loss every log_interval steps
+        fast_eval_interval: interval at which to evaluate with subset of test data
+        fast_eval_samples: number of samples to use in fast evaluation
+    """
+
+    optim: OptimizerConfig
+    wandb: WandbConfig
+    model: TransformerConfig
+    dataset_path: str
+    epochs: int = 10
+    loss_fn: Literal["kl", "mse"] = "mse"
+    log_interval: int = 10
+    fast_eval_interval: int = 32768
+    fast_eval_samples: int = 8192
 
 
 @dataclass
@@ -46,6 +109,9 @@ class DataSet:
         frames = (
             next(iter(entities.buffers.values())).size0() // batch_size
         ) * batch_size
+        if frames == 0:
+            frames = next(iter(entities.buffers.values())).size0()
+            batch_size = frames
         return DataSet(
             entities,
             actions,
@@ -105,11 +171,11 @@ def load_dataset(filepath: str, batch_size: int) -> Tuple[Trace, DataSet, DataSe
     test_episodes = max(len(episodes) // 20, 1) * 2
     test = episodes[-test_episodes:]
     train = episodes[:-test_episodes]
-    return (
-        trace,
-        DataSet.from_episodes(train, batch_size=batch_size),
-        DataSet.from_episodes(test, batch_size=batch_size),
-    )
+    trainds = DataSet.from_episodes(train, batch_size=batch_size)
+    testds = DataSet.from_episodes(test, batch_size=batch_size)
+    print(f"{trainds.frames} training samples")
+    print(f"{testds.frames} test samples")
+    return trace, trainds, testds
 
 
 def compute_loss(
@@ -154,36 +220,28 @@ def compute_loss(
                 logprob.masked_fill(mask=logprob == float("-inf"), value=0.0),
                 target.masked_fill(mask=target == float("-inf"), value=0.0),
             )
-            if torch.any(logprob == float("-inf")):
-                __import__("ipdb").set_trace()
     return loss, sum(e.mean().item() for _, e in entropy.items())
 
 
 def train(
+    cfg: Config,
     model: AutoActor,
     trainds: DataSet,
     testds: DataSet,
-    epochs: int,
-    lr: float,
-    anneal_lr: bool,
-    max_grad_norm: float,
-    loss_fn: Literal["kl", "mse"],
-    fast_eval_interval: int,
-    fast_eval_samples: int,
-    log_interval: int,
-    track: bool,
     device: torch.device,
 ) -> None:
     tracer = Tracer(cuda=device == "cuda")
 
-    optimizer = AdamW(model.parameters(), lr=lr)
-    for epoch in range(epochs + 1):
+    optimizer = AdamW(model.parameters(), lr=cfg.optim.lr)
+    for epoch in range(cfg.epochs + 1):
         test_loss = 0.0
         for test_batch in range(testds.nbatch):
-            loss, _ = compute_loss(model, test_batch, testds, loss_fn, tracer, device)
+            loss, _ = compute_loss(
+                model, test_batch, testds, cfg.loss_fn, tracer, device
+            )
             test_loss = loss.item()
         print(f"Test loss {test_loss:.4f}")
-        if track:
+        if cfg.wandb.track:
             wandb.log(
                 {
                     "test_loss": test_loss,
@@ -191,7 +249,7 @@ def train(
                     "frame": epoch * trainds.frames,
                 }
             )
-        if epoch == epochs:
+        if epoch == cfg.epochs:
             break
 
         trainds.shuffle()
@@ -199,36 +257,40 @@ def train(
         for batch in range(trainds.nbatch):
             frame = batch * trainds.batch_size + epoch * trainds.frames
             optimizer.zero_grad()
-            if anneal_lr:
-                frac = 1.0 - frame / (epochs * trainds.frames)
-                lrnow = frac * lr
+            if cfg.optim.anneal_lr:
+                frac = 1.0 - frame / (cfg.epochs * trainds.frames)
+                lrnow = frac * cfg.optim.lr
                 optimizer.param_groups[0]["lr"] = lrnow
             else:
-                lrnow = lr
+                lrnow = cfg.optim.lr
 
-            loss, entropy = compute_loss(model, batch, trainds, loss_fn, tracer, device)
+            loss, entropy = compute_loss(
+                model, batch, trainds, cfg.loss_fn, tracer, device
+            )
             loss.backward()
-            gradnorm = nn.utils.clip_grad_norm_(model.parameters(), max_grad_norm)
+            gradnorm = nn.utils.clip_grad_norm_(
+                model.parameters(), cfg.optim.max_grad_norm
+            )
             optimizer.step()
-            if batch % log_interval == 0:
+            if batch % cfg.log_interval == 0:
                 print(
-                    f"Epoch {epoch}/{epochs}, Batch {batch}/{trainds.nbatch}, Loss {loss.item():.4f}, Entropy {entropy:.4f}"
+                    f"Epoch {epoch}/{cfg.epochs}, Batch {batch}/{trainds.nbatch}, Loss {loss.item():.4f}, Entropy {entropy:.4f}"
                 )
-            if frame % fast_eval_interval == 0:
+            if frame % cfg.fast_eval_interval == 0:
                 test_loss = 0.0
-                for test_batch in range(fast_eval_samples // testds.batch_size):
+                for test_batch in range(cfg.fast_eval_samples // testds.batch_size):
                     loss, _ = compute_loss(
                         model,
                         test_batch,
                         testds,
-                        loss_fn,
+                        cfg.loss_fn,
                         tracer,
                         device,
                     )
                     test_loss += loss.item()
-                test_loss /= fast_eval_samples // testds.batch_size
+                test_loss /= cfg.fast_eval_samples // testds.batch_size
                 print(f"Fast test loss {test_loss:.4f}")
-                if track:
+                if cfg.wandb.track:
                     wandb.log(
                         {
                             "fast_test_loss": test_loss,
@@ -236,7 +298,7 @@ def train(
                             "frame": frame,
                         }
                     )
-            if track:
+            if cfg.wandb.track:
                 wandb.log(
                     {
                         "train_loss": loss.item(),
@@ -249,51 +311,15 @@ def train(
                 )
 
 
-@click.command()
-@click.option("--epochs", default=10, help="Number of epochs to train for")
-@click.option("--batch-size", default=512, help="Batch size")
-@click.option("--lr", default=1e-4, help="Learning rate")
-@click.option("--anneal-lr/--no-anneal-lr", default=True, help="Anneal learning rate")
-@click.option("--max-grad-norm", default=100.0, help="Max gradient norm")
-@click.option("--loss-fn", default="mse", help='Loss function ("kl" or "mse")')
-@click.option(
-    "--fast-eval-interval",
-    default=32768,
-    help="Interval at which to evaluate with subset of test data.",
-)
-@click.option(
-    "--fast-eval-samples",
-    default=8192,
-    help="Number of samples to use in fast evaluation.",
-)
-@click.option("--log-interval", default=10, help="Log interval")
-@click.option("--filepath", default="enhanced250m-b.blob", help="Filepath to load from")
-@click.option("--track/--no-track", default=False, help="Whether to log metrics to W&B")
-@click.option(
-    "--wandb-project-name", type=str, default="enn-bc", help="the wandb's project name"
-)
-@click.option(
-    "--wandb-entity",
-    type=str,
-    default="entity-neural-network",
-    help="the entity (team) of wandb's project",
-)
-def main(
-    epochs: int,
-    batch_size: int,
-    lr: float,
-    anneal_lr: bool,
-    max_grad_norm: float,
-    loss_fn: str,
-    fast_eval_interval: int,
-    fast_eval_samples: int,
-    log_interval: int,
-    filepath: str,
-    track: bool,
-    wandb_project_name: str,
-    wandb_entity: str,
-) -> None:
-    trace, traindata, testdata = load_dataset(filepath, batch_size)
+@hyperstate.command(Config)
+def main(cfg: Config) -> None:
+    """Trains a supervised model on samples recorded from an entity-gym environment."""
+    trace, traindata, testdata = load_dataset(cfg.dataset_path, cfg.optim.batch_size)
+    if testdata.frames < cfg.fast_eval_samples:
+        print(
+            f"WARNING: fast_eval_samples {cfg.fast_eval_samples} is larger than test dataset {testdata.frames}"
+        )
+        cfg.fast_eval_samples = testdata.frames
     testdata.deterministic_shuffle()
 
     if torch.cuda.is_available():
@@ -302,45 +328,37 @@ def main(
         device = torch.device("cpu")
     # TODO: compute input normalization once at the beginning and then freeze it
     model = AutoActor(
+        cfg.model,
         obs_space=trace.obs_space,
         action_space=trace.action_space,
-        d_model=256,
-        n_head=4,
-        n_layer=2,
     ).to(device)
 
-    if track:
+    if cfg.wandb.track:
+        config = asdict(cfg)
+        run_name = None
+        if os.path.exists("/xprun/info/config.ron"):
+            import xprun  # type: ignore
+
+            xp_info = xprun.current_xp()
+            config["name"] = xp_info.xp_def.name
+            config["base_name"] = xp_info.xp_def.base_name
+            config["id"] = xp_info.id
+            run_name = xp_info.xp_def.name
         wandb.init(
-            project=wandb_project_name,
-            entity=wandb_entity,
-            config={
-                "epochs": epochs,
-                "batch_size": batch_size,
-                "lr": lr,
-                "anneal_lr": anneal_lr,
-                "max_grad_norm": max_grad_norm,
-                "loss_fn": loss_fn,
-                "log_interval": log_interval,
-                "filepath": filepath,
-            },
+            project=cfg.wandb.project_name,
+            entity=cfg.wandb.entity,
+            config=asdict(cfg),
+            name=run_name,
         )
         wandb.watch(model)
 
-    assert loss_fn == "kl" or loss_fn == "mse"
+    assert cfg.loss_fn == "kl" or cfg.loss_fn == "mse"
 
     train(
+        cfg=cfg,
         model=model,
         trainds=traindata,
         testds=testdata,
-        epochs=epochs,
-        lr=lr,
-        anneal_lr=anneal_lr,
-        max_grad_norm=max_grad_norm,
-        loss_fn=loss_fn,  # type: ignore
-        fast_eval_interval=fast_eval_interval,
-        fast_eval_samples=fast_eval_samples,
-        log_interval=log_interval,
-        track=track,
         device=device,
     )
 
