@@ -255,6 +255,17 @@ python-versions = "*"
 six = ">=1.4.0"
 
 [[package]]
+name = "docstring-parser"
+version = "0.13"
+description = "\"Parse Python docstrings in reST, Google and Numpydoc format\""
+category = "main"
+optional = false
+python-versions = ">=3.6"
+
+[package.extras]
+test = ["pytest", "black"]
+
+[[package]]
 name = "enn-ppo"
 version = "0.1.0"
 description = "PPO training loop compatible with EntityGym"
@@ -459,7 +470,7 @@ python-versions = "*"
 
 [[package]]
 name = "hyperstate"
-version = "0.2.5"
+version = "0.2.6"
 description = "Library for managing hyperparameters and mutable state of machine learning training systems."
 category = "main"
 optional = false
@@ -468,6 +479,7 @@ python-versions = ">=3.8,<4.0"
 [package.dependencies]
 click = ">=8.0.3,<9.0.0"
 dill = ">=0.3.4,<0.4.0"
+docstring-parser = ">=0.13,<0.14"
 msgpack = ">=1.0.3,<2.0.0"
 msgpack-numpy = ">=0.4.7,<0.5.0"
 python-ron = ">=0.1.6,<0.2.0"
@@ -1584,6 +1596,9 @@ docker-pycreds = [
     {file = "docker-pycreds-0.4.0.tar.gz", hash = "sha256:6ce3270bcaf404cc4c3e27e4b6c70d3521deae82fb508767870fdbf772d584d4"},
     {file = "docker_pycreds-0.4.0-py2.py3-none-any.whl", hash = "sha256:7266112468627868005106ec19cd0d722702d2b7d5912a28e19b826c3d37af49"},
 ]
+docstring-parser = [
+    {file = "docstring_parser-0.13.tar.gz", hash = "sha256:66dd7eac7232202bf220fd98a5f11491863c01f958a75fdd535c7eccac9ced78"},
+]
 enn-ppo = []
 enn-zoo = []
 entity-gym = []
@@ -1729,8 +1744,8 @@ gym-notices = [
     {file = "gym_notices-0.0.4-py3-none-any.whl", hash = "sha256:933712d50f415e441b72ab6fe42c5007a1e8208c5944dbb0d9b75be3fcb7b58b"},
 ]
 hyperstate = [
-    {file = "hyperstate-0.2.5-py3-none-any.whl", hash = "sha256:fc2524c045cfe326452bf66771d235f01c3b6e8f1b10865474d85aa0dd64152c"},
-    {file = "hyperstate-0.2.5.tar.gz", hash = "sha256:1ac4a792513215f0fb7f5aa565067ad1d00964a1054a3ffd2873ba9e6d93c608"},
+    {file = "hyperstate-0.2.6-py3-none-any.whl", hash = "sha256:e411c2f6571ed02b11f4bbe9c5764e03c389f98038bcb380c04015853ec8459f"},
+    {file = "hyperstate-0.2.6.tar.gz", hash = "sha256:a1caec10e9018efc60824990c735a676cbe12e272ba1aee428149917775955fe"},
 ]
 idna = [
     {file = "idna-3.3-py3-none-any.whl", hash = "sha256:84d9dd047ffa80596e0f246e2eab0b391788b0503584e8945f2368256d2735ff"},

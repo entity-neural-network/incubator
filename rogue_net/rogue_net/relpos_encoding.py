@@ -9,6 +9,16 @@ from entity_gym.environment import ObsSpace
 
 @dataclass(frozen=True, eq=False)
 class RelposEncodingConfig:
+    """Settings for relative positio encoding.
+
+    Attributes:
+        extent: Each integer relative position in the interval [-extent, extent] receives a positional embedding, with positions outside the interval snapped to the closest end.
+        position_features: Names of position features used for relative position encoding.
+        scale: Relative positions are divided by the scale before being assigned an embedding.
+        per_entity_values: Whether to use per-entity embeddings for relative positional values.
+        exclude_entities: List of entity types to exclude from relative position encoding.
+    """
+
     extent: List[int]
     position_features: List[str]
     scale: float = 1.0

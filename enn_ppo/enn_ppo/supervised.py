@@ -25,11 +25,11 @@ import hyperstate
 class OptimizerConfig:
     """Optimizer hyperparameters
 
-    Args:
-    :param lr: learning rate
-    :param anneal_lr: anneal learning rate
-    :param max_grad_norm: max gradient norm
-    :param batch_size: batch size
+    Attributes:
+        lr: learning rate
+        anneal_lr: anneal learning rate
+        max_grad_norm: max gradient norm
+        batch_size: batch size
     """
 
     lr: float = 1e-4
@@ -43,9 +43,9 @@ class WandbConfig:
     """W&B tracking settings.
 
     Args:
-    :param track: whether to track metrics to W&B
-    :param project_name: the wandb's project name
-    :param entity: the entity (team) of wandb's project
+        track: whether to track metrics to W&B
+        project_name: the wandb's project name
+        entity: the entity (team) of wandb's project
     """
 
     track: bool = False
@@ -58,15 +58,15 @@ class Config:
     """Supervised training configuration.
 
     Args:
-    :param optim: optimizer configuration
-    :wandb wandb: wandb tracking settings
-    :model model: transformer network hyperparameters
-    :param dataset_path: file to load training/test dataset from
-    :param epochs: number of epochs to train for
-    :param loss_fn: loss function ("kl" or "mse")
-    :param log_interval: print out loss every log_interval steps
-    :param fast_eval_interval: interval at which to evaluate with subset of test data
-    :param fast_eval_samples: number of samples to use in fast evaluation
+        optim: optimizer configuration
+        wandb: wandb tracking settings
+        model: transformer network hyperparameters
+        dataset_path: file to load training/test dataset from
+        epochs: number of epochs to train for
+        loss_fn: loss function ("kl" or "mse")
+        log_interval: print out loss every log_interval steps
+        fast_eval_interval: interval at which to evaluate with subset of test data
+        fast_eval_samples: number of samples to use in fast evaluation
     """
 
     optim: OptimizerConfig

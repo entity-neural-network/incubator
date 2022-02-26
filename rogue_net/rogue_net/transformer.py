@@ -22,11 +22,11 @@ class TransformerConfig:
 
     Attributes:
         embd_pdrop: Dropout probability for embedding layer.
-        res_pdrop: Dropout probability for residual branches.
+        resid_pdrop: Dropout probability for residual branches.
         attn_pdrop: Dropout probability for attention.
-        nlayer: Number of transformer layers.
-        nhead: Number of attention heads.
-        dmodel: Dimension of embedding.
+        n_layer: Number of transformer layers.
+        n_head: Number of attention heads.
+        d_model: Dimension of embedding.
         pooling: Replace attention with "mean", "max", or "meanmax" pooling.
         relpos_encoding: Relative positional encoding settings.
     """
