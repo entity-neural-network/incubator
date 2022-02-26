@@ -337,7 +337,7 @@ def main(cfg: Config) -> None:
         config = asdict(cfg)
         run_name = None
         if os.path.exists("/xprun/info/config.ron"):
-            import xprun
+            import xprun # type: ignore
 
             xp_info = xprun.current_xp()
             config["name"] = xp_info.xp_def.name

@@ -571,7 +571,7 @@ def train(args: argparse.Namespace) -> float:
     run_name = f"{args.gym_id}__{args.exp_name}__{args.seed}__{int(time.time())}"
     config = vars(args)
     if os.path.exists("/xprun/info/config.ron"):
-        import xprun
+        import xprun  # type: ignore
 
         xp_info = xprun.current_xp()
         config["name"] = xp_info.xp_def.name
