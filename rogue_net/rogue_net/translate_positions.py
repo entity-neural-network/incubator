@@ -13,10 +13,15 @@ class TranslatePositions:
         position_features: List[str],
         obs_space: ObsSpace,
         # x and y component of unit vector that give the direction of the reference entity. All other entities are rotated by this vector.
-        orientation_features: Optional[List[str]] = None,
+        rotation_vec_features: Optional[List[str]] = None,
+        # name of feature that gives the direction of the reference entity in radians. All other entities are rotated by this value.
+        rotation_angle_feature: Optional[str] = None,
         # adds a feature that is the distance to the reference entity
         add_dist_feature: bool = False,
     ):
+        assert (
+            rotation_vec_features is None or rotation_angle_feature is None
+        ), "Only one of orientation_features and orientation_feature can be specified"
         self.feature_indices = {
             entity_name: [
                 entity.features.index(feature_name)
@@ -32,12 +37,17 @@ class TranslatePositions:
             obs_space.entities[reference_entity].features.index(feature_name)
             for feature_name in position_features
         ]
-        self.reference_orientation_indices = (
+        self.orientation_vec_indices = (
             [
                 obs_space.entities[reference_entity].features.index(feature_name)
-                for feature_name in orientation_features
+                for feature_name in rotation_vec_features
             ]
-            if orientation_features is not None
+            if rotation_vec_features is not None
+            else None
+        )
+        self.orientation_angle_index = (
+            obs_space.entities[reference_entity].features.index(rotation_angle_feature)
+            if rotation_angle_feature is not None
             else None
         )
         self.reference_entity = reference_entity
@@ -48,16 +58,25 @@ class TranslatePositions:
             return
         reference_entity = entities[self.reference_entity]
         origin = reference_entity[:, :, self.reference_indices]
-        orientation = (
-            reference_entity[:, :, self.reference_orientation_indices]
-            if self.reference_orientation_indices is not None
-            else None
-        )
+        if self.orientation_vec_indices is not None:
+            orientation: Optional[RaggedBufferF32] = reference_entity[
+                :, :, self.orientation_vec_indices
+            ]
+        elif self.orientation_angle_index is not None:
+            angle = reference_entity[:, :, self.orientation_angle_index].as_array()
+            orientation = RaggedBufferF32.from_array(
+                np.hstack([np.cos(angle), np.sin(angle)]).reshape(-1, 1, 2)
+            )
+        else:
+            orientation = None
         for entity_name, indices in self.feature_indices.items():
             if entity_name in entities:
                 if orientation is not None:
+                    # TODO: bug in ragged_buffer, assumes that all input arguments are view (hence, orientation[:, :, :])
                     ragged_buffer.translate_rotate(
-                        entities[entity_name][:, :, indices], origin, orientation
+                        entities[entity_name][:, :, indices],
+                        origin,
+                        orientation[:, :, :],
                     )
                 else:
                     feats = entities[entity_name][:, :, indices]
