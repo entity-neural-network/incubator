@@ -164,11 +164,15 @@ class Trace:
             key=lambda e: e.number,
         )
 
-    def train_test_split(self, test_frac: float = 0.1) -> Tuple[MergedSamples, MergedSamples]:
+    def train_test_split(
+        self, test_frac: float = 0.1, progress_bar: bool = False
+    ) -> Tuple[MergedSamples, MergedSamples]:
         if self.subsample == 1:
             total_frames = len(self.samples) * len(self.samples[0].episode)
         else:
             total_frames = sum(len(s.episode) for s in self.samples)
+        if progress_bar:
+            pbar = tqdm.tqdm(total=len(self.samples))
 
         test = MergedSamples.empty()
         test_episodes: Set[int] = set()
@@ -178,6 +182,8 @@ class Trace:
             test_episodes.update(sample.episode)
             test.push_sample(sample)
             i += 1
+            if progress_bar:
+                pbar.update(1)
 
         train = MergedSamples.empty()
         for sample in self.samples[i:]:
@@ -185,5 +191,8 @@ class Trace:
             if any(e in test_episodes for e in sample.episode):
                 continue
             train.push_sample(sample)
+            if progress_bar:
+                i += 1
+                pbar.update(1)
 
         return train, test
