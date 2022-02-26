@@ -5,7 +5,7 @@ from typing import List, Literal, Optional, Tuple, Dict
 from enn_ppo.simple_trace import Tracer
 from entity_gym.environment.vec_env import VecActionMask
 from entity_gym.serialization import Trace
-from entity_gym.serialization.sample_loader import Episode
+from entity_gym.serialization.sample_loader import Episode, MergedSamples
 from ragged_buffer import RaggedBufferF32, RaggedBufferI64
 from enn_ppo.train import RaggedActionDict, RaggedBatchDict
 from rogue_net.actor import AutoActor
@@ -93,6 +93,24 @@ class DataSet:
     permutation: Optional[npt.NDArray[np.int64]] = None
 
     @classmethod
+    def from_merged_samples(
+        cls, merged_samples: MergedSamples, batch_size: int
+    ) -> "DataSet":
+        frames = (merged_samples.frames // batch_size) * batch_size
+        if frames == 0:
+            frames = merged_samples.frames
+            batch_size = frames
+        return cls(
+            entities=merged_samples.entities,
+            actions=merged_samples.actions,
+            logprobs=merged_samples.logprobs,
+            masks=merged_samples.masks,
+            logits=merged_samples.logits,
+            batch_size=batch_size,
+            frames=frames,
+        )
+
+    @classmethod
     def from_episodes(cls, episodes: List[Episode], batch_size: int) -> "DataSet":
         entities = RaggedBatchDict(RaggedBufferF32)
         actions = RaggedBatchDict(RaggedBufferI64)
@@ -106,20 +124,16 @@ class DataSet:
             masks.extend(e.masks)
             logits.extend(e.logits)
 
-        frames = (
-            next(iter(entities.buffers.values())).size0() // batch_size
-        ) * batch_size
-        if frames == 0:
-            frames = next(iter(entities.buffers.values())).size0()
-            batch_size = frames
-        return DataSet(
-            entities,
-            actions,
-            logprobs,
-            masks,
-            logits if len(logits.buffers) > 0 else None,
+        return cls.from_merged_samples(
+            MergedSamples(
+                entities=entities,
+                actions=actions,
+                logprobs=logprobs,
+                masks=masks,
+                logits=logits,
+                frames=next(iter(entities.buffers.values())).size0(),
+            ),
             batch_size=batch_size,
-            frames=frames,
         )
 
     @property
@@ -166,13 +180,16 @@ class DataSet:
 
 def load_dataset(filepath: str, batch_size: int) -> Tuple[Trace, DataSet, DataSet]:
     trace = Trace.deserialize(open(filepath, "rb").read(), progress_bar=True)
-    episodes = trace.episodes(progress_bar=True)
 
-    test_episodes = max(len(episodes) // 20, 1) * 2
-    test = episodes[-test_episodes:]
-    train = episodes[:-test_episodes]
-    trainds = DataSet.from_episodes(train, batch_size=batch_size)
-    testds = DataSet.from_episodes(test, batch_size=batch_size)
+    # episodes = trace.episodes(progress_bar=True)
+    # test_episodes = max(len(episodes) // 20, 1) * 2
+    # test = episodes[-test_episodes:]
+    # train = episodes[:-test_episodes]
+    # trainds = DataSet.from_episodes(train, batch_size=batch_size)
+    # testds = DataSet.from_episodes(test, batch_size=batch_size)
+    train, test = trace.train_test_split(test_frac=0.1, progress_bar=True)
+    trainds = DataSet.from_merged_samples(train, batch_size=batch_size)
+    testds = DataSet.from_merged_samples(test, batch_size=batch_size)
     print(f"{trainds.frames} training samples")
     print(f"{testds.frames} test samples")
     return trace, trainds, testds

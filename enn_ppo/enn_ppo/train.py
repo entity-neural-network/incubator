@@ -1,6 +1,5 @@
 # adapted from https://github.com/vwxyzjn/cleanrl
 import argparse
-from dataclasses import dataclass, field
 import os
 from pathlib import Path
 import random
@@ -9,7 +8,6 @@ from distutils.util import strtobool
 from typing import (
     Any,
     Dict,
-    Generic,
     List,
     Mapping,
     Optional,
@@ -20,6 +18,7 @@ from typing import (
 )
 import json
 from entity_gym.environment import *
+from entity_gym.ragged_dict import RaggedActionDict, RaggedBatchDict
 
 import numpy as np
 import numpy.typing as npt
@@ -75,6 +74,8 @@ def parse_args(override_args: Optional[List[str]] = None) -> argparse.Namespace:
         help='if set, write the samples to this file')
     parser.add_argument('--capture-logits', type=lambda x:bool(strtobool(x)), default=False, nargs='?', const=True,
         help='If --capture-samples is set, record full logits of the agent')
+    parser.add_argument("--capture-samples-subsample", type=int, default=1,
+        help="only record every Nth sample, chosen randomly")
     parser.add_argument('--processes', type=int, default=1,
         help='The number of processes to use to collect env data. The envs are split as equally as possible across the processes')
     parser.add_argument('--trial', type=int, default=None,
@@ -101,6 +102,8 @@ def parse_args(override_args: Optional[List[str]] = None) -> argparse.Namespace:
                         help='if set, write the samples from evals to this file')
     parser.add_argument('--eval-capture-logits', type=lambda x:bool(strtobool(x)), default=False, nargs='?', const=True,
                         help='If --eval-capture-samples is set, record full logits of the agent')
+    parser.add_argument('--eval-capture-samples-subsample', type=int, default=1,
+                        help="only record every Nth sample, chosen randomly")
     parser.add_argument('--codecraft-eval', type=lambda x:bool(strtobool(x)), default=False, nargs='?', const=True)
     parser.add_argument('--codecraft-eval-opponent', type=str, default=None)
     parser.add_argument('--codecraft-only-opponent', type=lambda x:bool(strtobool(x)), default=False, nargs='?', const=True)
@@ -172,47 +175,6 @@ def layer_init(layer: Any, std: float = np.sqrt(2), bias_const: float = 0.0) -> 
 
 
 ScalarType = TypeVar("ScalarType", bound=np.generic, covariant=True)
-
-
-@dataclass
-class RaggedBatchDict(Generic[ScalarType]):
-    rb_cls: Type[RaggedBuffer[ScalarType]]
-    buffers: Dict[str, RaggedBuffer[ScalarType]] = field(default_factory=dict)
-
-    def extend(self, batch: Mapping[str, RaggedBuffer[ScalarType]]) -> None:
-        for k, v in batch.items():
-            if k not in self.buffers:
-                self.buffers[k] = v
-            else:
-                self.buffers[k].extend(v)
-
-    def clear(self) -> None:
-        for buffer in self.buffers.values():
-            buffer.clear()
-
-    def __getitem__(
-        self, index: npt.NDArray[np.int64]
-    ) -> Dict[str, RaggedBuffer[ScalarType]]:
-        return {k: v[index] for k, v in self.buffers.items()}
-
-
-@dataclass
-class RaggedActionDict:
-    buffers: Dict[str, VecActionMask] = field(default_factory=dict)
-
-    def extend(self, batch: Mapping[str, VecActionMask]) -> None:
-        for k, v in batch.items():
-            if k not in self.buffers:
-                self.buffers[k] = v
-            else:
-                self.buffers[k].extend(v)
-
-    def clear(self) -> None:
-        for buffer in self.buffers.values():
-            buffer.clear()
-
-    def __getitem__(self, index: npt.NDArray[np.int64]) -> Dict[str, VecActionMask]:
-        return {k: v[index] for k, v in self.buffers.items()}
 
 
 def tensor_dict_to_ragged(
@@ -493,6 +455,7 @@ def run_eval(
     capture_videos: bool = False,
     record_samples: Optional[str] = None,
     record_logits: bool = False,
+    record_samples_subsample: int = 1,
     codecraft_eval: bool = False,
     eval_opponent: Optional[str] = None,
     codecraft_only_opponent: bool = False,
@@ -534,7 +497,9 @@ def run_eval(
     else:
         agents = agent
     if record_samples:
-        eval_envs = SampleRecordingVecEnv(eval_envs, record_samples)
+        eval_envs = SampleRecordingVecEnv(
+            eval_envs, record_samples, record_samples_subsample
+        )
     eval_rollout = Rollout(
         eval_envs,
         obs_space=obs_space,
@@ -666,7 +631,7 @@ def train(args: argparse.Namespace) -> float:
             sample_file = args.capture_samples
         else:
             sample_file = os.path.join(out_dir, args.capture_samples)
-        envs = SampleRecordingVecEnv(envs, sample_file)
+        envs = SampleRecordingVecEnv(envs, sample_file, args.capture_samples_subsample)
     if args.translate:
         translate: Optional[TranslatePositions] = TranslatePositions(
             obs_space=obs_space, **json.loads(args.translate)
@@ -745,6 +710,7 @@ def train(args: argparse.Namespace) -> float:
             args.eval_capture_videos,
             args.eval_capture_samples,
             args.eval_capture_logits,
+            args.eval_capture_samples_subsample,
             args.codecraft_eval,
             args.codecraft_eval_opponent,
             args.codecraft_only_opponent,
