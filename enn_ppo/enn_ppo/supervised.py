@@ -188,16 +188,8 @@ def load_dataset(filepath: str, batch_size: int) -> Tuple[Trace, DataSet, DataSe
     # trainds = DataSet.from_episodes(train, batch_size=batch_size)
     # testds = DataSet.from_episodes(test, batch_size=batch_size)
     train, test = trace.train_test_split(test_frac=0.1, progress_bar=True)
-    trainds = DataSet(
-        **train.__dict__,
-        frames=(train.frames // batch_size) * batch_size,
-        batch_size=batch_size,
-    )
-    testds = DataSet(
-        **test.__dict__,
-        frames=(test.frames // batch_size) * batch_size,
-        batch_size=batch_size,
-    )
+    trainds = DataSet.from_merged_samples(train, batch_size=batch_size)
+    testds = DataSet.from_merged_samples(test, batch_size=batch_size)
     print(f"{trainds.frames} training samples")
     print(f"{testds.frames} test samples")
     return trace, trainds, testds
