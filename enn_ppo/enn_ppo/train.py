@@ -235,12 +235,11 @@ class PPOActor(AutoActor):
         tf: TransformerConfig,
         obs_space: ObsSpace,
         action_space: Dict[str, ActionSpace],
-        d_model: int = 64,
         d_qk: int = 16,
         feature_transforms: Optional[TranslatePositions] = None,
     ):
         auxiliary_heads = nn.ModuleDict(
-            {"value": head_creator.create_value_head(d_model)}
+            {"value": head_creator.create_value_head(tf.d_model)}
         )
         super().__init__(
             tf,
@@ -677,7 +676,6 @@ def train(args: argparse.Namespace) -> float:
 
     if args.relpos_encoding:
         relpos_encoding: Optional[RelposEncodingConfig] = RelposEncodingConfig(
-            d_head=args.d_model // args.n_head,
             **json.loads(args.relpos_encoding),
         )
     else:
