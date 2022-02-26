@@ -75,6 +75,8 @@ def parse_args(override_args: Optional[List[str]] = None) -> argparse.Namespace:
         help='if set, write the samples to this file')
     parser.add_argument('--capture-logits', type=lambda x:bool(strtobool(x)), default=False, nargs='?', const=True,
         help='If --capture-samples is set, record full logits of the agent')
+    parser.add_argument("--capture-samples-subsample", type=int, default=1,
+        help="only record every Nth sample, chosen randomly")
     parser.add_argument('--processes', type=int, default=1,
         help='The number of processes to use to collect env data. The envs are split as equally as possible across the processes')
     parser.add_argument('--trial', type=int, default=None,
@@ -101,6 +103,8 @@ def parse_args(override_args: Optional[List[str]] = None) -> argparse.Namespace:
                         help='if set, write the samples from evals to this file')
     parser.add_argument('--eval-capture-logits', type=lambda x:bool(strtobool(x)), default=False, nargs='?', const=True,
                         help='If --eval-capture-samples is set, record full logits of the agent')
+    parser.add_argument('--eval-capture-samples-subsample', type=int, default=1,
+                        help="only record every Nth sample, chosen randomly")
     parser.add_argument('--codecraft-eval', type=lambda x:bool(strtobool(x)), default=False, nargs='?', const=True)
     parser.add_argument('--codecraft-eval-opponent', type=str, default=None)
     parser.add_argument('--codecraft-only-opponent', type=lambda x:bool(strtobool(x)), default=False, nargs='?', const=True)
@@ -493,6 +497,7 @@ def run_eval(
     capture_videos: bool = False,
     record_samples: Optional[str] = None,
     record_logits: bool = False,
+    record_samples_subsample: int = 1,
     codecraft_eval: bool = False,
     eval_opponent: Optional[str] = None,
     codecraft_only_opponent: bool = False,
@@ -534,7 +539,9 @@ def run_eval(
     else:
         agents = agent
     if record_samples:
-        eval_envs = SampleRecordingVecEnv(eval_envs, record_samples)
+        eval_envs = SampleRecordingVecEnv(
+            eval_envs, record_samples, record_samples_subsample
+        )
     eval_rollout = Rollout(
         eval_envs,
         obs_space=obs_space,
@@ -666,7 +673,7 @@ def train(args: argparse.Namespace) -> float:
             sample_file = args.capture_samples
         else:
             sample_file = os.path.join(out_dir, args.capture_samples)
-        envs = SampleRecordingVecEnv(envs, sample_file)
+        envs = SampleRecordingVecEnv(envs, sample_file, args.capture_samples_subsample)
     if args.translate:
         translate: Optional[TranslatePositions] = TranslatePositions(
             obs_space=obs_space, **json.loads(args.translate)
@@ -745,6 +752,7 @@ def train(args: argparse.Namespace) -> float:
             args.eval_capture_videos,
             args.eval_capture_samples,
             args.eval_capture_logits,
+            args.eval_capture_samples_subsample,
             args.codecraft_eval,
             args.codecraft_eval_opponent,
             args.codecraft_only_opponent,
