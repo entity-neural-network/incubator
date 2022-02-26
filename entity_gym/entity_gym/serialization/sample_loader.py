@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from typing import Dict, List, Optional, Set, Tuple
 from entity_gym.environment.environment import ActionSpace
 from entity_gym.environment.vec_env import VecActionMask, VecCategoricalActionMask
-from enn_ppo.train import RaggedActionDict, RaggedBatchDict
+from entity_gym.ragged_dict import RaggedActionDict, RaggedBatchDict
 
 import msgpack_numpy
 from ragged_buffer import RaggedBufferF32, RaggedBufferI64

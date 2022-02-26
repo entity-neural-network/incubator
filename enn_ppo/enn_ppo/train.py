@@ -1,6 +1,5 @@
 # adapted from https://github.com/vwxyzjn/cleanrl
 import argparse
-from dataclasses import dataclass, field
 import os
 from pathlib import Path
 import random
@@ -9,7 +8,6 @@ from distutils.util import strtobool
 from typing import (
     Any,
     Dict,
-    Generic,
     List,
     Mapping,
     Optional,
@@ -20,6 +18,7 @@ from typing import (
 )
 import json
 from entity_gym.environment import *
+from entity_gym.ragged_dict import RaggedActionDict, RaggedBatchDict
 
 import numpy as np
 import numpy.typing as npt
@@ -176,47 +175,6 @@ def layer_init(layer: Any, std: float = np.sqrt(2), bias_const: float = 0.0) -> 
 
 
 ScalarType = TypeVar("ScalarType", bound=np.generic, covariant=True)
-
-
-@dataclass
-class RaggedBatchDict(Generic[ScalarType]):
-    rb_cls: Type[RaggedBuffer[ScalarType]]
-    buffers: Dict[str, RaggedBuffer[ScalarType]] = field(default_factory=dict)
-
-    def extend(self, batch: Mapping[str, RaggedBuffer[ScalarType]]) -> None:
-        for k, v in batch.items():
-            if k not in self.buffers:
-                self.buffers[k] = v
-            else:
-                self.buffers[k].extend(v)
-
-    def clear(self) -> None:
-        for buffer in self.buffers.values():
-            buffer.clear()
-
-    def __getitem__(
-        self, index: npt.NDArray[np.int64]
-    ) -> Dict[str, RaggedBuffer[ScalarType]]:
-        return {k: v[index] for k, v in self.buffers.items()}
-
-
-@dataclass
-class RaggedActionDict:
-    buffers: Dict[str, VecActionMask] = field(default_factory=dict)
-
-    def extend(self, batch: Mapping[str, VecActionMask]) -> None:
-        for k, v in batch.items():
-            if k not in self.buffers:
-                self.buffers[k] = v
-            else:
-                self.buffers[k].extend(v)
-
-    def clear(self) -> None:
-        for buffer in self.buffers.values():
-            buffer.clear()
-
-    def __getitem__(self, index: npt.NDArray[np.int64]) -> Dict[str, VecActionMask]:
-        return {k: v[index] for k, v in self.buffers.items()}
 
 
 def tensor_dict_to_ragged(
