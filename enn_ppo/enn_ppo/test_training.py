@@ -142,7 +142,7 @@ def test_relpos_encoding() -> None:
 
     meanrew = train.train(args)
     print(f"Final mean reward: {meanrew}")
-    assert meanrew >= 0.99
+    assert meanrew >= 0.97
 
     args.relpos_encoding = None
     meanrew = train.train(args)
