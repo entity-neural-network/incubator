@@ -372,7 +372,7 @@ python-versions = "*"
 
 [[package]]
 name = "hyperstate"
-version = "0.2.6"
+version = "0.2.7"
 description = "Library for managing hyperparameters and mutable state of machine learning training systems."
 category = "main"
 optional = false
@@ -1333,8 +1333,8 @@ gym-notices = [
     {file = "gym_notices-0.0.4-py3-none-any.whl", hash = "sha256:933712d50f415e441b72ab6fe42c5007a1e8208c5944dbb0d9b75be3fcb7b58b"},
 ]
 hyperstate = [
-    {file = "hyperstate-0.2.6-py3-none-any.whl", hash = "sha256:e411c2f6571ed02b11f4bbe9c5764e03c389f98038bcb380c04015853ec8459f"},
-    {file = "hyperstate-0.2.6.tar.gz", hash = "sha256:a1caec10e9018efc60824990c735a676cbe12e272ba1aee428149917775955fe"},
+    {file = "hyperstate-0.2.7-py3-none-any.whl", hash = "sha256:c6f74760375aef6fb7c199aca4f11f5bdace0e18546b8ad616bd7c7a29dbf2cf"},
+    {file = "hyperstate-0.2.7.tar.gz", hash = "sha256:67081aac86aed2a03657fc486a932fac9bc5a5f8aea0e28b8e4e70abdad7ef72"},
 ]
 idna = [
     {file = "idna-3.3-py3-none-any.whl", hash = "sha256:84d9dd047ffa80596e0f246e2eab0b391788b0503584e8945f2368256d2735ff"},
