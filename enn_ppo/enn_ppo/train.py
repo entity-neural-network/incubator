@@ -678,7 +678,7 @@ def train(cfg: ExperimentConfig) -> float:
     if cfg.track:
         wandb.watch(agent)
 
-    num_updates = cfg.total_timesteps // cfg.optim.bs
+    num_updates = cfg.total_timesteps // (cfg.env.num_envs * cfg.env.num_steps)
 
     rollout = Rollout(
         envs,

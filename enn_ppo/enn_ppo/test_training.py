@@ -65,8 +65,10 @@ def test_masked_count() -> None:
         total_timesteps=2000,
         cuda=False,
         net=TransformerConfig(d_model=16, n_layer=1),
-        env=EnvConfig(id="Count", num_envs=16, kwargs='{"masked_choices": 2}'),
-        optim=OptimizerConfig(bs=64, lr=0.01),
+        env=EnvConfig(
+            id="Count", num_envs=16, num_steps=1, kwargs='{"masked_choices": 2}'
+        ),
+        optim=OptimizerConfig(bs=16, lr=0.01),
         ppo=PPOConfig(),
     )
     meanrw = train.train(cfg)
@@ -133,7 +135,7 @@ def test_relpos_encoding() -> None:
 
 def test_asymmetric_relpos_encoding() -> None:
     cfg = ExperimentConfig(
-        total_timesteps=2000,
+        total_timesteps=3000,
         cuda=False,
         net=TransformerConfig(
             d_model=16,
@@ -147,7 +149,7 @@ def test_asymmetric_relpos_encoding() -> None:
         env=EnvConfig(id="FloorIsLava", num_steps=1, num_envs=64),
         optim=OptimizerConfig(bs=16, lr=0.02),
         ppo=PPOConfig(
-            ent_coef=0.0,
+            ent_coef=0.1,
             anneal_entropy=True,
         ),
     )
