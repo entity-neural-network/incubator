@@ -86,16 +86,17 @@ class TranslatePositions(TranslationConfig):
             orientation = RaggedBufferF32.from_array(
                 np.hstack([np.cos(angle), np.sin(angle)]).reshape(-1, 1, 2)
             )
+            # TODO: ragged_buffer.translate_rotate assumes that all input arguments are views, so apply identity view
+            orientation = orientation[:, :, :]
         else:
             orientation = None
         for entity_name, indices in self.feature_indices.items():
             if entity_name in entities:
                 if orientation is not None:
-                    # TODO: bug in ragged_buffer, assumes that all input arguments are view (hence, orientation[:, :, :])
                     ragged_buffer.translate_rotate(
                         entities[entity_name][:, :, indices],
                         origin,
-                        orientation[:, :, :],
+                        orientation,
                     )
                 else:
                     feats = entities[entity_name][:, :, indices]

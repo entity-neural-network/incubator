@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 from typing import Dict, List, Mapping, Optional, Tuple, overload
+from rogue_net.input_norm import InputNorm
 import torch.nn as nn
 import torch
 from ragged_buffer import RaggedBufferI64
@@ -9,7 +10,7 @@ from entity_gym.environment import ObsSpace
 
 @dataclass(frozen=True, eq=False)
 class RelposEncodingConfig:
-    """Settings for relative positio encoding.
+    """Settings for relative position encoding.
 
     Attributes:
         extent: Each integer relative position in the interval [-extent, extent] receives a positional embedding, with positions outside the interval snapped to the closest end.
@@ -24,6 +25,9 @@ class RelposEncodingConfig:
     scale: float = 1.0
     per_entity_values: bool = True
     exclude_entities: List[str] = field(default_factory=list)
+    value_relpos_projection: bool = False
+    key_relpos_projection: bool = False
+    per_entity_projections: bool = False
 
     def __post_init__(self) -> None:
         assert len(self.extent) == len(self.position_features)
@@ -55,8 +59,10 @@ class RelposEncoding(nn.Module, RelposEncodingConfig):
             else self.positions,
             dhead,
         )
+        self.distance_values = nn.Embedding(self.n_entity, dhead)
         self.keys.weight.data.normal_(mean=0.0, std=0.05)
         self.values.weight.data.normal_(mean=0.0, std=0.2)
+        self.distance_values.weight.data.normal_(mean=0.0, std=0.2)
         self.position_feature_indices = {
             entity_name: torch.LongTensor(
                 [
@@ -67,6 +73,28 @@ class RelposEncoding(nn.Module, RelposEncodingConfig):
             for entity_name, entity in obs_space.entities.items()
             if entity_name not in self.exclude_entities
         }
+        if self.value_relpos_projection:
+            if self.per_entity_projections:
+                self.vproj: nn.Module = nn.ModuleDict(
+                    {
+                        entity_name: nn.Linear(3, dhead)
+                        for entity_name in self.position_feature_indices
+                    }
+                )
+            else:
+                self.vproj = nn.Linear(3, dhead)
+        if self.key_relpos_projection:
+            if self.per_entity_projections:
+                self.kproj: nn.Module = nn.ModuleDict(
+                    {
+                        entity_name: nn.Linear(3, dhead)
+                        for entity_name in self.position_feature_indices
+                    }
+                )
+            else:
+                self.kproj = nn.Linear(3, dhead)
+        if self.key_relpos_projection or self.value_relpos_projection:
+            self.relpos_norm = InputNorm(3)
 
     def keys_values(
         self,
@@ -124,5 +152,30 @@ class RelposEncoding(nn.Module, RelposEncodingConfig):
         else:
             per_entity_type_indices = indices
         values = self.values(per_entity_type_indices)
+
+        if self.value_relpos_projection or self.value_relpos_projection:
+            dist = relative_positions.norm(p=2, dim=-1).unsqueeze(-1)
+            relpos_dist = torch.cat([relative_positions, dist], dim=-1)
+            norm_relpos_dist = self.relpos_norm(relpos_dist)
+            if self.per_entity_projections:
+                # TODO: efficiency
+                if self.value_relpos_projection:
+                    for i, vproj in enumerate(self.vproj.values()):  # type: ignore
+                        v = vproj(norm_relpos_dist)
+                        v[entity_type.squeeze(-1) != 0, :, :] = 0.0
+                        values += v
+                if self.key_relpos_projection:
+                    for i, kproj in enumerate(self.kproj.values()):  # type: ignore
+                        k = kproj(norm_relpos_dist)
+                        k[entity_type.squeeze(-1) != 0, :, :] = 0.0
+                        keys += k
+            else:
+                if self.value_relpos_projection:
+                    values += self.vproj(norm_relpos_dist)
+                if self.key_relpos_projection:
+                    keys += self.kproj(norm_relpos_dist)
+        # values[:, :, :] += self.distance_values(entity_type.long()) * (
+        #    1 - relative_positions.norm(p=2, dim=-1).unsqueeze(-1) / 100.0
+        # )
 
         return keys, values
