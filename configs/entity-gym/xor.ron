@@ -1,0 +1,20 @@
+// Achieves 1.0 episodic return: https://wandb.ai/entity-neural-network/enn-ppo/reports/Xor--VmlldzoxNjI2OTEz
+ExperimentConfig(
+    env: (
+        id: "Xor",
+        num_envs: 512,
+        num_steps: 1,
+        processes: 16,
+    ),
+    total_timesteps: 500000,
+    net: (
+        n_layer: 2,
+        d_model: 16
+    ),
+    optim: (
+        bs: 128,
+    ),
+    ppo: (
+        ent_coef: 0.1
+    ),
+)

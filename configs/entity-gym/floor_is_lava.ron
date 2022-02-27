@@ -1,0 +1,26 @@
+// Achieves > 0.99 episodic return: https://wandb.ai/entity-neural-network/enn-ppo/reports/FloorIsLava--VmlldzoxNjM3OTU3
+ExperimentConfig(
+    env: (
+        id: "FloorIsLava",
+        num_envs: 256,
+        num_steps: 1,
+    ),
+    total_timesteps: 32768,
+    net: (
+        d_model: 16,
+        n_layer: 2,
+        relpos_encoding: (
+            extent: [1, 1],
+            position_features: ["x", "y"],
+            per_entity_values: true,
+        ),
+    ),
+    optim: (
+        bs: 256,
+        lr: 0.01,
+    ),
+    ppo: PPOConfig(
+        ent_coef: 1.0,
+        anneal_entropy: true,
+    ),
+)

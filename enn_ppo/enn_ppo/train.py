@@ -22,16 +22,20 @@ from entity_gym.environment import *
 from entity_gym.ragged_dict import RaggedActionDict, RaggedBatchDict
 
 import hyperstate
+
 import numpy as np
 import numpy.typing as npt
 from entity_gym.examples import ENV_REGISTRY
 from enn_zoo.griddly import GRIDDLY_ENVS, create_env
 from enn_zoo.codecraft.cc_vec_env import codecraft_env_class, CodeCraftVecEnv
+
 from enn_zoo.codecraft.codecraftnet.adapter import CCNetAdapter
+
 from entity_gym.serialization import SampleRecordingVecEnv
 from enn_ppo.simple_trace import Tracer
 from rogue_net.actor import AutoActor
 from rogue_net import head_creator
+
 from rogue_net.translate_positions import TranslatePositions, TranslationConfig
 from rogue_net.transformer import TransformerConfig
 import torch
@@ -575,8 +579,9 @@ def train(cfg: ExperimentConfig) -> float:
         config["name"] = xp_info.xp_def.name
         config["base_name"] = xp_info.xp_def.base_name
         config["id"] = xp_info.id
-        if cfg.trial is not None:
+        if "-" in xp_info.xp_def.name and xp_info.xp_def.name.split("-")[-1].isdigit():
             cfg.seed = int(xp_info.xp_def.name.split("-")[-1])
+            config["seed"] = cfg.seed
         run_name = xp_info.xp_def.name
         out_dir: Optional[str] = os.path.join(
             "/mnt/xprun",
@@ -714,7 +719,6 @@ def train(cfg: ExperimentConfig) -> float:
 
     start_time = time.time()
     for update in range(1, num_updates + 1):
-
         if (
             cfg.eval is not None
             and next_eval_step is not None

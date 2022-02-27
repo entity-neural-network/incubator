@@ -1,0 +1,18 @@
+// Achieves episodic return of 1.0: https://wandb.ai/entity-neural-network/enn-ppo/reports/MultiArmedBandit--VmlldzoxNjI3MDY4 https://wandb.ai/entity-neural-network/enn-ppo/reports/MultiArmedBandit--VmlldzoxNjIxMDYw
+ExperimentConfig(
+    env: (
+        id: "MultiArmedBandit",
+        processes: 16,
+        num_envs: 256,
+        num_steps: 1,
+    ),
+    total_timesteps: 32768,
+    net: (
+        d_model: 16,
+        n_layer: 1
+    ),
+    optim: (
+        bs: 256,
+        lr: 0.003,
+    ),
+)

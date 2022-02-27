@@ -1,0 +1,27 @@
+// Achieves > 0.99 episodic return: https://wandb.ai/entity-neural-network/enn-ppo/reports/Minefield--VmlldzoxNjM3OTM5
+ExperimentConfig(
+    env: (
+        id: "Minefield",
+        num_envs: 512,
+        num_steps: 512,
+        processes: 16,
+        kwargs: "{\"max_mines\": 10}"
+    ),
+    total_timesteps: 10000000,
+    net: (
+        d_model: 32,
+        n_layer: 2
+    ),
+    translation: (
+        reference_entity: "Vehicle",
+        position_features: ["x_pos", "y_pos"],
+    ),
+    optim: (
+        bs: 1024,
+        lr: 0.01
+    ),
+    ppo: (
+        ent_coef: 0.0001,
+        gamma: 0.999
+    ),
+)
