@@ -131,7 +131,7 @@ def test_relpos_encoding() -> None:
     assert meanrew < 0.2
 
 
-def test_asymetric_relpos_encoding() -> None:
+def test_asymmetric_relpos_encoding() -> None:
     cfg = ExperimentConfig(
         total_timesteps=2000,
         cuda=False,
