@@ -173,13 +173,15 @@ class GymMicrorts(Environment):
 
         self.client.render(False)
         entity_ids = list(np.array(response.observation[7]))  # type: Sequence[Any]
+        actor_ids = np.array(response.observation[8])
+        new_mask = np.array([np.where(entity_ids == entity_id)[0][0] for entity_id in actor_ids])
         return Observation(
             entities=self.generate_entities(response),
             ids=entity_ids,
             action_masks={
                 "unitaction": DenseCategoricalActionMask(
-                    actors=np.array(response.observation[8]),
-                    mask=np.array(response.observation[9]),
+                    actors=new_mask,
+                    # mask=np.array(response.observation[9]),
                 ),
             },
             reward=response.reward @ self.reward_weight,
@@ -194,13 +196,15 @@ class GymMicrorts(Environment):
         self.client.render(False)
 
         entity_ids = list(np.array(response.observation[7]))  # type: Sequence[Any]
+        actor_ids = np.array(response.observation[8])
+        new_mask = np.array([np.where(entity_ids == entity_id)[0][0] for entity_id in actor_ids])
         return Observation(
             entities=self.generate_entities(response),
             ids=entity_ids,
             action_masks={
                 "unitaction": DenseCategoricalActionMask(
-                    actors=np.array(response.observation[8]),
-                    mask=np.array(response.observation[9]),
+                    actors=new_mask,
+                    # mask=np.array(response.observation[9]),
                 ),
             },
             reward=response.reward @ self.reward_weight,
