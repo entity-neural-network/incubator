@@ -686,7 +686,7 @@ def test_merge_empty_masks() -> None:
     assert np.array_equal(
         obs_batch2.action_masks["shoot"].mask.size1(), # type: ignore
         np.array([0, 0, 3, 1, 2, 0, 0, 0, 3])
-    ), f"{obs_batch2.action_masks['shoot'].mask.size1()}"
+    ), f"{obs_batch2.action_masks['shoot'].mask.size1()}" # type: ignore
     assert np.array_equal(
         obs_batch2.action_masks["shoot"].mask.as_array(), # type: ignore
         np.array([[True, True], [True, True], [True, True], [True, True], [True, False], [False, True], [True, True], [True, True], [True, True],], bool),
