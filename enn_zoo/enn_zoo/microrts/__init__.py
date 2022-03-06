@@ -159,6 +159,7 @@ class GymMicrorts(Environment):
 
     def reset(self) -> Observation:
         self.step = 0
+        self.total_reward = 0
         return self._observe()
 
     def act(self, action: Mapping[str, Action]) -> Observation:
@@ -177,8 +178,9 @@ class GymMicrorts(Environment):
         if len(actor_ids) > 0:
             actor_ids = np.array(response.observation[8])
             actor_ids_masks = np.array(response.observation[9], dtype=np.bool8)
-        #     print("actor_ids_masks", actor_ids_masks, actor_ids_masks.shape)
-        # print("actor_ids", actor_ids, actor_ids.shape)
+            print("actor_ids_masks", actor_ids_masks, actor_ids_masks.shape)
+        print("actor_ids", actor_ids, actor_ids.shape)
+        self.total_reward += response.reward @ self.reward_weight
         # print(self.generate_entities(response))
         return Observation.from_entity_obs(
             entities=self.generate_entities(response),
@@ -190,7 +192,7 @@ class GymMicrorts(Environment):
             },
             reward=response.reward @ self.reward_weight,
             done=response.done[0],
-            end_of_episode_info=EpisodeStats(length=self.step, total_reward=1)
+            end_of_episode_info=EpisodeStats(length=self.step, total_reward=self.total_reward)
             if response.done[0]
             else None,
         )
