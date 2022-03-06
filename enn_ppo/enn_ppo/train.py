@@ -27,6 +27,7 @@ import numpy as np
 import numpy.typing as npt
 from entity_gym.examples import ENV_REGISTRY
 from enn_zoo.griddly import GRIDDLY_ENVS, create_env
+from enn_zoo.microrts import GymMicrorts
 from enn_zoo.codecraft.cc_vec_env import codecraft_env_class, CodeCraftVecEnv
 
 from enn_zoo.codecraft.codecraftnet.adapter import CCNetAdapter
@@ -642,6 +643,8 @@ def train(cfg: ExperimentConfig) -> float:
         env_cls = create_env(**GRIDDLY_ENVS[cfg.env.id])
     elif cfg.env.id == "CodeCraft":
         env_cls = codecraft_env_class(env_kwargs.get("objective", "ALLIED_WEALTH"))
+    elif cfg.env.id == "GymMicrorts":
+        env_cls = GymMicrorts
     else:
         raise KeyError(
             f"Unknown gym_id: {cfg.env.id}\nAvailable environments: {list(ENV_REGISTRY.keys()) + list(GRIDDLY_ENVS.keys())}"

@@ -165,7 +165,7 @@ class GymMicrorts(Environment):
         game_over = False
         self.step += 1
 
-        print(action)
+        # print(action)
         if "unitaction" in action:
             response = self.client.gameStep(action["unitaction"].actors, action["unitaction"].actions, 0)
         else:
@@ -173,14 +173,19 @@ class GymMicrorts(Environment):
 
         self.client.render(False)
         actor_ids = np.array(response.observation[8])
-        # new_mask = np.array([np.where(entity_ids == entity_id)[0][0] for entity_id in actor_ids])
-        print(self.generate_entities(response))
+        actor_ids_masks = None
+        if len(actor_ids) > 0:
+            actor_ids = np.array(response.observation[8])
+            actor_ids_masks = np.array(response.observation[9], dtype=np.bool8)
+        #     print("actor_ids_masks", actor_ids_masks, actor_ids_masks.shape)
+        # print("actor_ids", actor_ids, actor_ids.shape)
+        # print(self.generate_entities(response))
         return Observation.from_entity_obs(
             entities=self.generate_entities(response),
             actions={
                 "unitaction": CategoricalActionMask(
                     actor_ids=actor_ids,
-                    mask=np.array(response.observation[9]),
+                    mask=actor_ids_masks,
                 ),
             },
             reward=response.reward @ self.reward_weight,
@@ -195,14 +200,15 @@ class GymMicrorts(Environment):
         self.client.render(False)
 
         actor_ids = np.array(response.observation[8])
-        # new_mask = np.array([np.where(entity_ids == entity_id)[0][0] for entity_id in actor_ids])
-        print(self.generate_entities(response))
+        actor_ids_masks = np.array(response.observation[9], dtype=np.bool8)
+        # print("actor_ids", actor_ids, actor_ids.shape)
+        # print("actor_ids_masks", actor_ids_masks, actor_ids_masks.shape)
         return Observation.from_entity_obs(
             entities=self.generate_entities(response),
             actions={
                 "unitaction": CategoricalActionMask(
                     actor_ids=actor_ids,
-                    # mask=np.array(response.observation[9]),
+                    mask=actor_ids_masks,
                 ),
             },
             reward=response.reward @ self.reward_weight,
@@ -222,7 +228,7 @@ class GymMicrorts(Environment):
         heavy = np.array(response.observation[5]).astype(np.float32)
         ranged = np.array(response.observation[6]).astype(np.float32)
         entity_ids = list(np.array(response.observation[7]))  # type: Sequence[Any]
-        print(entity_ids)
+        # print(entity_ids)
         if len(resource) > 0:
             entities["Resource"] = EntityObs(features=resource[:,1:], ids=resource[:,0].astype(np.int32))
         if len(base) > 0:
