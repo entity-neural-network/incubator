@@ -2,9 +2,11 @@
 ExperimentConfig(
     env: (
         id: "MoveToOrigin",
+    ),
+    rollout: (
         num_envs: 64,
         processes: 16,
-        num_steps: 32,
+        steps: 32,
     ),
     total_timesteps: 1000000,
     net: (

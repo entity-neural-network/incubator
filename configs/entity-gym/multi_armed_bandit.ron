@@ -2,9 +2,11 @@
 ExperimentConfig(
     env: (
         id: "MultiArmedBandit",
+    ),
+    rollout: (
         processes: 16,
         num_envs: 256,
-        num_steps: 1,
+        steps: 1,
     ),
     total_timesteps: 32768,
     net: (

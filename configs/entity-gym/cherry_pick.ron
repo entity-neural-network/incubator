@@ -2,10 +2,12 @@
 ExperimentConfig(
     env: (
         id: "CherryPick",
-        num_envs: 128,
-        num_steps: 16,
-        processes: 16,
         kwargs: "{\"num_cherries\": 32}",
+    ),
+    rollout: (
+        num_envs: 128,
+        steps: 16,
+        processes: 16,
     ),
     total_timesteps: 250000,
     net: (

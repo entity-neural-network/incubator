@@ -2,15 +2,13 @@ from dataclasses import asdict, dataclass
 import os
 from pathlib import Path
 from typing import List, Literal, Optional, Tuple, Dict
-from enn_ppo.simple_trace import Tracer
+from entity_gym.simple_trace import Tracer
 from entity_gym.environment.vec_env import VecActionMask
 from entity_gym.serialization import Trace
 from entity_gym.serialization.sample_loader import Episode, MergedSamples
 from ragged_buffer import RaggedBufferF32, RaggedBufferI64
-from enn_ppo.train import RaggedActionDict, RaggedBatchDict
-from rogue_net.actor import AutoActor
-import click
-from rogue_net.transformer import Transformer, TransformerConfig
+from rogue_net.rogue_net import RogueNet, RogueNetConfig
+from entity_gym.ragged_dict import RaggedBatchDict, RaggedActionDict
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -71,7 +69,7 @@ class Config:
 
     optim: OptimizerConfig
     wandb: WandbConfig
-    model: TransformerConfig
+    model: RogueNetConfig
     dataset_path: str
     epochs: int = 10
     loss_fn: Literal["kl", "mse"] = "mse"
@@ -196,7 +194,7 @@ def load_dataset(filepath: str, batch_size: int) -> Tuple[Trace, DataSet, DataSe
 
 
 def compute_loss(
-    model: AutoActor,
+    model: RogueNet,
     batch: int,
     ds: DataSet,
     loss_fn: Literal["kl", "mse"],
@@ -242,7 +240,7 @@ def compute_loss(
 
 def train(
     cfg: Config,
-    model: AutoActor,
+    model: RogueNet,
     trainds: DataSet,
     testds: DataSet,
     device: torch.device,
@@ -344,7 +342,7 @@ def main(cfg: Config) -> None:
     else:
         device = torch.device("cpu")
     # TODO: compute input normalization once at the beginning and then freeze it
-    model = AutoActor(
+    model = RogueNet(
         cfg.model,
         obs_space=trace.obs_space,
         action_space=trace.action_space,

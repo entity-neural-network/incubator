@@ -11,6 +11,7 @@ requests = "^2.27.1"
 orjson = "^3.6.5"
 types-requests = "^2.27.7"
 hyperstate = "^0.2.0"
+enn_zoo = {path = "../enn_ppo", develop = true}
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

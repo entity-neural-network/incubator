@@ -2,10 +2,12 @@
 ExperimentConfig(
     env: (
         id: "MultiSnake",
-        num_envs: 512,
-        num_steps: 64,
-        processes: 16,
         kwargs: "{\"num_snakes\": 1, \"max_snake_length\": 11}",
+    ),
+    rollout: (
+        num_envs: 512,
+        steps: 64,
+        processes: 16,
     ),
     total_timesteps: 10000000,
     net: (

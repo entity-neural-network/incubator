@@ -204,15 +204,6 @@ python-versions = ">=3.6"
 [package.extras]
 test = ["pytest", "black"]
 
-[[package]]
-name = "enn-zoo"
-version = "0.1.0"
-description = "A collections of environments which can be used with entity-neural-networks"
-category = "main"
-optional = false
-python-versions = ">=3.8.0,<3.10"
-develop = true
-
 [package.dependencies]
 griddly = "1.2.31"
 hyperstate = "^0.2.0"
