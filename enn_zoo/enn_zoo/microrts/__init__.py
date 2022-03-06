@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from tokenize import String
 from typing import Any, Dict, List, Mapping, Sequence, Tuple
 import random
+from entity_gym.environment.environment import EntityObs
 import numpy as np
 import numpy.typing as npt
 from copy import deepcopy
@@ -13,7 +14,7 @@ import json
 
 from entity_gym.environment import (
     CategoricalAction,
-    DenseCategoricalActionMask,
+    CategoricalActionMask,
     Entity,
     Environment,
     EpisodeStats,
@@ -92,7 +93,6 @@ class GymMicrorts(Environment):
             ProduceWorkerRewardFunction,
             ProduceBuildingRewardFunction,
             ProduceCombatUnitRewardFunction,
-            CloserToEnemyBaseRewardFunction,
         )
 
         self.rfs = JArray(RewardFunctionInterface)(
@@ -103,7 +103,6 @@ class GymMicrorts(Environment):
                 ProduceBuildingRewardFunction(),
                 AttackRewardFunction(),
                 ProduceCombatUnitRewardFunction(),
-                # CloserToEnemyBaseRewardFunction(),
             ]
         )
 
@@ -158,30 +157,30 @@ class GymMicrorts(Environment):
             ),
         }
 
-    def _reset(self) -> Observation:
+    def reset(self) -> Observation:
         self.step = 0
         return self._observe()
 
-    def _act(self, action: Mapping[str, Action]) -> Observation:
+    def act(self, action: Mapping[str, Action]) -> Observation:
         game_over = False
         self.step += 1
 
+        print(action)
         if "unitaction" in action:
-            response = self.client.gameStep(action["unitaction"].actions, 0)
+            response = self.client.gameStep(action["unitaction"].actors, action["unitaction"].actions, 0)
         else:
-            response = self.client.gameStep([], 0)
+            response = self.client.gameStep([], [],  0)
 
         self.client.render(False)
-        entity_ids = list(np.array(response.observation[7]))  # type: Sequence[Any]
         actor_ids = np.array(response.observation[8])
-        new_mask = np.array([np.where(entity_ids == entity_id)[0][0] for entity_id in actor_ids])
-        return Observation(
+        # new_mask = np.array([np.where(entity_ids == entity_id)[0][0] for entity_id in actor_ids])
+        print(self.generate_entities(response))
+        return Observation.from_entity_obs(
             entities=self.generate_entities(response),
-            ids=entity_ids,
-            action_masks={
-                "unitaction": DenseCategoricalActionMask(
-                    actors=new_mask,
-                    # mask=np.array(response.observation[9]),
+            actions={
+                "unitaction": CategoricalActionMask(
+                    actor_ids=actor_ids,
+                    mask=np.array(response.observation[9]),
                 ),
             },
             reward=response.reward @ self.reward_weight,
@@ -195,15 +194,14 @@ class GymMicrorts(Environment):
         response = self.client.reset(0)
         self.client.render(False)
 
-        entity_ids = list(np.array(response.observation[7]))  # type: Sequence[Any]
         actor_ids = np.array(response.observation[8])
-        new_mask = np.array([np.where(entity_ids == entity_id)[0][0] for entity_id in actor_ids])
-        return Observation(
+        # new_mask = np.array([np.where(entity_ids == entity_id)[0][0] for entity_id in actor_ids])
+        print(self.generate_entities(response))
+        return Observation.from_entity_obs(
             entities=self.generate_entities(response),
-            ids=entity_ids,
-            action_masks={
-                "unitaction": DenseCategoricalActionMask(
-                    actors=new_mask,
+            actions={
+                "unitaction": CategoricalActionMask(
+                    actor_ids=actor_ids,
                     # mask=np.array(response.observation[9]),
                 ),
             },
@@ -223,19 +221,21 @@ class GymMicrorts(Environment):
         light = np.array(response.observation[4]).astype(np.float32)
         heavy = np.array(response.observation[5]).astype(np.float32)
         ranged = np.array(response.observation[6]).astype(np.float32)
+        entity_ids = list(np.array(response.observation[7]))  # type: Sequence[Any]
+        print(entity_ids)
         if len(resource) > 0:
-            entities["Resource"] = resource
+            entities["Resource"] = EntityObs(features=resource[:,1:], ids=resource[:,0].astype(np.int32))
         if len(base) > 0:
-            entities["Base"] = base
+            entities["Base"] = EntityObs(features=base[:,1:], ids=base[:,0].astype(np.int32))
         if len(barracks) > 0:
-            entities["Barracks"] = barracks
+            entities["Barracks"] = EntityObs(features=barracks[:,1:], ids=barracks[:,0].astype(np.int32))
         if len(worker) > 0:
-            entities["Worker"] = worker
+            entities["Worker"] = EntityObs(features=worker[:,1:], ids=worker[:,0].astype(np.int32))
         if len(light) > 0:
-            entities["Light"] = light
+            entities["Light"] = EntityObs(features=light[:,1:], ids=light[:,0].astype(np.int32))
         if len(heavy) > 0:
-            entities["Heavy"] = heavy
+            entities["Heavy"] = EntityObs(features=heavy[:,1:], ids=heavy[:,0].astype(np.int32))
         if len(ranged) > 0:
-            entities["Ranged"] = ranged
+            entities["Ranged"] = EntityObs(features=ranged[:,1:], ids=ranged[:,0].astype(np.int32))
 
         return entities
