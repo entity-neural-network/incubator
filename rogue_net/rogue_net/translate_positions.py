@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from typing import Dict, List, Optional
 from entity_gym.environment import ObsSpace
 import ragged_buffer
@@ -6,52 +7,70 @@ import numpy as np
 from copy import deepcopy
 
 
-class TranslatePositions:
+@dataclass
+class TranslationConfig:
+    """Settings for translating position features.
+
+    Attributes:
+        reference_entity: Entity type of the entity which will be placed at the origin.
+        position_features: Names of position features used for translation.
+        rotation_vec_features: Names of that gives the direction of the reference entity in radians. All entities are rotated by this value.
+        rotation_angle_feature: Name of feature that gives the direction of the reference entity in radians. All entities are rotated by this value.
+        add_dist_feature: Adds a feature that is the distance to the reference entity.
+    """
+
+    reference_entity: str
+    position_features: List[str]
+    rotation_vec_features: Optional[List[str]] = None
+    rotation_angle_feature: Optional[str] = None
+    add_dist_feature: bool = False
+
+
+class TranslatePositions(TranslationConfig):
     def __init__(
         self,
-        reference_entity: str,
-        position_features: List[str],
+        cfg: TranslationConfig,
         obs_space: ObsSpace,
-        # x and y component of unit vector that give the direction of the reference entity. All other entities are rotated by this vector.
-        rotation_vec_features: Optional[List[str]] = None,
-        # name of feature that gives the direction of the reference entity in radians. All other entities are rotated by this value.
-        rotation_angle_feature: Optional[str] = None,
-        # adds a feature that is the distance to the reference entity
-        add_dist_feature: bool = False,
     ):
+        super().__init__(**cfg.__dict__)
         assert (
-            rotation_vec_features is None or rotation_angle_feature is None
+            cfg.rotation_vec_features is None or cfg.rotation_angle_feature is None
         ), "Only one of orientation_features and orientation_feature can be specified"
         self.feature_indices = {
             entity_name: [
                 entity.features.index(feature_name)
-                for feature_name in position_features
+                for feature_name in cfg.position_features
             ]
             for entity_name, entity in obs_space.entities.items()
-            if entity_name != reference_entity
+            if entity_name != cfg.reference_entity
             and all(
-                [feature_name in entity.features for feature_name in position_features]
+                [
+                    feature_name in entity.features
+                    for feature_name in cfg.position_features
+                ]
             )
         }
         self.reference_indices = [
-            obs_space.entities[reference_entity].features.index(feature_name)
-            for feature_name in position_features
+            obs_space.entities[cfg.reference_entity].features.index(feature_name)
+            for feature_name in cfg.position_features
         ]
         self.orientation_vec_indices = (
             [
-                obs_space.entities[reference_entity].features.index(feature_name)
-                for feature_name in rotation_vec_features
+                obs_space.entities[cfg.reference_entity].features.index(feature_name)
+                for feature_name in cfg.rotation_vec_features
             ]
-            if rotation_vec_features is not None
+            if cfg.rotation_vec_features is not None
             else None
         )
         self.orientation_angle_index = (
-            obs_space.entities[reference_entity].features.index(rotation_angle_feature)
-            if rotation_angle_feature is not None
+            obs_space.entities[cfg.reference_entity].features.index(
+                cfg.rotation_angle_feature
+            )
+            if cfg.rotation_angle_feature is not None
             else None
         )
-        self.reference_entity = reference_entity
-        self.add_dist_feature = add_dist_feature
+        self.reference_entity = cfg.reference_entity
+        self.add_dist_feature = cfg.add_dist_feature
 
     def apply(self, entities: Dict[str, RaggedBufferF32]) -> None:
         if self.reference_entity not in entities:

@@ -1,0 +1,25 @@
+// Achieves > 0.99 mean episodic return most of the time: https://wandb.ai/entity-neural-network/enn-ppo/reports/CherryPick--VmlldzoxNjI3MzA0
+ExperimentConfig(
+    env: (
+        id: "CherryPick",
+        num_envs: 128,
+        num_steps: 16,
+        processes: 16,
+        kwargs: "{\"num_cherries\": 32}",
+    ),
+    total_timesteps: 250000,
+    net: (
+        d_model: 128,
+        n_layer: 2,
+    ),
+    optim: (
+        bs: 2048,
+        lr: 0.001,
+    ),
+    ppo: (
+        ent_coef: 0.1,
+        gamma: 0.99,
+        vf_coef: 0.25,
+        anneal_entropy: true,
+    ),
+)

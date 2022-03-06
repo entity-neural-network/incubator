@@ -1,5 +1,6 @@
 # adapted from https://github.com/vwxyzjn/cleanrl
 import argparse
+from dataclasses import asdict, dataclass, field
 import os
 from pathlib import Path
 import random
@@ -20,18 +21,22 @@ import json
 from entity_gym.environment import *
 from entity_gym.ragged_dict import RaggedActionDict, RaggedBatchDict
 
+import hyperstate
+
 import numpy as np
 import numpy.typing as npt
 from entity_gym.examples import ENV_REGISTRY
 from enn_zoo.griddly import GRIDDLY_ENVS, create_env
 from enn_zoo.codecraft.cc_vec_env import codecraft_env_class, CodeCraftVecEnv
+
 from enn_zoo.codecraft.codecraftnet.adapter import CCNetAdapter
+
 from entity_gym.serialization import SampleRecordingVecEnv
 from enn_ppo.simple_trace import Tracer
-from rogue_net.relpos_encoding import RelposEncodingConfig
 from rogue_net.actor import AutoActor
 from rogue_net import head_creator
-from rogue_net.translate_positions import TranslatePositions
+
+from rogue_net.translate_positions import TranslatePositions, TranslationConfig
 from rogue_net.transformer import TransformerConfig
 import torch
 import torch.nn as nn
@@ -41,131 +46,160 @@ import ragged_buffer
 from ragged_buffer import RaggedBufferF32, RaggedBufferI64, RaggedBuffer
 
 
-def parse_args(override_args: Optional[List[str]] = None) -> argparse.Namespace:
-    # fmt: off
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--exp-name', type=str, default=os.path.basename(__file__).rstrip(".py"),
-        help='the name of this experiment')
-    parser.add_argument('--gym-id', type=str, default="MoveToOrigin",
-        help='the id of the gym environment')
-    parser.add_argument('--env-kwargs', type=str, default="{}",
-        help='JSON dictionary with keyword arguments for the environment')
-    parser.add_argument('--learning-rate', type=float, default=2.5e-4,
-        help='the learning rate of the optimizer')
-    parser.add_argument('--weight-decay', type=float, default=0.0,
-        help='the weight decay of the optimizer')
-    parser.add_argument('--seed', type=int, default=1,
-        help='seed of the experiment')
-    parser.add_argument('--total-timesteps', type=int, default=25000,
-        help='total timesteps of the experiments')
-    parser.add_argument('--max-train-time', type=int, default=None,
-        help='train for at most this many seconds')
-    parser.add_argument('--torch-deterministic', type=lambda x:bool(strtobool(x)), default=True, nargs='?', const=True,
-        help='if toggled, `torch.backends.cudnn.deterministic=False`')
-    parser.add_argument('--cuda', type=lambda x:bool(strtobool(x)), default=True, nargs='?', const=True,
-        help='if toggled, cuda will be enabled by default')
-    parser.add_argument('--track', type=lambda x:bool(strtobool(x)), default=False, nargs='?', const=True,
-        help='if toggled, this experiment will be tracked with Weights and Biases')
-    parser.add_argument('--wandb-project-name', type=str, default="enn-ppo",
-        help="the wandb's project name")
-    parser.add_argument('--wandb-entity', type=str, default="entity-neural-network",
-        help="the entity (team) of wandb's project")
-    parser.add_argument('--capture-samples', type=str, default=None,
-        help='if set, write the samples to this file')
-    parser.add_argument('--capture-logits', type=lambda x:bool(strtobool(x)), default=False, nargs='?', const=True,
-        help='If --capture-samples is set, record full logits of the agent')
-    parser.add_argument("--capture-samples-subsample", type=int, default=1,
-        help="only record every Nth sample, chosen randomly")
-    parser.add_argument('--processes', type=int, default=1,
-        help='The number of processes to use to collect env data. The envs are split as equally as possible across the processes')
-    parser.add_argument('--trial', type=int, default=None,
-        help='trial number of experiment spawned by hyperparameter tuner')
-    parser.add_argument('--data-dir', type=str, default='.',
-                        help='Directory to save output from training and logging')
+@dataclass
+class EvalConfig:
+    """Evaluation settings
 
-    # Evals
-    parser.add_argument('--eval-interval', type=int, default=None,
-        help='number of global steps between evaluations')
-    parser.add_argument('--eval-on-step-0', type=lambda x:bool(strtobool(x)), default=True, nargs='?', const=True,
-        help='whether to run eval on step 0')
-    parser.add_argument('--eval-steps', type=int, default=None,
-        help='number of sequential steps to evaluate for')
-    parser.add_argument('--eval-num-envs', type=int, default=None,
-        help='number of parallel environments in eval')
-    parser.add_argument('--eval-env-kwargs', type=str, default=None,
-        help='JSON dictionary with keyword arguments for the eval environment')
-    parser.add_argument('--eval-processes', type=int, default=None,
-                        help='The number of processes to use to collect evaluation data. The envs are split as equally as possible across the processes')
-    parser.add_argument('--eval-capture-videos', type=lambda x:bool(strtobool(x)), default=False, nargs='?', const=True,
-                        help='If --eval-render-videos is set, videos will be recorded of the environments during evaluation')
-    parser.add_argument('--eval-capture-samples', type=str, default=None,
-                        help='if set, write the samples from evals to this file')
-    parser.add_argument('--eval-capture-logits', type=lambda x:bool(strtobool(x)), default=False, nargs='?', const=True,
-                        help='If --eval-capture-samples is set, record full logits of the agent')
-    parser.add_argument('--eval-capture-samples-subsample', type=int, default=1,
-                        help="only record every Nth sample, chosen randomly")
-    parser.add_argument('--codecraft-eval', type=lambda x:bool(strtobool(x)), default=False, nargs='?', const=True)
-    parser.add_argument('--codecraft-eval-opponent', type=str, default=None)
-    parser.add_argument('--codecraft-only-opponent', type=lambda x:bool(strtobool(x)), default=False, nargs='?', const=True)
+    Attributes:
+        interval: number of global steps between evaluations
+        on_step_0: whether to run eval on step 0
+        steps: number of sequential steps to evaluate for
+        num_envs: number of parallel environments in eval
+        env_kwargs: JSON dictionary with keyword arguments for the eval environment
+        capture_videos: if --eval-render-videos is set, videos will be recorded of the environments during evaluation
+        capture_samples: if set, write the samples from evals to this file
+        capture_samples_subsample: only persist every nth sample, chosen randomly
+        capture_logits: if --eval-capture-samples is set, record full logits of the agent
+        codecraft_eval: if toggled, run evals with CodeCraft environment
+        codecraft_eval_opponent: path to CodeCraft policy to evaluate against
+        codecraft_only_opponent: run only the opponent, not the agent
+    """
 
-    # Network architecture
-    parser.add_argument('--d-model', type=int, default=64,
-        help='the hidden size of the network layers')
-    parser.add_argument('--n-head', type=int, default=1,
-        help='the number of attention heads')
-    parser.add_argument('--d-qk', type=int, default=64,
-        help='the size queries and keys in action heads')
-    parser.add_argument('--n-layer', type=int, default=1,
-        help='the number of layers of the network')
-    parser.add_argument('--pooling-op', type=str, default=None,
-        help='if set, use pooling op instead of multi-head attention. Options: mean, max, meanmax')
-    parser.add_argument('--translate', type=str, default=None,
-        help='if set, translate positions to be centered on a given entity. Example: --translate=\'{"reference_entity": "SnakeHead", "position_features": ["x", "y"]}\'')
-    parser.add_argument('--relpos-encoding', type=str, default=None,
-        help='configuration for relative positional encoding. Example: --relpos-encoding=\'{"extent": [10, 10], "position_features": ["x", "y"]}\'')
-    # Use the DeepCodeCraft policy network instead of RogueNet. Only works with the CodeCraft environment and added mainly for debugging purposes.
-    parser.add_argument('--codecraft-net', type=lambda x:bool(strtobool(x)), default=False, nargs='?', const=True, help=argparse.SUPPRESS)
+    interval: int
+    steps: int
+    num_envs: int
+    processes: Optional[int] = None
+    env_kwargs: str = "{}"
+    capture_videos: bool = False
+    capture_samples: str = ""
+    capture_logits: bool = True
+    codecraft_eval: bool = False
+    capture_samples_subsample: int = 1
+    codecraft_eval_opponent: Optional[str] = ""
+    run_on_first_step: bool = True
+    codecraft_only_opponent: bool = False
 
-    # Algorithm specific arguments
-    parser.add_argument('--num-envs', type=int, default=4,
-        help='the number of game environments')
-    parser.add_argument('--num-steps', type=int, default=128,
-        help='the number of steps to run in each environment per policy rollout')
-    parser.add_argument('--anneal-lr', type=lambda x:bool(strtobool(x)), default=True, nargs='?', const=True,
-        help="Toggle learning rate annealing for policy and value networks")
-    parser.add_argument('--anneal-entropy', type=lambda x:bool(strtobool(x)), default=False, nargs='?', const=True,
-        help="Toggle entropy coefficient annealing")
-    parser.add_argument('--gae', type=lambda x:bool(strtobool(x)), default=True, nargs='?', const=True,
-        help='Use GAE for advantage computation')
-    parser.add_argument('--gamma', type=float, default=0.99,
-        help='the discount factor gamma')
-    parser.add_argument('--gae-lambda', type=float, default=0.95,
-        help='the lambda for the general advantage estimation')
-    parser.add_argument('--num-minibatches', type=int, default=4,
-        help='the number of mini-batches')
-    parser.add_argument('--microbatch-size', type=int, default=None,
-        help='if set, use gradient accumulation to split up batches into smaller microbatches')
-    parser.add_argument('--update-epochs', type=int, default=4,
-        help="the K epochs to update the policy")
-    parser.add_argument('--norm-adv', type=lambda x:bool(strtobool(x)), default=True, nargs='?', const=True,
-        help="Toggles advantages normalization")
-    parser.add_argument('--clip-coef', type=float, default=0.2,
-        help="the surrogate clipping coefficient")
-    parser.add_argument('--clip-vloss', type=lambda x:bool(strtobool(x)), default=True, nargs='?', const=True,
-        help='Toggles wheter or not to use a clipped loss for the value function, as per the paper.')
-    parser.add_argument('--ent-coef', type=float, default=0.01,
-        help="coefficient of the entropy")
-    parser.add_argument('--vf-coef', type=float, default=0.5,
-        help="coefficient of the value function")
-    parser.add_argument('--max-grad-norm', type=float, default=0.5,
-        help='the maximum norm for the gradient clipping')
-    parser.add_argument('--target-kl', type=float, default=None,
-        help='the target KL divergence threshold')
-    args = parser.parse_args(args=override_args)
-    args.batch_size = int(args.num_envs * args.num_steps)
-    args.minibatch_size = int(args.batch_size // args.num_minibatches)
-    # fmt: on
-    return args
+
+@dataclass
+class EnvConfig:
+    """Environment settings.
+
+    Attributes:
+        kwargs: JSON dictionary with keyword arguments for the environment
+        num_envs: the number of game environments
+        num_steps: the number of steps to run in each environment per policy rollout
+        processes: The number of processes to use to collect env data. The envs are split as equally as possible across the processes
+        id: the id of the environment
+    """
+
+    kwargs: str = "{}"
+    num_envs: int = 4
+    num_steps: int = 128
+    processes: int = 1
+    id: str = "MoveToOrigin"
+
+
+@dataclass
+class PPOConfig:
+    """Proximal Policy Optimization settings.
+
+    Attributes:
+        gae: whether to use GAE for advantage computation
+        gamma: the discount factor gamma
+        gae_lambda: the lambda for the general advantage estimation
+        norm_adv: whether to normalize advantages
+        clip_coef: the surrogate clipping coefficient
+        clip_vloss: whether or not to use a clipped loss for the value function, as per the paper
+        ent_coef: coefficient of the entropy
+        vf_coef: coefficient of the value function
+        target_kl: the target KL divergence threshold
+        anneal_entropy: whether to anneal the entropy coefficient
+    """
+
+    gae: bool = True
+    gamma: float = 0.99
+    gae_lambda: float = 0.95
+    norm_adv: bool = True
+    clip_coef: float = 0.2
+    clip_vloss: bool = True
+    ent_coef: float = 0.01
+    vf_coef: float = 0.5
+    target_kl: Optional[float] = None
+    anneal_entropy: bool = False
+
+
+@dataclass
+class OptimizerConfig:
+    """Optimizer settings.
+
+    Attributes:
+        lr: the learning rate of the optimizer
+        bs: the batch size of the optimizer
+        micro_bs: if set, use gradient accumulation to split up batches into smaller microbatches
+        weight_decay: the weight decay of the optimizer
+        anneal_lr: whether to anneal the learning rate
+        update_epochs: the K epochs to update the policy
+        max_grad_norm: the maximum norm for the gradient clipping
+    """
+
+    lr: float = 2.5e-4
+    bs: int = 128
+    weight_decay: float = 0.0
+    micro_bs: Optional[int] = None
+    anneal_lr: bool = True
+    update_epochs: int = 3
+    max_grad_norm: float = 2.0
+
+
+@dataclass
+class ExperimentConfig:
+    """Experiment settings.
+
+    Attributes:
+        net: policy network configuration
+        d_dk: dimension of keys and queries in select-entity action heads
+        translation: settings for transforming all position features to be centered on one entity
+        relpos_encoding: settings for relative position encoding
+        codecraft_net: if toggled, use the DeepCodeCraft policy network instead of RogueNet (only works with CodeCraft environment)
+        name: the name of the experiment
+        seed: seed of the experiment
+        total_timesteps: total timesteps of the experiments
+        max_train_time: train for at most this many seconds
+        torch_deterministic: if toggled, `torch.backends.cudnn.deterministic=False`
+        cuda: if toggled, cuda will be enabled by default
+        track: if toggled, this experiment will be tracked with Weights and Biases
+        wandb_project_name: the wandb's project name
+        wandb_entity: the entity (team) of wandb's project
+        capture_samples: if set, write the samples to this file
+        capture_logits: If --capture-samples is set, record full logits of the agent
+        capture_samples_subsample: only persist every nth sample, chosen randomly
+        trial: trial number of experiment spawned by hyperparameter tuner
+        data_dir: Directory to save output from training and logging
+    """
+
+    env: EnvConfig
+    net: TransformerConfig
+    optim: OptimizerConfig
+    ppo: PPOConfig
+    translation: Optional[TranslationConfig] = None
+    d_qk: int = 64
+    eval: Optional[EvalConfig] = None
+    codecraft_net: bool = False
+
+    name: str = field(default_factory=lambda: os.path.basename(__file__).rstrip(".py"))
+    seed: int = 1
+    total_timesteps: int = 25000
+    max_train_time: Optional[int] = None
+    torch_deterministic: bool = True
+    cuda: bool = True
+    track: bool = False
+    wandb_project_name: str = "enn-ppo"
+    wandb_entity: str = "entity-neural-network"
+    capture_samples: Optional[str] = None
+    capture_logits: bool = False
+    capture_samples_subsample: int = 1
+    trial: Optional[int] = None
+    data_dir: str = "."
 
 
 def layer_init(layer: Any, std: float = np.sqrt(2), bias_const: float = 0.0) -> Any:
@@ -198,7 +232,7 @@ class PPOActor(AutoActor):
         obs_space: ObsSpace,
         action_space: Dict[str, ActionSpace],
         d_qk: int = 16,
-        feature_transforms: Optional[TranslatePositions] = None,
+        feature_transforms: Optional[TranslationConfig] = None,
     ):
         auxiliary_heads = nn.ModuleDict(
             {"value": head_creator.create_value_head(tf.d_model)}
@@ -209,7 +243,9 @@ class PPOActor(AutoActor):
             action_space,
             d_qk,
             auxiliary_heads,
-            feature_transforms=feature_transforms,
+            feature_transforms=TranslatePositions(feature_transforms, obs_space)
+            if feature_transforms
+            else None,
         )
 
     def get_value(
@@ -441,10 +477,9 @@ def returns_and_advantages(
 
 
 def run_eval(
+    cfg: EvalConfig,
+    env_cfg: EnvConfig,
     env_cls: Type[Environment],
-    env_kwargs: Dict[str, Any],
-    num_envs: int,
-    processes: int,
     obs_space: ObsSpace,
     action_space: Mapping[str, ActionSpace],
     agent: PPOActor,
@@ -452,34 +487,35 @@ def run_eval(
     tracer: Tracer,
     writer: SummaryWriter,
     global_step: int,
-    capture_videos: bool = False,
-    record_samples: Optional[str] = None,
-    record_logits: bool = False,
-    record_samples_subsample: int = 1,
-    codecraft_eval: bool = False,
-    eval_opponent: Optional[str] = None,
-    codecraft_only_opponent: bool = False,
 ) -> None:
     # TODO: metrics are biased towards short episodes
+
+    if cfg.env_kwargs is None:
+        env_kwargs = json.loads(env_cfg.env_kwargs)
+    else:
+        env_kwargs = json.loads(cfg.env_kwargs)
+
     eval_envs: VecEnv
-    if codecraft_eval:
+    processes = cfg.processes or env_cfg.processes
+    if cfg.codecraft_eval:
         eval_envs = CodeCraftVecEnv(
-            num_envs, stagger=False, symmetric=True, **env_kwargs
+            cfg.num_envs, stagger=False, symmetric=True, **env_kwargs
         )
     elif processes > 1:
         eval_envs = ParallelEnvList(
             env_cls,
             env_kwargs,
-            num_envs,
+            cfg.num_envs,
             processes,
         )
     else:
-        eval_envs = EnvList(env_cls, args.eval_env_kwargs or env_kwargs, num_envs)
-    if codecraft_eval:
-        if codecraft_only_opponent:
+        eval_envs = EnvList(env_cls, env_kwargs, cfg.num_envs)
+
+    if cfg.codecraft_eval:
+        if cfg.codecraft_only_opponent:
             agents: Union[PPOActor, List[Tuple[npt.NDArray[np.int64], PPOActor]]] = CCNetAdapter(device, load_from=eval_opponent)  # type: ignore
         else:
-            if eval_opponent is None:
+            if cfg.codecraft_eval_opponent is None:
                 opponent = PPOActor(
                     TransformerConfig(),
                     obs_space,
@@ -488,17 +524,17 @@ def run_eval(
             else:
                 opponent = CCNetAdapter(device, load_from=eval_opponent)  # type: ignore
             agents = [
-                (np.array([2 * i for i in range(num_envs // 2)]), agent),
+                (np.array([2 * i for i in range(cfg.num_envs // 2)]), agent),
                 (
-                    np.array([2 * i + 1 for i in range(num_envs // 2)]),
+                    np.array([2 * i + 1 for i in range(cfg.num_envs // 2)]),
                     opponent,
                 ),
             ]
     else:
         agents = agent
-    if record_samples:
+    if cfg.capture_samples:
         eval_envs = SampleRecordingVecEnv(
-            eval_envs, record_samples, record_samples_subsample
+            eval_envs, cfg.capture_samples, cfg.capture_samples_subsample
         )
     eval_rollout = Rollout(
         eval_envs,
@@ -509,13 +545,13 @@ def run_eval(
         tracer=tracer,
     )
     _, _, metrics = eval_rollout.run(
-        args.eval_steps,
+        cfg.steps,
         record_samples=False,
-        capture_videos=capture_videos,
-        capture_logits=record_logits,
+        capture_videos=cfg.capture_videos,
+        capture_logits=cfg.capture_logits,
     )
 
-    if capture_videos:
+    if cfg.capture_videos:
         # save the videos
         writer.add_video(
             f"eval/video",
@@ -532,9 +568,10 @@ def run_eval(
     eval_envs.close()
 
 
-def train(args: argparse.Namespace) -> float:
-    run_name = f"{args.gym_id}__{args.exp_name}__{args.seed}__{int(time.time())}"
-    config = vars(args)
+def train(cfg: ExperimentConfig) -> float:
+    run_name = f"{cfg.env.id}__{cfg.name}__{cfg.seed}__{int(time.time())}"
+
+    config = asdict(cfg)
     if os.path.exists("/xprun/info/config.ron"):
         import xprun  # type: ignore
 
@@ -542,8 +579,9 @@ def train(args: argparse.Namespace) -> float:
         config["name"] = xp_info.xp_def.name
         config["base_name"] = xp_info.xp_def.base_name
         config["id"] = xp_info.id
-        if args.trial is not None:
-            args.seed = int(xp_info.xp_def.name.split("-")[-1])
+        if "-" in xp_info.xp_def.name and xp_info.xp_def.name.split("-")[-1].isdigit():
+            cfg.seed = int(xp_info.xp_def.name.split("-")[-1])
+            config["seed"] = cfg.seed
         run_name = xp_info.xp_def.name
         out_dir: Optional[str] = os.path.join(
             "/mnt/xprun",
@@ -554,28 +592,16 @@ def train(args: argparse.Namespace) -> float:
     else:
         out_dir = None
 
-    data_path = Path(args.data_dir).absolute()
+    data_path = Path(cfg.data_dir).absolute()
     data_path.mkdir(parents=True, exist_ok=True)
     data_dir = str(data_path)
 
-    if args.track:
+    if cfg.track:
         import wandb
 
-        config = vars(args)
-        if os.path.exists("/xprun/info/config.ron"):
-            import xprun
-
-            xp_info = xprun.current_xp()
-            config["name"] = xp_info.xp_def.name
-            config["base_name"] = xp_info.xp_def.base_name
-            config["id"] = xp_info.id
-            if xp_info.xp_def.index is not None:
-                args.seed = xp_info.xp_def.index
-            run_name = xp_info.xp_def.name
-
         wandb.init(
-            project=args.wandb_project_name,
-            entity=args.wandb_entity,
+            project=cfg.wandb_project_name,
+            entity=cfg.wandb_entity,
             sync_tensorboard=True,
             config=config,
             name=run_name,
@@ -583,95 +609,81 @@ def train(args: argparse.Namespace) -> float:
             dir=data_dir,
         )
     writer = SummaryWriter(os.path.join(data_dir, f"runs/{run_name}"))
+
+    def flatten(config: Dict[str, Any], prefix: str = "") -> Dict[str, Any]:
+        flattened = {}
+        for k, v in config.items():
+            if isinstance(v, dict):
+                flattened.update(flatten(v, k if prefix == "" else f"{prefix}.{k}"))
+            else:
+                flattened[prefix + k] = v
+        return flattened
+
     writer.add_text(
         "hyperparameters",
         "|param|value|\n|-|-|\n%s"
-        % ("\n".join([f"|{key}|{value}|" for key, value in vars(args).items()])),
+        % ("\n".join([f"|{key}|{value}|" for key, value in flatten(config).items()])),
     )
 
-    # TRY NOT TO MODIFY: seeding
-    random.seed(args.seed)
-    np.random.seed(args.seed)
-    torch.manual_seed(args.seed)
-    torch.backends.cudnn.deterministic = args.torch_deterministic
+    random.seed(cfg.seed)
+    np.random.seed(cfg.seed)
+    torch.manual_seed(cfg.seed)
+    torch.backends.cudnn.deterministic = cfg.torch_deterministic
 
-    cuda = torch.cuda.is_available() and args.cuda
+    cuda = torch.cuda.is_available() and cfg.cuda
     device = torch.device("cuda" if cuda else "cpu")
     tracer = Tracer(cuda=cuda)
 
-    env_kwargs = json.loads(args.env_kwargs)
-    if args.eval_env_kwargs is not None:
-        eval_env_kwargs = json.loads(args.eval_env_kwargs)
-    else:
-        eval_env_kwargs = env_kwargs
+    env_kwargs = json.loads(cfg.env.kwargs)
 
-    if args.gym_id in ENV_REGISTRY:
-        env_cls = ENV_REGISTRY[args.gym_id]
-    elif args.gym_id in GRIDDLY_ENVS:
-        env_cls = create_env(**GRIDDLY_ENVS[args.gym_id])
-    elif args.gym_id == "CodeCraft":
+    if cfg.env.id in ENV_REGISTRY:
+        env_cls = ENV_REGISTRY[cfg.env.id]
+    elif cfg.env.id in GRIDDLY_ENVS:
+        env_cls = create_env(**GRIDDLY_ENVS[cfg.env.id])
+    elif cfg.env.id == "CodeCraft":
         env_cls = codecraft_env_class(env_kwargs.get("objective", "ALLIED_WEALTH"))
     else:
         raise KeyError(
-            f"Unknown gym_id: {args.gym_id}\nAvailable environments: {list(ENV_REGISTRY.keys()) + list(GRIDDLY_ENVS.keys())}"
+            f"Unknown gym_id: {cfg.env.id}\nAvailable environments: {list(ENV_REGISTRY.keys()) + list(GRIDDLY_ENVS.keys())}"
         )
 
     # env setup
     envs: VecEnv
-    if args.gym_id == "CodeCraft":
-        envs = CodeCraftVecEnv(args.num_envs, **env_kwargs)
-    elif args.processes > 1:
-        envs = ParallelEnvList(env_cls, env_kwargs, args.num_envs, args.processes)
+    if cfg.env.id == "CodeCraft":
+        envs = CodeCraftVecEnv(cfg.env.num_envs, **env_kwargs)
+    elif cfg.env.processes > 1:
+        envs = ParallelEnvList(env_cls, env_kwargs, cfg.env.num_envs, cfg.env.processes)
     else:
-        envs = EnvList(env_cls, env_kwargs, args.num_envs)
+        envs = EnvList(env_cls, env_kwargs, cfg.env.num_envs)
     obs_space = env_cls.obs_space()
     action_space = env_cls.action_space()
-    if args.capture_samples:
+    if cfg.capture_samples:
         if out_dir is None:
-            sample_file = args.capture_samples
+            sample_file = cfg.capture_samples
         else:
-            sample_file = os.path.join(out_dir, args.capture_samples)
-        envs = SampleRecordingVecEnv(envs, sample_file, args.capture_samples_subsample)
-    if args.translate:
-        translate: Optional[TranslatePositions] = TranslatePositions(
-            obs_space=obs_space, **json.loads(args.translate)
-        )
-    else:
-        translate = None
+            sample_file = os.path.join(out_dir, cfg.capture_samples)
+        envs = SampleRecordingVecEnv(envs, sample_file, cfg.capture_samples_subsample)
 
-    if args.relpos_encoding:
-        relpos_encoding: Optional[RelposEncodingConfig] = RelposEncodingConfig(
-            **json.loads(args.relpos_encoding),
-        )
-    else:
-        relpos_encoding = None
-
-    if not args.codecraft_net:
+    if not cfg.codecraft_net:
         agent = PPOActor(
-            TransformerConfig(
-                d_model=args.d_model,
-                n_head=args.n_head,
-                n_layer=args.n_layer,
-                pooling=args.pooling_op,
-                relpos_encoding=relpos_encoding,
-            ),
+            cfg.net,
             obs_space,
             action_space,
-            feature_transforms=translate,
+            feature_transforms=cfg.translation,
         ).to(device)
     else:
         agent = CCNetAdapter(device)  # type: ignore
 
     optimizer = optim.AdamW(
         agent.parameters(),
-        lr=args.learning_rate,
-        weight_decay=args.weight_decay,
+        lr=cfg.optim.lr,
+        weight_decay=cfg.optim.weight_decay,
         eps=1e-5,
     )
-    if args.track:
+    if cfg.track:
         wandb.watch(agent)
 
-    num_updates = args.total_timesteps // args.batch_size
+    num_updates = cfg.total_timesteps // (cfg.env.num_envs * cfg.env.num_steps)
 
     rollout = Rollout(
         envs,
@@ -682,69 +694,61 @@ def train(args: argparse.Namespace) -> float:
         tracer=tracer,
     )
 
-    if args.eval_interval is not None:
-        if args.eval_on_step_0:
+    if cfg.eval is not None:
+        if cfg.eval.run_on_first_step:
             next_eval_step: Optional[int] = 0
         else:
-            next_eval_step = args.eval_interval
+            next_eval_step = cfg.eval.interval
     else:
         next_eval_step = None
 
-    eval_processes = args.eval_processes
-    if not isinstance(eval_processes, int):
-        eval_processes = args.processes
-
     def _run_eval() -> None:
-        run_eval(
-            env_cls,
-            eval_env_kwargs,
-            args.eval_num_envs,
-            eval_processes,
-            obs_space,
-            action_space,
-            agent,
-            device,
-            tracer,
-            writer,
-            rollout.global_step,
-            args.eval_capture_videos,
-            args.eval_capture_samples,
-            args.eval_capture_logits,
-            args.eval_capture_samples_subsample,
-            args.codecraft_eval,
-            args.codecraft_eval_opponent,
-            args.codecraft_only_opponent,
-        )
+        if cfg.eval is not None:
+            run_eval(
+                cfg.eval,
+                cfg.env,
+                env_cls,
+                obs_space,
+                action_space,
+                agent,
+                device,
+                tracer,
+                writer,
+                rollout.global_step,
+            )
 
     start_time = time.time()
     for update in range(1, num_updates + 1):
-
-        if next_eval_step is not None and rollout.global_step >= next_eval_step:
-            next_eval_step += args.eval_interval
+        if (
+            cfg.eval is not None
+            and next_eval_step is not None
+            and rollout.global_step >= next_eval_step
+        ):
+            next_eval_step += cfg.eval.interval
             _run_eval()
 
         tracer.start("update")
         if (
-            args.max_train_time is not None
-            and time.time() - start_time >= args.max_train_time
+            cfg.max_train_time is not None
+            and time.time() - start_time >= cfg.max_train_time
         ):
             print("Max train time reached, stopping training.")
             break
 
         # Annealing the rate if instructed to do so.
-        if args.anneal_lr:
+        if cfg.optim.anneal_lr:
             frac = 1.0 - (update - 1.0) / num_updates
-            if args.max_train_time is not None:
+            if cfg.max_train_time is not None:
                 frac = min(
-                    frac, max(0, 1.0 - (time.time() - start_time) / args.max_train_time)
+                    frac, max(0, 1.0 - (time.time() - start_time) / cfg.max_train_time)
                 )
-            lrnow = frac * args.learning_rate
+            lrnow = frac * cfg.optim.lr
             optimizer.param_groups[0]["lr"] = lrnow
 
         tracer.start("rollout")
 
         next_obs, next_done, metrics = rollout.run(
-            args.num_steps, record_samples=True, capture_logits=args.capture_logits
+            cfg.env.num_steps, record_samples=True, capture_logits=cfg.capture_logits
         )
         for name, value in metrics.items():
             writer.add_scalar(name, value, rollout.global_step)
@@ -767,9 +771,9 @@ def train(args: argparse.Namespace) -> float:
                 rollout.rewards,
                 rollout.dones,
                 values,
-                args.gae,
-                args.gamma,
-                args.gae_lambda,
+                cfg.ppo.gae,
+                cfg.ppo.gamma,
+                cfg.ppo.gae_lambda,
                 device,
                 tracer,
             )
@@ -784,17 +788,18 @@ def train(args: argparse.Namespace) -> float:
 
         # Optimizaing the policy and value network
         tracer.start("optimize")
-        b_inds = np.arange(args.batch_size)
+        frames = cfg.env.num_envs * cfg.env.num_steps
+        b_inds = np.arange(frames)
         clipfracs = []
 
-        for epoch in range(args.update_epochs):
+        for epoch in range(cfg.optim.update_epochs):
             np.random.shuffle(b_inds)
-            for start in range(0, args.batch_size, args.minibatch_size):
-                end = start + args.minibatch_size
+            for start in range(0, frames, cfg.optim.bs):
+                end = start + cfg.optim.bs
                 microbatch_size = (
-                    args.microbatch_size
-                    if args.microbatch_size is not None
-                    else args.minibatch_size
+                    cfg.optim.micro_bs
+                    if cfg.optim.micro_bs is not None
+                    else cfg.optim.bs
                 )
 
                 optimizer.zero_grad()
@@ -848,7 +853,7 @@ def train(args: argparse.Namespace) -> float:
                         clipfracs += [
                             torch.tensor(
                                 [
-                                    ((_ratio - 1.0).abs() > args.clip_coef)
+                                    ((_ratio - 1.0).abs() > cfg.ppo.clip_coef)
                                     .float()
                                     .mean()
                                     .item()
@@ -859,7 +864,7 @@ def train(args: argparse.Namespace) -> float:
 
                     # TODO: not invariant to microbatch size, should be normalizing full batch or minibatch instead
                     mb_advantages = b_advantages[mb_inds]  # type: ignore
-                    if args.norm_adv:
+                    if cfg.ppo.norm_adv:
                         assert (
                             len(mb_advantages) > 1
                         ), "Can't normalize advantages with minibatch size 1"
@@ -896,8 +901,8 @@ def train(args: argparse.Namespace) -> float:
                                 -_advantages
                                 * torch.clamp(
                                     _ratio.flatten(),
-                                    1 - args.clip_coef,
-                                    1 + args.clip_coef,
+                                    1 - cfg.ppo.clip_coef,
+                                    1 + cfg.ppo.clip_coef,
                                 )
                                 for _advantages, _ratio in zip(
                                     bc_mb_advantages.values(), ratio.values()
@@ -909,12 +914,12 @@ def train(args: argparse.Namespace) -> float:
                     # Value loss
                     with tracer.span("value_loss"):
                         newvalue = newvalue.view(-1)
-                        if args.clip_vloss:
+                        if cfg.ppo.clip_vloss:
                             v_loss_unclipped = (newvalue - b_returns[mb_inds]) ** 2  # type: ignore
                             v_clipped = b_values[mb_inds] + torch.clamp(  # type: ignore
                                 newvalue - b_values[mb_inds],  # type: ignore
-                                -args.clip_coef,
-                                args.clip_coef,
+                                -cfg.ppo.clip_coef,
+                                cfg.ppo.clip_coef,
                             )
                             v_loss_clipped = (v_clipped - b_returns[mb_inds]) ** 2  # type: ignore
                             v_loss_max = torch.max(v_loss_unclipped, v_loss_clipped)
@@ -923,33 +928,33 @@ def train(args: argparse.Namespace) -> float:
                             v_loss = 0.5 * ((newvalue - b_returns[mb_inds]) ** 2).mean()  # type: ignore
 
                     # TODO: what's correct way of combining entropy loss from multiple actions/actors on the same timestep?
-                    if args.anneal_entropy:
+                    if cfg.ppo.anneal_entropy:
                         frac = 1.0 - (update - 1.0) / num_updates
-                        if args.max_train_time is not None:
+                        if cfg.max_train_time is not None:
                             frac = min(
                                 frac,
                                 max(
                                     0,
                                     1.0
-                                    - (time.time() - start_time) / args.max_train_time,
+                                    - (time.time() - start_time) / cfg.max_train_time,
                                 ),
                             )
-                        ent_coef = frac * args.ent_coef
+                        ent_coef = frac * cfg.ppo.ent_coef
                     else:
-                        ent_coef = args.ent_coef
+                        ent_coef = cfg.ppo.ent_coef
                     entropy_loss = torch.cat([e for e in entropy.values()]).mean()
-                    loss = pg_loss - ent_coef * entropy_loss + v_loss * args.vf_coef
-                    loss *= microbatch_size / args.minibatch_size
+                    loss = pg_loss - ent_coef * entropy_loss + v_loss * cfg.ppo.vf_coef
+                    loss *= microbatch_size / cfg.optim.bs
 
                     with tracer.span("backward"):
                         loss.backward()
                 gradnorm = nn.utils.clip_grad_norm_(
-                    agent.parameters(), args.max_grad_norm
+                    agent.parameters(), cfg.optim.max_grad_norm
                 )
                 optimizer.step()
 
-            if args.target_kl is not None:
-                if approx_kl > args.target_kl:
+            if cfg.ppo.target_kl is not None:
+                if approx_kl > cfg.ppo.target_kl:
                     break
 
         tracer.end("optimize")
@@ -991,7 +996,7 @@ def train(args: argparse.Namespace) -> float:
         for callstack, timing in traces.items():
             writer.add_scalar(f"trace/{callstack}", timing, global_step)
 
-    if args.eval_interval is not None:
+    if cfg.eval is not None:
         _run_eval()
 
     envs.close()
@@ -1000,6 +1005,10 @@ def train(args: argparse.Namespace) -> float:
     return rollout.rewards.mean().item()
 
 
+@hyperstate.command(ExperimentConfig)
+def main(cfg: ExperimentConfig) -> None:
+    train(cfg)
+
+
 if __name__ == "__main__":
-    args = parse_args()
-    train(args)
+    main()

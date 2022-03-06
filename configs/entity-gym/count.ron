@@ -1,0 +1,18 @@
+// Achieves episodic return of 1.0: https://wandb.ai/entity-neural-network/enn-ppo/reports/Count--VmlldzoxNjI2OTI4
+ExperimentConfig(
+    env: (
+        id: "Count",
+        num_envs: 16,
+        num_steps: 1,
+        kwargs: "{\"masked_choices\": 2}"
+    ),
+    total_timesteps: 2000,
+    net: (
+        d_model: 16,
+        n_layer: 1
+    ),
+    optim: (
+        bs: 16,
+        lr: 0.01
+    ),
+)

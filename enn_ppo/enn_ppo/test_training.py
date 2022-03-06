@@ -1,175 +1,159 @@
 from enn_ppo import train
+from enn_ppo.train import ExperimentConfig, OptimizerConfig, PPOConfig, EnvConfig
+from rogue_net.relpos_encoding import RelposEncodingConfig
+from rogue_net.transformer import TransformerConfig
 
 
 def test_multi_armed_bandit() -> None:
-    args = train.parse_args(
-        [
-            "--total-timesteps=500",
-            "--ent-coef=0",
-            "--gym-id=MultiArmedBandit",
-            "--num-steps=16",
-            "--gamma=0.5",
-            "--cuda=False",
-            "--d-model=16",
-            "--learning-rate=0.05",
-            "--n-layer=0",
-            "--processes=2",
-        ]
+    cfg = ExperimentConfig(
+        total_timesteps=500,
+        cuda=False,
+        ppo=PPOConfig(ent_coef=0.0, gamma=0.5),
+        env=EnvConfig(id="MultiArmedBandit", processes=2, num_steps=16),
+        net=TransformerConfig(n_layer=0, d_model=16),
+        optim=OptimizerConfig(lr=0.05, bs=16, update_epochs=4),
     )
-    meanrew = train.train(args)
+    meanrew = train.train(cfg)
     print(f"Final mean reward: {meanrew}")
-    assert meanrew > 0.99
+    assert meanrew > 0.99 / 32
 
 
 def test_minefield() -> None:
-    args = train.parse_args(
-        [
-            "--gym-id=Minefield",
-            "--total-timesteps=256",
-            "--num-steps=16",
-            "--cuda=False",
-            "--d-model=16",
-        ]
+    cfg = ExperimentConfig(
+        total_timesteps=256,
+        cuda=False,
+        net=TransformerConfig(d_model=16),
+        env=EnvConfig(id="Minefield", num_steps=16),
+        optim=OptimizerConfig(bs=64),
+        ppo=PPOConfig(),
     )
-    meanrew = train.train(args)
+    meanrew = train.train(cfg)
     print(f"Final mean reward: {meanrew}")
     assert meanrew >= 0.0
 
 
 def test_multi_snake() -> None:
-    args = train.parse_args(
-        [
-            "--gym-id=MultiSnake",
-            "--total-timesteps=256",
-            "--num-steps=16",
-            "--cuda=False",
-            "--d-model=16",
-        ]
+    cfg = ExperimentConfig(
+        total_timesteps=256,
+        cuda=False,
+        net=TransformerConfig(d_model=16),
+        env=EnvConfig(id="MultiSnake", num_steps=16),
+        optim=OptimizerConfig(bs=64),
+        ppo=PPOConfig(),
     )
-    meanrew = train.train(args)
+    meanrew = train.train(cfg)
     print(f"Final mean reward: {meanrew}")
     assert meanrew >= 0.0
 
 
 def test_not_hotdog() -> None:
-    # --total-timesteps=500 --ent-coef=0 --gym-id=NotHotdog --num-steps=16 --gamma=0.5 --cuda=False --d-model=16 --learning-rate=0.05
-    args = train.parse_args(
-        [
-            "--total-timesteps=500",
-            "--ent-coef=0",
-            "--gym-id=NotHotdog",
-            "--num-steps=16",
-            "--gamma=0.5",
-            "--cuda=False",
-            "--n-layer=1",
-            "--d-model=16",
-            "--learning-rate=0.005",
-        ]
+    cfg = ExperimentConfig(
+        total_timesteps=500,
+        cuda=False,
+        net=TransformerConfig(d_model=16, n_layer=1),
+        env=EnvConfig(id="NotHotdog", num_steps=16),
+        optim=OptimizerConfig(bs=16, lr=0.005),
+        ppo=PPOConfig(ent_coef=0.0, gamma=0.5),
     )
-    meanrew = train.train(args)
+    meanrew = train.train(cfg)
     print(f"Final mean reward: {meanrew}")
     assert meanrew >= 0.99
 
 
 def test_masked_count() -> None:
-    # --total-timesteps=2000 --track --gym-id=Count --num-envs=16 --max-log-frequency=1000 --n-layer=1 --num-steps=1 --d-model=16 --learning-rate=0.01 --cuda=False
-    args = train.parse_args(
-        [
-            "--total-timesteps=2000",
-            "--gym-id=Count",
-            "--num-envs=16",
-            "--n-layer=1",
-            "--num-steps=1",
-            "--d-model=16",
-            "--learning-rate=0.01",
-            '--env-kwargs={"masked_choices": 2}',
-            "--cuda=False",
-        ]
+    cfg = ExperimentConfig(
+        total_timesteps=2000,
+        cuda=False,
+        net=TransformerConfig(d_model=16, n_layer=1),
+        env=EnvConfig(
+            id="Count", num_envs=16, num_steps=1, kwargs='{"masked_choices": 2}'
+        ),
+        optim=OptimizerConfig(bs=16, lr=0.01),
+        ppo=PPOConfig(),
     )
-    meanrw = train.train(args)
+    meanrw = train.train(cfg)
     print(f"Final mean reward: {meanrw}")
     assert meanrw >= 0.99
 
 
 def test_pick_matching_balls() -> None:
-    args = train.parse_args(
-        [
-            "--gym-id=PickMatchingBalls",
-            "--total-timesteps=256",
-            "--num-steps=16",
-            "--cuda=False",
-            "--d-model=16",
-        ]
+    cfg = ExperimentConfig(
+        total_timesteps=256,
+        cuda=False,
+        net=TransformerConfig(d_model=16),
+        env=EnvConfig(id="PickMatchingBalls", num_steps=16),
+        optim=OptimizerConfig(bs=64),
+        ppo=PPOConfig(),
     )
-    meanrew = train.train(args)
+    meanrew = train.train(cfg)
     print(f"Final mean reward: {meanrew}")
     assert meanrew >= 0.0
 
 
 def test_cherry_pick() -> None:
-    args = train.parse_args(
-        [
-            "--gym-id=CherryPick",
-            "--total-timesteps=256",
-            "--num-steps=16",
-            "--cuda=False",
-            "--d-model=16",
-        ]
+    cfg = ExperimentConfig(
+        total_timesteps=256,
+        cuda=False,
+        net=TransformerConfig(d_model=16),
+        env=EnvConfig(id="CherryPick", num_steps=16),
+        optim=OptimizerConfig(bs=64),
+        ppo=PPOConfig(),
     )
-    meanrew = train.train(args)
+    meanrew = train.train(cfg)
     print(f"Final mean reward: {meanrew}")
 
 
 def test_relpos_encoding() -> None:
-    # poetry run python enn_ppo/enn_ppo/train.py --gym-id=FloorIsLava --total-timesteps=5000 --num-envs=64 --processes=1 --d-model=16 --n-layer=2 --num-steps=2 --num-minibatches=4 --ent-coef=0.3 --anneal-entropy --cuda=False --relpos-encoding='{"extent": [1, 1], "position_features": ["x", "y"]}' --learning-rate=0.01
-    args = train.parse_args(
-        [
-            "--gym-id=FloorIsLava",
-            "--total-timesteps=10000",
-            "--num-envs=64",
-            "--processes=1",
-            "--d-model=16",
-            "--n-layer=2",
-            "--num-steps=2",
-            "--num-minibatches=4",
-            "--ent-coef=0.4",
-            "--anneal-entropy",
-            "--cuda=False",
-            "--learning-rate=0.02",
-            '--relpos-encoding={"extent": [1, 1], "position_features": ["x", "y"], "per_entity_values": true}',
-        ]
+    cfg = ExperimentConfig(
+        total_timesteps=10000,
+        cuda=False,
+        net=TransformerConfig(
+            d_model=16,
+            n_layer=2,
+            relpos_encoding=RelposEncodingConfig(
+                extent=[1, 1],
+                position_features=["x", "y"],
+                per_entity_values=True,
+            ),
+        ),
+        env=EnvConfig(id="FloorIsLava", num_steps=2, num_envs=64),
+        optim=OptimizerConfig(bs=32, lr=0.02),
+        ppo=PPOConfig(
+            ent_coef=0.4,
+            anneal_entropy=True,
+        ),
     )
-
-    meanrew = train.train(args)
+    meanrew = train.train(cfg)
     print(f"Final mean reward: {meanrew}")
     assert meanrew >= 0.97
 
-    args.relpos_encoding = None
-    meanrew = train.train(args)
+    cfg.net.relpos_encoding = None
+    meanrew = train.train(cfg)
     print(f"Final mean reward: {meanrew}")
     assert meanrew < 0.2
 
 
-def test_asymetric_relpos_encoding() -> None:
-    # poetry run python enn_ppo/enn_ppo/train.py --gym-id=FloorIsLava --total-timesteps=5000 --num-envs=64 --processes=1 --d-model=16 --n-layer=2 --num-steps=2 --num-minibatches=4 --ent-coef=0.3 --anneal-entropy --cuda=False --relpos-encoding='{"extent": [1, 1], "position_features": ["x", "y"]}' --learning-rate=0.01
-    args = train.parse_args(
-        [
-            "--gym-id=FloorIsLava",
-            "--total-timesteps=2000",
-            "--num-envs=64",
-            "--processes=1",
-            "--d-model=16",
-            "--n-layer=2",
-            "--num-steps=1",
-            "--num-minibatches=4",
-            "--ent-coef=0.0",
-            "--anneal-entropy",
-            "--cuda=False",
-            "--learning-rate=0.02",
-            '--relpos-encoding={"extent": [5, 1], "position_features": ["x", "y"], "per_entity_values": true}',
-        ]
+def test_asymmetric_relpos_encoding() -> None:
+    cfg = ExperimentConfig(
+        total_timesteps=3000,
+        cuda=False,
+        net=TransformerConfig(
+            d_model=16,
+            n_layer=2,
+            relpos_encoding=RelposEncodingConfig(
+                extent=[5, 1],
+                position_features=["x", "y"],
+                per_entity_values=True,
+            ),
+        ),
+        env=EnvConfig(id="FloorIsLava", num_steps=1, num_envs=64),
+        optim=OptimizerConfig(bs=16, lr=0.02),
+        ppo=PPOConfig(
+            ent_coef=0.1,
+            anneal_entropy=True,
+        ),
     )
 
-    meanrew = train.train(args)
+    meanrew = train.train(cfg)
     print(f"Final mean reward: {meanrew}")
     assert meanrew >= 0.15

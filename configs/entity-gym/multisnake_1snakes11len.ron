@@ -1,0 +1,28 @@
+// Achieves > 0.99 episodic return: https://wandb.ai/entity-neural-network/enn-ppo/reports/MultiSnake--VmlldzoxNjM3OTYz
+ExperimentConfig(
+    env: (
+        id: "MultiSnake",
+        num_envs: 512,
+        num_steps: 64,
+        processes: 16,
+        kwargs: "{\"num_snakes\": 1, \"max_snake_length\": 11}",
+    ),
+    total_timesteps: 10000000,
+    net: (
+        d_model: 32,
+        n_layer: 2,
+        relpos_encoding: (
+            extent: [10, 10],
+            position_features: ["x", "y"],
+        ),
+    ),
+    optim: (
+        bs: 32768,
+        lr: 0.018,
+    ),
+    ppo: (
+        ent_coef: 0.02, // Higher? Just use default?
+        gamma: 0.97,
+        anneal_entropy: true,
+    ),
+)
