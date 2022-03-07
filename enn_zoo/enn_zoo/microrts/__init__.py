@@ -155,6 +155,30 @@ class GymMicrorts(Environment):
                     "return_left",
                 ],
             ),
+            # "base_action": CategoricalActionSpace(
+            #     choices=[
+            #         "produce_worker_up",
+            #         "produce_worker_right",
+            #         "produce_worker_down",
+            #         "produce_worker_left",
+            #     ],
+            # ),
+            # "barrack_action": CategoricalActionSpace(
+            #     choices=[
+            #         "produce_light_up",
+            #         "produce_light_right",
+            #         "produce_light_down",
+            #         "produce_light_left",
+            #         "produce_heavy_up",
+            #         "produce_heavy_right",
+            #         "produce_heavy_down",
+            #         "produce_heavy_left",
+            #         "produce_ranged_up",
+            #         "produce_ranged_right",
+            #         "produce_ranged_down",
+            #         "produce_ranged_left",
+            #     ],
+            # ),
         }
 
     def reset(self) -> Observation:
@@ -164,16 +188,16 @@ class GymMicrorts(Environment):
         response = self.client.reset(0)
         self.client.render(False)
 
-        actor_ids = np.array(response.observation[8])
-        actor_ids_masks = np.array(response.observation[9], dtype=np.bool8)
-        # print("actor_ids", actor_ids, actor_ids.shape)
-        # print("actor_ids_masks", actor_ids_masks, actor_ids_masks.shape)
+        unit_action_actor_ids = np.array(response.observation[8])
+        unit_action_actor_masks = np.array(response.observation[9], dtype=np.bool8)
+        # print("unit_action_actor_ids", unit_action_actor_ids, unit_action_actor_ids.shape)
+        # print("unit_action_actor_masks", unit_action_actor_masks, unit_action_actor_masks.shape)
         return Observation.from_entity_obs(
             entities=self.generate_entities(response),
             actions={
                 "unit_action": CategoricalActionMask(
-                    actor_ids=actor_ids,
-                    mask=actor_ids_masks,
+                    actor_ids=unit_action_actor_ids,
+                    mask=unit_action_actor_masks,
                 ),
             },
             reward=response.reward @ self.reward_weight,
@@ -194,21 +218,21 @@ class GymMicrorts(Environment):
             response = self.client.gameStep([], [],  0)
 
         self.client.render(False)
-        actor_ids = np.array(response.observation[8])
-        actor_ids_masks = None
-        if len(actor_ids) > 0:
-            actor_ids = np.array(response.observation[8])
-            actor_ids_masks = np.array(response.observation[9], dtype=np.bool8)
-        #     print("actor_ids_masks", actor_ids_masks, actor_ids_masks.shape)
-        # print("actor_ids", actor_ids, actor_ids.shape)
+        unit_action_actor_ids = np.array(response.observation[8])
+        unit_action_actor_masks = None
+        if len(unit_action_actor_ids) > 0:
+            unit_action_actor_ids = np.array(response.observation[8])
+            unit_action_actor_masks = np.array(response.observation[9], dtype=np.bool8)
+        #     print("unit_action_actor_masks", unit_action_actor_masks, unit_action_actor_masks.shape)
+        # print("unit_action_actor_ids", unit_action_actor_ids, unit_action_actor_ids.shape)
         self.total_reward += response.reward @ self.reward_weight
         # print(self.generate_entities(response))
         return Observation.from_entity_obs(
             entities=self.generate_entities(response),
             actions={
                 "unit_action": CategoricalActionMask(
-                    actor_ids=actor_ids,
-                    mask=actor_ids_masks,
+                    actor_ids=unit_action_actor_ids,
+                    mask=unit_action_actor_masks,
                 ),
             },
             reward=response.reward @ self.reward_weight,
