@@ -139,7 +139,7 @@ class GymMicrorts(Environment):
     @classmethod
     def action_space(cls) -> Dict[str, ActionSpace]:
         return {
-            "unitaction": CategoricalActionSpace(
+            "unit_action": CategoricalActionSpace(
                 choices=[
                     "move_up",
                     "move_right",
@@ -160,15 +160,36 @@ class GymMicrorts(Environment):
     def reset(self) -> Observation:
         self.step = 0
         self.total_reward = 0
-        return self._observe()
+
+        response = self.client.reset(0)
+        self.client.render(False)
+
+        actor_ids = np.array(response.observation[8])
+        actor_ids_masks = np.array(response.observation[9], dtype=np.bool8)
+        # print("actor_ids", actor_ids, actor_ids.shape)
+        # print("actor_ids_masks", actor_ids_masks, actor_ids_masks.shape)
+        return Observation.from_entity_obs(
+            entities=self.generate_entities(response),
+            actions={
+                "unit_action": CategoricalActionMask(
+                    actor_ids=actor_ids,
+                    mask=actor_ids_masks,
+                ),
+            },
+            reward=response.reward @ self.reward_weight,
+            done=response.done[0],
+            end_of_episode_info=EpisodeStats(length=self.step, total_reward=1)
+            if response.done[0]
+            else None,
+        )
 
     def act(self, action: Mapping[str, Action]) -> Observation:
         game_over = False
         self.step += 1
 
         # print(action)
-        if "unitaction" in action:
-            response = self.client.gameStep(action["unitaction"].actors, action["unitaction"].actions, 0)
+        if "unit_action" in action:
+            response = self.client.gameStep(action["unit_action"].actors, action["unit_action"].actions, 0)
         else:
             response = self.client.gameStep([], [],  0)
 
@@ -185,7 +206,7 @@ class GymMicrorts(Environment):
         return Observation.from_entity_obs(
             entities=self.generate_entities(response),
             actions={
-                "unitaction": CategoricalActionMask(
+                "unit_action": CategoricalActionMask(
                     actor_ids=actor_ids,
                     mask=actor_ids_masks,
                 ),
@@ -193,29 +214,6 @@ class GymMicrorts(Environment):
             reward=response.reward @ self.reward_weight,
             done=response.done[0],
             end_of_episode_info=EpisodeStats(length=self.step, total_reward=self.total_reward)
-            if response.done[0]
-            else None,
-        )
-
-    def _observe(self, done: bool = False, player: int = 0) -> Observation:
-        response = self.client.reset(0)
-        self.client.render(False)
-
-        actor_ids = np.array(response.observation[8])
-        actor_ids_masks = np.array(response.observation[9], dtype=np.bool8)
-        # print("actor_ids", actor_ids, actor_ids.shape)
-        # print("actor_ids_masks", actor_ids_masks, actor_ids_masks.shape)
-        return Observation.from_entity_obs(
-            entities=self.generate_entities(response),
-            actions={
-                "unitaction": CategoricalActionMask(
-                    actor_ids=actor_ids,
-                    mask=actor_ids_masks,
-                ),
-            },
-            reward=response.reward @ self.reward_weight,
-            done=response.done[0],
-            end_of_episode_info=EpisodeStats(length=self.step, total_reward=1)
             if response.done[0]
             else None,
         )
