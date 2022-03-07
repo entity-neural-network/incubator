@@ -262,7 +262,9 @@ def batch_obs(
                     vec_action.mask.push(amask)
                 elif vec_action.mask is not None:
                     vec_action.mask.push(
-                        np.ones((len(actor_indices), len(space.choices)), dtype=np.bool_)
+                        np.ones(
+                            (len(actor_indices), len(space.choices)), dtype=np.bool_
+                        )
                     )
             elif isinstance(space, SelectEntityActionSpace):
                 vec_action = action_masks[atype]
