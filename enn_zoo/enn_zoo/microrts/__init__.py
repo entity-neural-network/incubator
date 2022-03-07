@@ -178,8 +178,8 @@ class GymMicrorts(Environment):
         if len(actor_ids) > 0:
             actor_ids = np.array(response.observation[8])
             actor_ids_masks = np.array(response.observation[9], dtype=np.bool8)
-            print("actor_ids_masks", actor_ids_masks, actor_ids_masks.shape)
-        print("actor_ids", actor_ids, actor_ids.shape)
+        #     print("actor_ids_masks", actor_ids_masks, actor_ids_masks.shape)
+        # print("actor_ids", actor_ids, actor_ids.shape)
         self.total_reward += response.reward @ self.reward_weight
         # print(self.generate_entities(response))
         return Observation.from_entity_obs(
@@ -247,3 +247,6 @@ class GymMicrorts(Environment):
             entities["Ranged"] = EntityObs(features=ranged[:,1:], ids=ranged[:,0].astype(np.int32))
 
         return entities
+
+    def __del__(self):
+        self.client.close()
