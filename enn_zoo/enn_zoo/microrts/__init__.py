@@ -203,8 +203,6 @@ class GymMicrorts(Environment):
         base_action_actor_masks = np.array(response.observation[11], dtype=np.bool8)
         barrack_action_actor_ids = np.array(response.observation[12])
         barrack_action_actor_masks = np.array(response.observation[13], dtype=np.bool8)
-        # print("unit_action_actor_ids", unit_action_actor_ids, unit_action_actor_ids.shape)
-        # print("unit_action_actor_masks", unit_action_actor_masks, unit_action_actor_masks.shape)
         return Observation.from_entity_obs(
             entities=self.generate_entities(response),
             actions={
@@ -232,7 +230,6 @@ class GymMicrorts(Environment):
         game_over = False
         self.step += 1
 
-        # print(action)
 
         unit_action_actors = []
         unit_actions = []
@@ -259,10 +256,6 @@ class GymMicrorts(Environment):
             barrack_actions,
             0,
         )
-        # if "unit_action" in action:
-        #     response = self.client.gameStep(action["unit_action"].actors, action["unit_action"].actions, 0)
-        # else:
-        #     response = self.client.gameStep([], [],  0)
 
         self.client.render(False)
         unit_action_actor_ids = np.array(response.observation[8])
@@ -279,7 +272,6 @@ class GymMicrorts(Environment):
             barrack_action_actor_masks = np.array(response.observation[13], dtype=np.bool8)
 
         self.total_reward += response.reward @ self.reward_weight
-        # print(self.generate_entities(response))
         return Observation.from_entity_obs(
             entities=self.generate_entities(response),
             actions={
@@ -313,7 +305,6 @@ class GymMicrorts(Environment):
         heavy = np.array(response.observation[5]).astype(np.float32)
         ranged = np.array(response.observation[6]).astype(np.float32)
         entity_ids = list(np.array(response.observation[7]))  # type: Sequence[Any]
-        # print(entity_ids)
         if len(resource) > 0:
             entities["Resource"] = EntityObs(features=resource[:,1:], ids=resource[:,0].astype(np.int32))
         if len(base) > 0:
