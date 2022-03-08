@@ -19,6 +19,7 @@ from typing import (
 )
 import json
 from entity_gym.environment import *
+from entity_gym.environment.validator import validated_env
 from entity_gym.ragged_dict import RaggedActionDict, RaggedBatchDict
 
 import hyperstate
@@ -85,11 +86,12 @@ class EnvConfig:
     """Environment settings.
 
     Attributes:
-        kwargs: JSON dictionary with keyword arguments for the environment
-        num_envs: the number of game environments
-        num_steps: the number of steps to run in each environment per policy rollout
-        processes: The number of processes to use to collect env data. The envs are split as equally as possible across the processes
-        id: the id of the environment
+        kwargs: JSON dictionary with keyword arguments for the environment.
+        num_envs: The number of game environments.
+        num_steps: The number of steps to run in each environment per policy rollout.
+        processes: The number of processes to use to collect env data. The envs are split as equally as possible across the processes.
+        id: The id of the environment.
+        validate: Check that all observations returned by the environment are valid. Disable for better performance.
     """
 
     kwargs: str = "{}"
@@ -97,6 +99,7 @@ class EnvConfig:
     num_steps: int = 128
     processes: int = 1
     id: str = "MoveToOrigin"
+    validate: bool = True
 
 
 @dataclass
@@ -649,6 +652,8 @@ def train(cfg: ExperimentConfig) -> float:
 
     # env setup
     envs: VecEnv
+    if cfg.env.validate:
+        env_cls = validated_env(env_cls)
     if cfg.env.id == "CodeCraft":
         envs = CodeCraftVecEnv(cfg.env.num_envs, **env_kwargs)
     elif cfg.env.processes > 1:
