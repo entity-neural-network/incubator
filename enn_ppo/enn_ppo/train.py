@@ -419,7 +419,8 @@ class Rollout:
                     for k, v in eoei.metrics.items():
                         if k not in total_metrics:
                             total_metrics[k] = v
-                        total_metrics[k] += v
+                        else:
+                            total_metrics[k] += v
 
         self.next_obs = next_obs
         self.next_done = next_done
