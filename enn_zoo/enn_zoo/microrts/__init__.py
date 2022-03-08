@@ -318,31 +318,31 @@ class GymMicrorts(Environment):
         entity_ids = list(np.array(response.observation[7]))  # type: Sequence[Any]
         if len(resource) > 0:
             entities["Resource"] = EntityObs(
-                features=resource[:, 1:], ids=resource[:, 0].astype(np.int32) # type: ignore
+                features=resource[:, 1:], ids=resource[:, 0].astype(np.int32)  # type: ignore
             )
         if len(base) > 0:
             entities["Base"] = EntityObs(
-                features=base[:, 1:], ids=base[:, 0].astype(np.int32) # type: ignore
+                features=base[:, 1:], ids=base[:, 0].astype(np.int32)  # type: ignore
             )
         if len(barracks) > 0:
             entities["Barracks"] = EntityObs(
-                features=barracks[:, 1:], ids=barracks[:, 0].astype(np.int32) # type: ignore
+                features=barracks[:, 1:], ids=barracks[:, 0].astype(np.int32)  # type: ignore
             )
         if len(worker) > 0:
             entities["Worker"] = EntityObs(
-                features=worker[:, 1:], ids=worker[:, 0].astype(np.int32) # type: ignore
+                features=worker[:, 1:], ids=worker[:, 0].astype(np.int32)  # type: ignore
             )
         if len(light) > 0:
             entities["Light"] = EntityObs(
-                features=light[:, 1:], ids=light[:, 0].astype(np.int32) # type: ignore
+                features=light[:, 1:], ids=light[:, 0].astype(np.int32)  # type: ignore
             )
         if len(heavy) > 0:
             entities["Heavy"] = EntityObs(
-                features=heavy[:, 1:], ids=heavy[:, 0].astype(np.int32) # type: ignore
+                features=heavy[:, 1:], ids=heavy[:, 0].astype(np.int32)  # type: ignore
             )
         if len(ranged) > 0:
             entities["Ranged"] = EntityObs(
-                features=ranged[:, 1:], ids=ranged[:, 0].astype(np.int32) # type: ignore
+                features=ranged[:, 1:], ids=ranged[:, 0].astype(np.int32)  # type: ignore
             )
 
         return entities
