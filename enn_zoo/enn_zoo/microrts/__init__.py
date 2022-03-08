@@ -45,13 +45,13 @@ class GymMicrorts(Environment):
 
     def __init__(
         self,
-        map_paths: List[str] = ["maps/10x10/basesTwoWorkers10x10.xml"],
+        map_path: str = "maps/10x10/basesTwoWorkers10x10.xml",
         partial_obs: bool = False,
         reward_weight: npt.NDArray[np.float32] = np.array(
             [0.0, 1.0, 0.0, 0.0, 0.0, 5.0]
         ),
     ):
-        self.map_paths = map_paths
+        self.map_path = map_path
         self.partial_obs = partial_obs
         self.reward_weight = reward_weight
 
@@ -59,7 +59,7 @@ class GymMicrorts(Environment):
 
         # read map
         self.microrts_path = os.path.join(gym_microrts.__path__[0], "microrts")
-        root = ET.parse(os.path.join(self.microrts_path, self.map_paths[0])).getroot()
+        root = ET.parse(os.path.join(self.microrts_path, self.map_path)).getroot()
         self.height, self.width = int(root.get("height")), int(root.get("width"))  # type: ignore
 
         # launch the JVM
@@ -114,7 +114,7 @@ class GymMicrorts(Environment):
         self.client = Client(
             self.rfs,
             os.path.expanduser(self.microrts_path),
-            self.map_paths[0],
+            self.map_path,
             self.ai2s[0](self.real_utt),
             self.real_utt,
             self.partial_obs,
