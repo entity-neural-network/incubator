@@ -105,6 +105,7 @@ class GymMicrorts(Environment):
                 ProduceCombatUnitRewardFunction(),
             ]
         )
+        self.rfs_names = [str(rf) for rf in self.rfs]
 
         self.ai2s = [microrts_ai.coacAI for _ in range(1)]
 
@@ -194,10 +195,10 @@ class GymMicrorts(Environment):
 
     def reset(self) -> Observation:
         self.step = 0
-        self.total_reward = 0
+        self.returns = np.zeros(len(self.rfs))
 
         response = self.client.reset(0)
-        self.client.render(False)
+        # self.client.render(False)
 
         unit_action_actor_ids = np.array(response.observation[8])
         unit_action_actor_masks = np.array(response.observation[9], dtype=np.bool8)
@@ -223,7 +224,9 @@ class GymMicrorts(Environment):
             },
             reward=response.reward @ self.reward_weight,
             done=response.done[0],
-            end_of_episode_info=EpisodeStats(length=self.step, total_reward=1)
+            end_of_episode_info=EpisodeStats(
+                length=self.step, total_reward=float(self.reward_weight @ self.returns)
+            )
             if response.done[0]
             else None,
         )
@@ -264,7 +267,7 @@ class GymMicrorts(Environment):
             0,
         )
 
-        self.client.render(False)
+        # self.client.render(False)
         unit_action_actor_ids = np.array(response.observation[8])
         unit_action_actor_masks = None
         if len(unit_action_actor_ids) > 0:
@@ -279,8 +282,8 @@ class GymMicrorts(Environment):
             barrack_action_actor_masks = np.array(
                 response.observation[13], dtype=np.bool8
             )
+        self.returns += response.reward
 
-        self.total_reward += response.reward @ self.reward_weight
         return Observation.from_entity_obs(
             entities=self.generate_entities(response),
             actions={
@@ -300,7 +303,14 @@ class GymMicrorts(Environment):
             reward=response.reward @ self.reward_weight,
             done=response.done[0],
             end_of_episode_info=EpisodeStats(
-                length=self.step, total_reward=self.total_reward
+                length=self.step,
+                total_reward=float(self.reward_weight @ self.returns),
+                metrics=dict(
+                    zip(
+                        [f"charts/episodic_return/{item}" for item in self.rfs_names],
+                        self.returns,
+                    )
+                ),
             )
             if response.done[0]
             else None,
@@ -315,7 +325,6 @@ class GymMicrorts(Environment):
         light = np.array(response.observation[4]).astype(np.float32)
         heavy = np.array(response.observation[5]).astype(np.float32)
         ranged = np.array(response.observation[6]).astype(np.float32)
-        entity_ids = list(np.array(response.observation[7]))  # type: Sequence[Any]
         if len(resource) > 0:
             entities["Resource"] = EntityObs(
                 features=resource[:, 1:], ids=resource[:, 0].astype(np.int32)  # type: ignore
