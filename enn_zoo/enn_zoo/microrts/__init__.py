@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from tokenize import String
-from typing import Any, Dict, List, Mapping, Sequence, Tuple
+from typing import Any, Dict, List, Mapping, MutableMapping, Optional, Sequence, Tuple
 import random
 from entity_gym.environment.environment import EntityObs
 import numpy as np
@@ -209,15 +209,15 @@ class GymMicrorts(Environment):
             entities=self.generate_entities(response),
             actions={
                 "unit_action": CategoricalActionMask(
-                    actor_ids=unit_action_actor_ids,
+                    actor_ids=unit_action_actor_ids,  # type: ignore
                     mask=unit_action_actor_masks,
                 ),
                 "base_action": CategoricalActionMask(
-                    actor_ids=base_action_actor_ids,
+                    actor_ids=base_action_actor_ids,  # type: ignore
                     mask=base_action_actor_masks,
                 ),
                 "barrack_action": CategoricalActionMask(
-                    actor_ids=barrack_action_actor_ids,
+                    actor_ids=barrack_action_actor_ids,  # type: ignore
                     mask=barrack_action_actor_masks,
                 ),
             },
@@ -232,19 +232,25 @@ class GymMicrorts(Environment):
         game_over = False
         self.step += 1
 
-        unit_action_actors = []
-        unit_actions = []
-        base_action_actors = []
-        base_actions = []
-        barrack_action_actors = []
-        barrack_actions = []
-        if "unit_action" in action:
+        unit_action_actors: Sequence[Any] = []
+        unit_actions: npt.NDArray[np.int64] = np.empty(0, dtype=np.int64)
+        base_action_actors: Sequence[Any] = []
+        base_actions: npt.NDArray[np.int64] = np.empty(0, dtype=np.int64)
+        barrack_action_actors: Sequence[Any] = []
+        barrack_actions: npt.NDArray[np.int64] = np.empty(0, dtype=np.int64)
+        if "unit_action" in action and isinstance(
+            action["unit_action"], CategoricalAction
+        ):
             unit_action_actors = action["unit_action"].actors
             unit_actions = action["unit_action"].actions
-        if "base_action" in action:
+        if "base_action" in action and isinstance(
+            action["base_action"], CategoricalAction
+        ):
             base_action_actors = action["base_action"].actors
             base_actions = action["base_action"].actions
-        if "barrack_action" in action:
+        if "barrack_action" in action and isinstance(
+            action["barrack_action"], CategoricalAction
+        ):
             barrack_action_actors = action["barrack_action"].actors
             barrack_actions = action["barrack_action"].actions
 
@@ -279,15 +285,15 @@ class GymMicrorts(Environment):
             entities=self.generate_entities(response),
             actions={
                 "unit_action": CategoricalActionMask(
-                    actor_ids=unit_action_actor_ids,
+                    actor_ids=unit_action_actor_ids,  # type: ignore
                     mask=unit_action_actor_masks,
                 ),
                 "base_action": CategoricalActionMask(
-                    actor_ids=base_action_actor_ids,
+                    actor_ids=base_action_actor_ids,  # type: ignore
                     mask=base_action_actor_masks,
                 ),
                 "barrack_action": CategoricalActionMask(
-                    actor_ids=barrack_action_actor_ids,
+                    actor_ids=barrack_action_actor_ids,  # type: ignore
                     mask=barrack_action_actor_masks,
                 ),
             },
@@ -300,8 +306,8 @@ class GymMicrorts(Environment):
             else None,
         )
 
-    def generate_entities(self, response: Any) -> Dict[str, npt.NDArray[np.float32]]:
-        entities = {}
+    def generate_entities(self, response: Any) -> Mapping[str, Optional[EntityObs]]:
+        entities: MutableMapping[str, Optional[EntityObs]] = {}
         resource = np.array(response.observation[0]).astype(np.float32)
         base = np.array(response.observation[1]).astype(np.float32)
         barracks = np.array(response.observation[2]).astype(np.float32)
@@ -312,34 +318,34 @@ class GymMicrorts(Environment):
         entity_ids = list(np.array(response.observation[7]))  # type: Sequence[Any]
         if len(resource) > 0:
             entities["Resource"] = EntityObs(
-                features=resource[:, 1:], ids=resource[:, 0].astype(np.int32)
+                features=resource[:, 1:], ids=resource[:, 0].astype(np.int32) # type: ignore
             )
         if len(base) > 0:
             entities["Base"] = EntityObs(
-                features=base[:, 1:], ids=base[:, 0].astype(np.int32)
+                features=base[:, 1:], ids=base[:, 0].astype(np.int32) # type: ignore
             )
         if len(barracks) > 0:
             entities["Barracks"] = EntityObs(
-                features=barracks[:, 1:], ids=barracks[:, 0].astype(np.int32)
+                features=barracks[:, 1:], ids=barracks[:, 0].astype(np.int32) # type: ignore
             )
         if len(worker) > 0:
             entities["Worker"] = EntityObs(
-                features=worker[:, 1:], ids=worker[:, 0].astype(np.int32)
+                features=worker[:, 1:], ids=worker[:, 0].astype(np.int32) # type: ignore
             )
         if len(light) > 0:
             entities["Light"] = EntityObs(
-                features=light[:, 1:], ids=light[:, 0].astype(np.int32)
+                features=light[:, 1:], ids=light[:, 0].astype(np.int32) # type: ignore
             )
         if len(heavy) > 0:
             entities["Heavy"] = EntityObs(
-                features=heavy[:, 1:], ids=heavy[:, 0].astype(np.int32)
+                features=heavy[:, 1:], ids=heavy[:, 0].astype(np.int32) # type: ignore
             )
         if len(ranged) > 0:
             entities["Ranged"] = EntityObs(
-                features=ranged[:, 1:], ids=ranged[:, 0].astype(np.int32)
+                features=ranged[:, 1:], ids=ranged[:, 0].astype(np.int32) # type: ignore
             )
 
         return entities
 
-    def __del__(self):
+    def __del__(self) -> None:
         self.client.close()
