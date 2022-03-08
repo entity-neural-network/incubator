@@ -155,30 +155,30 @@ class GymMicrorts(Environment):
                     "return_left",
                 ],
             ),
-            # "base_action": CategoricalActionSpace(
-            #     choices=[
-            #         "produce_worker_up",
-            #         "produce_worker_right",
-            #         "produce_worker_down",
-            #         "produce_worker_left",
-            #     ],
-            # ),
-            # "barrack_action": CategoricalActionSpace(
-            #     choices=[
-            #         "produce_light_up",
-            #         "produce_light_right",
-            #         "produce_light_down",
-            #         "produce_light_left",
-            #         "produce_heavy_up",
-            #         "produce_heavy_right",
-            #         "produce_heavy_down",
-            #         "produce_heavy_left",
-            #         "produce_ranged_up",
-            #         "produce_ranged_right",
-            #         "produce_ranged_down",
-            #         "produce_ranged_left",
-            #     ],
-            # ),
+            "base_action": CategoricalActionSpace(
+                choices=[
+                    "produce_worker_up",
+                    "produce_worker_right",
+                    "produce_worker_down",
+                    "produce_worker_left",
+                ],
+            ),
+            "barrack_action": CategoricalActionSpace(
+                choices=[
+                    "produce_light_up",
+                    "produce_light_right",
+                    "produce_light_down",
+                    "produce_light_left",
+                    "produce_heavy_up",
+                    "produce_heavy_right",
+                    "produce_heavy_down",
+                    "produce_heavy_left",
+                    "produce_ranged_up",
+                    "produce_ranged_right",
+                    "produce_ranged_down",
+                    "produce_ranged_left",
+                ],
+            ),
         }
 
     def reset(self) -> Observation:
@@ -190,6 +190,10 @@ class GymMicrorts(Environment):
 
         unit_action_actor_ids = np.array(response.observation[8])
         unit_action_actor_masks = np.array(response.observation[9], dtype=np.bool8)
+        base_action_actor_ids = np.array(response.observation[10])
+        base_action_actor_masks = np.array(response.observation[11], dtype=np.bool8)
+        barrack_action_actor_ids = np.array(response.observation[12])
+        barrack_action_actor_masks = np.array(response.observation[13], dtype=np.bool8)
         # print("unit_action_actor_ids", unit_action_actor_ids, unit_action_actor_ids.shape)
         # print("unit_action_actor_masks", unit_action_actor_masks, unit_action_actor_masks.shape)
         return Observation.from_entity_obs(
@@ -198,6 +202,14 @@ class GymMicrorts(Environment):
                 "unit_action": CategoricalActionMask(
                     actor_ids=unit_action_actor_ids,
                     mask=unit_action_actor_masks,
+                ),
+                "base_action": CategoricalActionMask(
+                    actor_ids=base_action_actor_ids,
+                    mask=base_action_actor_masks,
+                ),
+                "barrack_action": CategoricalActionMask(
+                    actor_ids=barrack_action_actor_ids,
+                    mask=barrack_action_actor_masks,
                 ),
             },
             reward=response.reward @ self.reward_weight,
@@ -212,19 +224,51 @@ class GymMicrorts(Environment):
         self.step += 1
 
         # print(action)
+
+        unit_action_actors = []
+        unit_actions = []
+        base_action_actors = []
+        base_actions = []
+        barrack_action_actors = []
+        barrack_actions = []
         if "unit_action" in action:
-            response = self.client.gameStep(action["unit_action"].actors, action["unit_action"].actions, 0)
-        else:
-            response = self.client.gameStep([], [],  0)
+            unit_action_actors = action["unit_action"].actors
+            unit_actions = action["unit_action"].actions
+        if "base_action" in action:
+            base_action_actors = action["base_action"].actors
+            base_actions = action["base_action"].actions
+        if "barrack_action" in action:
+            barrack_action_actors = action["barrack_action"].actors
+            barrack_actions = action["barrack_action"].actions
+
+        response = self.client.gameStep(
+            unit_action_actors,
+            unit_actions,
+            base_action_actors,
+            base_actions,
+            barrack_action_actors,
+            barrack_actions,
+            0,
+        )
+        # if "unit_action" in action:
+        #     response = self.client.gameStep(action["unit_action"].actors, action["unit_action"].actions, 0)
+        # else:
+        #     response = self.client.gameStep([], [],  0)
 
         self.client.render(False)
         unit_action_actor_ids = np.array(response.observation[8])
         unit_action_actor_masks = None
         if len(unit_action_actor_ids) > 0:
-            unit_action_actor_ids = np.array(response.observation[8])
             unit_action_actor_masks = np.array(response.observation[9], dtype=np.bool8)
-        #     print("unit_action_actor_masks", unit_action_actor_masks, unit_action_actor_masks.shape)
-        # print("unit_action_actor_ids", unit_action_actor_ids, unit_action_actor_ids.shape)
+        base_action_actor_ids = np.array(response.observation[10])
+        base_action_actor_masks = None
+        if len(base_action_actor_ids) > 0:
+            base_action_actor_masks = np.array(response.observation[11], dtype=np.bool8)
+        barrack_action_actor_ids = np.array(response.observation[12])
+        barrack_action_actor_masks = None
+        if len(barrack_action_actor_ids) > 0:
+            barrack_action_actor_masks = np.array(response.observation[13], dtype=np.bool8)
+
         self.total_reward += response.reward @ self.reward_weight
         # print(self.generate_entities(response))
         return Observation.from_entity_obs(
@@ -233,6 +277,14 @@ class GymMicrorts(Environment):
                 "unit_action": CategoricalActionMask(
                     actor_ids=unit_action_actor_ids,
                     mask=unit_action_actor_masks,
+                ),
+                "base_action": CategoricalActionMask(
+                    actor_ids=base_action_actor_ids,
+                    mask=base_action_actor_masks,
+                ),
+                "barrack_action": CategoricalActionMask(
+                    actor_ids=barrack_action_actor_ids,
+                    mask=barrack_action_actor_masks,
                 ),
             },
             reward=response.reward @ self.reward_weight,
