@@ -48,7 +48,7 @@ class GymMicrorts(Environment):
         map_path: str = "maps/10x10/basesTwoWorkers10x10.xml",
         partial_obs: bool = False,
         reward_weight: npt.NDArray[np.float32] = np.array(
-            [0.0, 1.0, 0.0, 0.0, 0.0, 5.0]
+            [10.0, 1.0, 1.0, 0.2, 1.0, 4.0]
         ),
     ):
         self.map_path = map_path
