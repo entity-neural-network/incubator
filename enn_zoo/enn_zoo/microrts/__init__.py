@@ -161,7 +161,8 @@ class GymMicrorts(Environment):
                     "produce_barrack_right",
                     "produce_barrack_down",
                     "produce_barrack_left",
-                ],
+                    
+                ] + [f"attack_location_{i}" for i in range(49)], # the attack trange is a 7x7 relative grid
             ),
             "base_action": CategoricalActionSpace(
                 choices=[
