@@ -161,8 +161,10 @@ class GymMicrorts(Environment):
                     "produce_barrack_right",
                     "produce_barrack_down",
                     "produce_barrack_left",
-                    
-                ] + [f"attack_location_{i}" for i in range(49)], # the attack trange is a 7x7 relative grid
+                ]
+                + [
+                    f"attack_location_{i}" for i in range(49)
+                ],  # the attack trange is a 7x7 relative grid
             ),
             "base_action": CategoricalActionSpace(
                 choices=[
@@ -230,7 +232,6 @@ class GymMicrorts(Environment):
         game_over = False
         self.step += 1
 
-
         unit_action_actors = []
         unit_actions = []
         base_action_actors = []
@@ -269,7 +270,9 @@ class GymMicrorts(Environment):
         barrack_action_actor_ids = np.array(response.observation[12])
         barrack_action_actor_masks = None
         if len(barrack_action_actor_ids) > 0:
-            barrack_action_actor_masks = np.array(response.observation[13], dtype=np.bool8)
+            barrack_action_actor_masks = np.array(
+                response.observation[13], dtype=np.bool8
+            )
 
         self.total_reward += response.reward @ self.reward_weight
         return Observation.from_entity_obs(
@@ -290,7 +293,9 @@ class GymMicrorts(Environment):
             },
             reward=response.reward @ self.reward_weight,
             done=response.done[0],
-            end_of_episode_info=EpisodeStats(length=self.step, total_reward=self.total_reward)
+            end_of_episode_info=EpisodeStats(
+                length=self.step, total_reward=self.total_reward
+            )
             if response.done[0]
             else None,
         )
@@ -306,19 +311,33 @@ class GymMicrorts(Environment):
         ranged = np.array(response.observation[6]).astype(np.float32)
         entity_ids = list(np.array(response.observation[7]))  # type: Sequence[Any]
         if len(resource) > 0:
-            entities["Resource"] = EntityObs(features=resource[:,1:], ids=resource[:,0].astype(np.int32))
+            entities["Resource"] = EntityObs(
+                features=resource[:, 1:], ids=resource[:, 0].astype(np.int32)
+            )
         if len(base) > 0:
-            entities["Base"] = EntityObs(features=base[:,1:], ids=base[:,0].astype(np.int32))
+            entities["Base"] = EntityObs(
+                features=base[:, 1:], ids=base[:, 0].astype(np.int32)
+            )
         if len(barracks) > 0:
-            entities["Barracks"] = EntityObs(features=barracks[:,1:], ids=barracks[:,0].astype(np.int32))
+            entities["Barracks"] = EntityObs(
+                features=barracks[:, 1:], ids=barracks[:, 0].astype(np.int32)
+            )
         if len(worker) > 0:
-            entities["Worker"] = EntityObs(features=worker[:,1:], ids=worker[:,0].astype(np.int32))
+            entities["Worker"] = EntityObs(
+                features=worker[:, 1:], ids=worker[:, 0].astype(np.int32)
+            )
         if len(light) > 0:
-            entities["Light"] = EntityObs(features=light[:,1:], ids=light[:,0].astype(np.int32))
+            entities["Light"] = EntityObs(
+                features=light[:, 1:], ids=light[:, 0].astype(np.int32)
+            )
         if len(heavy) > 0:
-            entities["Heavy"] = EntityObs(features=heavy[:,1:], ids=heavy[:,0].astype(np.int32))
+            entities["Heavy"] = EntityObs(
+                features=heavy[:, 1:], ids=heavy[:, 0].astype(np.int32)
+            )
         if len(ranged) > 0:
-            entities["Ranged"] = EntityObs(features=ranged[:,1:], ids=ranged[:,0].astype(np.int32))
+            entities["Ranged"] = EntityObs(
+                features=ranged[:, 1:], ids=ranged[:, 0].astype(np.int32)
+            )
 
         return entities
 

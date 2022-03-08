@@ -59,7 +59,7 @@ if __name__ == "__main__":
                         print(f"{i}) {label}")
                     choice_id = int(input())
                     if action_name not in action:
-                            action[action_name] = CategoricalAction(
+                        action[action_name] = CategoricalAction(
                             actions=np.zeros(
                                 (0, len(action_def.choices)), dtype=np.int64
                             ),
