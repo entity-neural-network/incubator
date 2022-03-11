@@ -19,13 +19,6 @@ import numpy as np
 def print_obs(obs: Observation, total_reward: float, obs_filter: ObsSpace) -> None:
     print(f"Reward: {obs.reward}")
     print(f"Total reward: {total_reward}")
-    entity_index = 0
-    # for entity_type, features in obs.features.items():
-    #     for entity in range(len(features)):
-    #         print(
-    #             f"{obs.ids[entity_type][entity_index]}: {entity_type}({', '.join(map(lambda nv: nv[0] + '=' + str(nv[1]), zip(obs_filter.entities[entity_type].features, features[entity])))})"
-    #         )
-    #         entity_index += 1
 
 
 if __name__ == "__main__":
