@@ -34,27 +34,32 @@ from jpype.types import JArray, JInt
 
 class GymMicrorts(Environment):
     """
-    Turn-based version of Snake with multiple snakes.
-    Each snake has a different color.
-    For each snake, Food of that color is placed randomly on the board.
-    Snakes can only eat Food of their color.
-    When a snake eats Food of the same color, it grows by one unit.
-    When a snake grows and it's length was less than 11, the player receives a reward of 0.1 / num_snakes.
-    The game ends when a snake collides with another snake, runs into a wall, eats Food of another color, or all snakes reach a length of 11.
+    A real-time strategy environment for microrts.
+    See https://github.com/santiontanon/microrts
+
+    Light grey squares are bases, dark grey squares are barracks,
+    green squares are resources, colored circles are combat units,
+    and grey circles are workers that harvest resources.
+
+    Args:
+        map_path: the path to the map, see the list of supported maps [here](https://github.com/vwxyzjn/microrts/tree/52d17e58592722889197aeee03fffafb154cfb8c/maps)
+        reward_weight: the weight mutiplied to each each reward functions,
+            which are in order:
+            - win/loss reward: + 1 for win, - 1 for loss, 0 for tie
+            - resource gather reward: + 1 for each resource gathered and +1 for returned
+            - produce worker reward: + 1 for each worker produced
+            - produce building reward: + 1 for each building produced
+            - attack reward: + 1 for each attack action
+            - produce combat unit reward: + 1 for each combat unit produced
     """
 
     def __init__(
         self,
         map_path: str = "maps/10x10/basesTwoWorkers10x10.xml",
-        partial_obs: bool = False,
-        reward_weight: npt.NDArray[np.float32] = np.array(
-            [10.0, 1.0, 1.0, 0.2, 1.0, 4.0]
-        ),
+        reward_weight: List[float] = [10.0, 1.0, 1.0, 0.2, 1.0, 4.0],
     ):
         self.map_path = map_path
-        self.partial_obs = partial_obs
-        self.reward_weight = reward_weight
-
+        self.reward_weight = np.array(reward_weight)
         self.step = 0
 
         # read map
@@ -118,7 +123,7 @@ class GymMicrorts(Environment):
             self.map_path,
             self.ai2s[0](self.real_utt),
             self.real_utt,
-            self.partial_obs,
+            False,
         )
         # get the unit type table
         self.utt = json.loads(str(self.client.sendUTT()))
@@ -198,7 +203,7 @@ class GymMicrorts(Environment):
         self.returns = np.zeros(len(self.rfs))
 
         response = self.client.reset(0)
-        # self.client.render(False)
+        self.client.render(False)
 
         unit_action_actor_ids = np.array(response.observation[8])
         unit_action_actor_masks = np.array(response.observation[9], dtype=np.bool8)
@@ -267,7 +272,7 @@ class GymMicrorts(Environment):
             0,
         )
 
-        # self.client.render(False)
+        self.client.render(False)
         unit_action_actor_ids = np.array(response.observation[8])
         unit_action_actor_masks = None
         if len(unit_action_actor_ids) > 0:
