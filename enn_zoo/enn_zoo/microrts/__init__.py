@@ -11,6 +11,7 @@ import gym_microrts
 from gym_microrts import microrts_ai
 import xml.etree.ElementTree as ET
 import json
+from PIL import Image
 
 from entity_gym.environment import (
     CategoricalAction,
@@ -199,12 +200,19 @@ class GymMicrorts(Environment):
             ),
         }
 
+    def render(self, **kwargs: Any) -> npt.NDArray[np.uint8]:
+        if "mode" in kwargs and kwargs["mode"] == "rgb_array":
+            bytes_array = np.array(self.client.render(True))
+            image = Image.frombytes("RGB", (640, 640), bytes_array)
+            return np.array(image)[:, :, ::-1]
+        else:
+            return self.client.render(False)  # type: ignore
+
     def reset(self) -> Observation:
         self.step = 0
         self.returns = np.zeros(len(self.rfs))
 
         response = self.client.reset(0)
-        self.client.render(False)
 
         unit_action_actor_ids = np.array(response.observation[8])
         unit_action_actor_masks = np.array(response.observation[9], dtype=np.bool8)
@@ -273,7 +281,6 @@ class GymMicrorts(Environment):
             0,
         )
 
-        self.client.render(False)
         unit_action_actor_ids = np.array(response.observation[8])
         unit_action_actor_masks = None
         if len(unit_action_actor_ids) > 0:

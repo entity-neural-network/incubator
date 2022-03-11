@@ -37,11 +37,19 @@ poetry run python enn_ppo/enn_ppo/train.py \
     total_timesteps=100000 \
     env.num_steps=256 \
     track=true
+```
+
+Run a tracked experiment with video tracking
+
+```
 poetry run python enn_ppo/enn_ppo/train.py \
     env.id=GymMicrorts \
-    env.num_envs=4 \
-    total_timesteps=1000000 \
+    env.num_envs=1 \
+    total_timesteps=10000 \
     env.num_steps=256 \
-    env.kwargs="{\"map_path\": \"maps/16x16/basesWorkers16x16.xml\"}" \
+    eval.capture_videos=true \
+    eval.steps=500 \
+    eval.num_envs=1 \
+    eval.interval=10000 \
     track=true
 ```
