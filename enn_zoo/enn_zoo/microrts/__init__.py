@@ -65,7 +65,8 @@ class GymMicrorts(Environment):
         # read map
         self.microrts_path = os.path.join(gym_microrts.__path__[0], "microrts")
         root = ET.parse(os.path.join(self.microrts_path, self.map_path)).getroot()
-        self.height, self.width = int(root.get("height")), int(root.get("width"))  # type: ignore
+        self.height = int(root.get("height"))  # type: ignore
+        self.width = int(root.get("width"))  # type: ignore
 
         # launch the JVM
         if not jpype._jpype.isStarted():
