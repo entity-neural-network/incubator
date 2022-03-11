@@ -331,42 +331,15 @@ class GymMicrorts(Environment):
 
     def generate_entities(self, response: Any) -> Mapping[str, Optional[EntityObs]]:
         entities: MutableMapping[str, Optional[EntityObs]] = {}
-        resource = np.array(response.observation[0]).astype(np.float32)
-        base = np.array(response.observation[1]).astype(np.float32)
-        barracks = np.array(response.observation[2]).astype(np.float32)
-        worker = np.array(response.observation[3]).astype(np.float32)
-        light = np.array(response.observation[4]).astype(np.float32)
-        heavy = np.array(response.observation[5]).astype(np.float32)
-        ranged = np.array(response.observation[6]).astype(np.float32)
-        if len(resource) > 0:
-            entities["Resource"] = EntityObs(
-                features=resource[:, 1:], ids=resource[:, 0].astype(np.int32)  # type: ignore
-            )
-        if len(base) > 0:
-            entities["Base"] = EntityObs(
-                features=base[:, 1:], ids=base[:, 0].astype(np.int32)  # type: ignore
-            )
-        if len(barracks) > 0:
-            entities["Barracks"] = EntityObs(
-                features=barracks[:, 1:], ids=barracks[:, 0].astype(np.int32)  # type: ignore
-            )
-        if len(worker) > 0:
-            entities["Worker"] = EntityObs(
-                features=worker[:, 1:], ids=worker[:, 0].astype(np.int32)  # type: ignore
-            )
-        if len(light) > 0:
-            entities["Light"] = EntityObs(
-                features=light[:, 1:], ids=light[:, 0].astype(np.int32)  # type: ignore
-            )
-        if len(heavy) > 0:
-            entities["Heavy"] = EntityObs(
-                features=heavy[:, 1:], ids=heavy[:, 0].astype(np.int32)  # type: ignore
-            )
-        if len(ranged) > 0:
-            entities["Ranged"] = EntityObs(
-                features=ranged[:, 1:], ids=ranged[:, 0].astype(np.int32)  # type: ignore
-            )
-
+        for entity_type, observation in zip(
+            ["Resource", "Base", "Barracks", "Worker", "Light", "Heavy", "Ranged"],
+            response.observation,
+        ):
+            observation = np.array(observation).astype(np.float32)
+            if len(observation) > 0:
+                entities[entity_type] = EntityObs(
+                    features=observation[:, 1:], ids=observation[:, 0].astype(np.int32)
+                )
         return entities
 
     def __del__(self) -> None:
