@@ -15,7 +15,6 @@ ragged-buffer = "^0.3.6"
 wandb = "^0.12.7"
 optuna = "^2.10.0"
 moviepy = "^1.0.3"
-enn_zoo = {path = "../enn_zoo", develop = true}
 entity_gym = {path = "../entity_gym", develop = true}
 rogue_net = {path = "../rogue_net", develop = true}
 click = "^8.0.4"

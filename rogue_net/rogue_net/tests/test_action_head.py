@@ -1,7 +1,7 @@
+from rogue_net.categorical_action_head import CategoricalActionHead
 import torch
 import numpy as np
 
-from rogue_net.head_creator import CategoricalActionHead
 from rogue_net.ragged_tensor import RaggedTensor
 from ragged_buffer import RaggedBufferI64
 from entity_gym.environment import VecCategoricalActionMask

@@ -2,9 +2,11 @@
 ExperimentConfig(
     env: (
         id: "Count",
-        num_envs: 16,
-        num_steps: 1,
         kwargs: "{\"masked_choices\": 2}"
+    ),
+    rollout: (
+        num_envs: 16,
+        steps: 1,
     ),
     total_timesteps: 2000,
     net: (

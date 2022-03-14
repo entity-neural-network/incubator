@@ -2,24 +2,26 @@
 ExperimentConfig(
     env: (
         id: "PickMatchingBalls",
+        kwargs: "{\"max_balls\": 32, \"one_hot\": true, \"randomize\": true}",
+    ),
+    rollout: (
         num_envs: 64,
-        num_steps: 16,
+        steps: 16,
         processes: 16,
-        kwargs: "{\"max_balls\": 32, \"one_hot\": true, \"randomize\": true}"
     ),
     total_timesteps: 500000,
     net: (
         d_model: 128,
-        n_layer: 4
+        n_layer: 4,
+        d_qk: 32,
     ),
-    d_qk: 32,
     optim: (
         bs: 1024,
-        lr: 0.001
+        lr: 0.001,
     ),
     ppo: (
         ent_coef: 0.5,
         gamma: 0.99,
-        anneal_entropy: true
+        anneal_entropy: true,
     ),
 )

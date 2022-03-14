@@ -2,7 +2,7 @@ from enn_zoo.codecraft.cc_vec_env import LAST_OBS, VERIFY
 import numpy as np
 import numpy.typing as npt
 from typing import Any, Mapping, Optional, Dict, Tuple
-from enn_ppo.simple_trace import Tracer
+from entity_gym.simple_trace import Tracer
 from entity_gym.environment.vec_env import VecActionMask
 import torch
 from enn_zoo.codecraft.codecraftnet.codecraftnet import (
@@ -171,9 +171,14 @@ class CCNetAdapter(nn.Module):
     def get_value(
         self, entities: Dict[str, RaggedBufferF32], tracer: Tracer
     ) -> torch.Tensor:
-        return self.get_action_and_auxiliary(
-            entities, action_masks={}, tracer=tracer, prev_actions=None
-        )[4]["value"]
+        return self.get_auxiliary_head(entities, "value", tracer)
+
+    def get_auxiliary_head(
+        self, entities: Mapping[str, RaggedBufferF32], head_name: str, tracer: Tracer
+    ) -> torch.Tensor:
+        return self.get_action_and_auxiliary(entities, action_masks={}, tracer=tracer)[
+            4
+        ][head_name]
 
 
 from dataclasses import dataclass

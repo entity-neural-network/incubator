@@ -2,8 +2,10 @@
 ExperimentConfig(
     env: (
         id: "Xor",
+    ),
+    rollout: (
         num_envs: 512,
-        num_steps: 1,
+        steps: 1,
         processes: 16,
     ),
     total_timesteps: 500000,

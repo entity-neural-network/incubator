@@ -2,8 +2,10 @@
 ExperimentConfig(
     env: (
         id: "FloorIsLava",
+    ),
+    rollout: (
         num_envs: 256,
-        num_steps: 1,
+        steps: 1,
     ),
     total_timesteps: 32768,
     net: (

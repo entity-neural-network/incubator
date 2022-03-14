@@ -1,27 +1,28 @@
+from dataclasses import dataclass
 from typing import Dict, Mapping, Optional, Tuple, Type, TypeVar
+import numpy.typing as npt
+import numpy as np
+import torch
+import torch.nn as nn
+import torch_scatter
 
 from entity_gym.environment import (
     VecActionMask,
     ActionSpace,
     ObsSpace,
 )
-from enn_ppo.simple_trace import Tracer
-import numpy as np
-import ragged_buffer
-from rogue_net.relpos_encoding import (
-    RelposEncoding,
+from entity_gym.simple_trace import Tracer
+from entity_gym.environment.environment import (
+    CategoricalActionSpace,
+    SelectEntityActionSpace,
 )
-from rogue_net.ragged_tensor import RaggedTensor
-from rogue_net.translate_positions import TranslatePositions
-import torch
-import torch.nn as nn
-import torch_scatter
-import numpy.typing as npt
-
 from ragged_buffer import RaggedBufferF32, RaggedBufferI64, RaggedBuffer
-import rogue_net.head_creator as head_creator
-import rogue_net.embedding_creator as embedding_creator
+from rogue_net.categorical_action_head import CategoricalActionHead
+from rogue_net.embedding import EntityEmbedding
+from rogue_net.ragged_tensor import RaggedTensor
+from rogue_net.select_entity_action_head import PaddedSelectEntityActionHead
 from rogue_net.transformer import Transformer, TransformerConfig
+from rogue_net.translate_positions import TranslationConfig
 
 
 ScalarType = TypeVar("ScalarType", bound=np.generic, covariant=True)
@@ -41,26 +42,44 @@ def tensor_dict_to_ragged(
     return result
 
 
-class Actor(nn.Module):
+@dataclass
+class RogueNetConfig(TransformerConfig):
+    """RogueNet network parameters.
+
+    Attributes:
+        d_qk: dimension of keys and queries in select-entity action heads
+        translation: settings for transforming all position features to be centered on one entity
+    """
+
+    d_qk: int = 16
+    translation: Optional[TranslationConfig] = None
+
+
+class RogueNet(nn.Module):
     def __init__(
         self,
-        embedding: nn.ModuleDict,
+        cfg: RogueNetConfig,
+        obs_space: ObsSpace,
         action_space: Dict[str, ActionSpace],
-        backbone: nn.Module,
-        action_heads: nn.ModuleDict,
-        auxiliary_heads: Optional[nn.ModuleDict] = None,
-        feature_transforms: Optional[TranslatePositions] = None,
+        regression_heads: Optional[Dict[str, int]] = None,
     ):
-        super(Actor, self).__init__()
+        super(RogueNet, self).__init__()
 
+        self.d_model = cfg.d_model
         self.action_space = action_space
-
-        self.embedding = embedding
-        self.backbone = backbone
-        self.action_heads = action_heads
-        self.auxiliary_heads = auxiliary_heads
-        self.feature_transforms = feature_transforms
-        self.relpos_encoding = True
+        self.embedding = EntityEmbedding(obs_space, cfg.translation, cfg.d_model)
+        self.backbone = Transformer(cfg, obs_space)
+        self.action_heads = create_action_heads(action_space, cfg.d_model, cfg.d_qk)
+        self.auxiliary_heads = (
+            nn.ModuleDict(
+                {
+                    name: regression_head(cfg.d_model, d_out)
+                    for name, d_out in regression_heads.items()
+                }
+            )
+            if regression_heads is not None
+            else None
+        )
 
     def device(self) -> torch.device:
         return next(self.parameters()).device
@@ -68,51 +87,16 @@ class Actor(nn.Module):
     def batch_and_embed(
         self, entities: Mapping[str, RaggedBufferF32], tracer: Tracer
     ) -> RaggedTensor:
-        entity_embeds = []
-        index_offsets = {}
-        index_offset = 0
-        entity_type = []
-
-        if self.feature_transforms:
-            entities = {name: feats.clone() for name, feats in entities.items()}
-            self.feature_transforms.apply(entities)
-        tentities = {
-            entity: torch.tensor(features.as_array()).to(self.device())
-            for entity, features in entities.items()
-        }
-
-        for i, (entity, embedding) in enumerate(self.embedding.items()):
-            # We may have environment states that do not contain every possible entity
-            if entity in entities:
-                batch = tentities[entity]
-                emb = embedding(batch)
-                entity_embeds.append(emb)
-                entity_type.append(
-                    torch.full((emb.size(0), 1), float(i)).to(self.device())
-                )
-                index_offsets[entity] = index_offset
-                index_offset += batch.size(0)
-
-        x = torch.cat(entity_embeds)
-        with tracer.span("ragged_metadata"):
-            lengths = sum([entity.size1() for entity in entities.values()])
-            batch_index = np.concatenate(
-                [entity.indices(0).as_array().flatten() for entity in entities.values()]
-            )
-            index_map = ragged_buffer.cat(
-                [
-                    entity.flat_indices() + index_offsets[name]
-                    for name, entity in entities.items()
-                ],
-                dim=1,
-            )
-            tindex_map = torch.tensor(index_map.as_array().flatten()).to(self.device())
-            tbatch_index = torch.tensor(batch_index).to(self.device())
-            tlengths = torch.tensor(lengths).to(self.device())
-
-        x = x[tindex_map]
-        entity_types = torch.cat(entity_type)[tindex_map]
-        tbatch_index = tbatch_index[tindex_map]
+        with tracer.span("embedding"):
+            (
+                x,
+                tbatch_index,
+                index_map,
+                tentities,
+                tindex_map,
+                entity_types,
+                tlengths,
+            ) = self.embedding(entities, tracer, self.device())
 
         with tracer.span("backbone"):
             x = self.backbone(
@@ -210,24 +194,20 @@ class Actor(nn.Module):
         )
 
 
-class AutoActor(Actor):
-    def __init__(
-        self,
-        tf: TransformerConfig,
-        obs_space: ObsSpace,
-        action_space: Dict[str, ActionSpace],
-        d_qk: int = 16,
-        auxiliary_heads: Optional[nn.ModuleDict] = None,
-        feature_transforms: Optional[TranslatePositions] = None,
-    ):
-        self.d_model = tf.d_model
-        if feature_transforms is not None:
-            obs_space = feature_transforms.transform_obs_space(obs_space)
-        super().__init__(
-            embedding_creator.create_embeddings(obs_space, tf.d_model),
-            action_space,
-            Transformer(tf, obs_space),
-            head_creator.create_action_heads(action_space, tf.d_model, d_qk),
-            auxiliary_heads=auxiliary_heads,
-            feature_transforms=feature_transforms,
-        )
+def regression_head(d_model: int, d_out: int) -> nn.Module:
+    projection = nn.Linear(d_model, d_out)
+    projection.weight.data.fill_(0.0)
+    projection.bias.data.fill_(0.0)
+    return projection
+
+
+def create_action_heads(
+    action_space: Dict[str, ActionSpace], d_model: int, d_qk: int
+) -> nn.ModuleDict:
+    action_heads: Dict[str, nn.Module] = {}
+    for name, space in action_space.items():
+        if isinstance(space, CategoricalActionSpace):
+            action_heads[name] = CategoricalActionHead(d_model, len(space.choices))
+        elif isinstance(space, SelectEntityActionSpace):
+            action_heads[name] = PaddedSelectEntityActionHead(d_model, d_qk)
+    return nn.ModuleDict(action_heads)
