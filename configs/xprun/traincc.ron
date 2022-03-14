@@ -51,7 +51,7 @@ XpV0(
                 Run("poetry run pip install /root/xprun/target/wheels/xprun-0.1.0-cp38-cp38-manylinux_2_31_x86_64.whl"),
 
                 Run("poetry install"),
-                Run("poetry run pip install torch==1.10.0+cu113 -f https://download.pytorch.org/whl/cu113/torch_stable.html"),
+                Run("poetry run pip install torch==1.11.0+cu113 -f https://download.pytorch.org/whl/cu113/torch_stable.html"),
                 Run("poetry run pip install torch-scatter -f https://data.pyg.org/whl/torch-1.10.0+cu113.html"),
 
                 Repo(cd: true),
