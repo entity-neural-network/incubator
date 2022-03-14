@@ -280,7 +280,7 @@ However, the attention operation is applied to sequences of entities from the sa
 It is currently implemented by packing/padding the flattened embeddings into a (sequence, entity, feature) tensor that places all entities from the same timestep/environment into the same sequence.
 To do this, we compute three tensors:
 - the `index` determines which entity is placed at each position the packed tensor
-- the `batch` tells us what timestep/environment each entity came from, and is used to construct a mask that prevents attention from going across seperate timmesteps/environments
+- the `batch` tells us what timestep/environment each entity came from, and is used to construct a mask that prevents attention from going across separate timesteps/environments
 - the `inverse_index` is used to reconstruct the original flattened embedding tensor from the packed tensor
 
 <details>

@@ -414,7 +414,7 @@ class AdrConfig:
     initial_hardness: float = 0.0
     # Linearly increase task difficulty/map size
     linear_hardness: bool = False
-    # Maxiumum map area
+    # Maximum map area
     max_hardness: float = 150
     # Number of timesteps steps after which hardness starts to increase
     hardness_offset: float = 1e6
