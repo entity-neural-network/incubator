@@ -53,18 +53,23 @@ libncursesw5-dev xz-utils tk-dev libxml2-dev libxmlsec1-dev libffi-dev liblzma-d
 
 [![asciicast](https://asciinema.org/a/452597.svg)](https://asciinema.org/a/452597)
 
-## Code Formatting
+## Code Style
 
-We use [Black](https://black.readthedocs.io/en/stable/) for code formatting.
-You can run the following to format all files:
+We use [Pre-commit](https://pre-commit.com/) to 
+<!-- * sort dependencies
+* remove unused variables and imports -->
+* format code using black (via `black`)
+* check word spelling (via `codespell`)
+* check typing (via `mypy`)
+
+You can run the following command to do these automatically:
 
 ```bash
-poetry run black .
+poetry run pre-commit run --all-files
 ```
 
-## Running MyPy and Tests
+## Running Tests
 
 ```bash
-poetry run dmypy run -- entity_gym enn_ppo rogue_net
 poetry run pytest .
 ```
