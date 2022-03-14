@@ -135,6 +135,7 @@ class TrainConfig:
         total_timesteps: total timesteps of the experiments
         max_train_time: train for at most this many seconds
         torch_deterministic: if toggled, `torch.backends.cudnn.deterministic=False`
+        vf_net: value function network configuration (if not set, policy and value function share the same network)
         cuda: if toggled, cuda will be enabled by default
         track: if toggled, this experiment will be tracked with Weights and Biases
         wandb_project_name: the wandb's project name
@@ -144,6 +145,7 @@ class TrainConfig:
         capture_samples_subsample: only persist every nth sample, chosen randomly
         trial: trial number of experiment spawned by hyperparameter tuner
         data_dir: Directory to save output from training and logging
+
     """
 
     env: EnvConfig
@@ -152,6 +154,7 @@ class TrainConfig:
     ppo: PPOConfig
     rollout: RolloutConfig
     eval: Optional[EvalConfig] = None
+    vf_net: Optional[RogueNetConfig] = None
 
     name: str = field(default_factory=lambda: os.path.basename(__file__).rstrip(".py"))
     seed: int = 1
