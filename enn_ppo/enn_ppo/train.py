@@ -28,6 +28,7 @@ import numpy as np
 import numpy.typing as npt
 from entity_gym.examples import ENV_REGISTRY
 from enn_zoo.griddly import GRIDDLY_ENVS, create_env
+from enn_zoo.microrts import GymMicrorts
 from enn_zoo.codecraft.cc_vec_env import codecraft_env_class, CodeCraftVecEnv
 
 from enn_zoo.codecraft.codecraftnet.adapter import CCNetAdapter
@@ -317,6 +318,7 @@ class Rollout:
 
         total_episodic_return = 0.0
         total_episodic_length = 0
+        total_metrics = {}
         total_episodes = 0
 
         if self.next_obs is None or self.next_done is None:
@@ -416,6 +418,12 @@ class Rollout:
                 total_episodic_return += eoei.total_reward
                 total_episodic_length += eoei.length
                 total_episodes += 1
+                if eoei.metrics is not None:
+                    for k, v in eoei.metrics.items():
+                        if k not in total_metrics:
+                            total_metrics[k] = v
+                        else:
+                            total_metrics[k] += v
 
         self.next_obs = next_obs
         self.next_done = next_done
@@ -431,6 +439,8 @@ class Rollout:
             metrics["charts/episodic_length"] = avg_length
             metrics["charts/episodes"] = total_episodes
             metrics["meanrew"] = self.rewards.mean().item()
+            for k, v in total_metrics.items():
+                metrics[f"metrics/{k}"] = v / total_episodes
         return next_obs, next_done, metrics
 
 
@@ -645,6 +655,8 @@ def train(cfg: ExperimentConfig) -> float:
         env_cls = create_env(**GRIDDLY_ENVS[cfg.env.id])
     elif cfg.env.id == "CodeCraft":
         env_cls = codecraft_env_class(env_kwargs.get("objective", "ALLIED_WEALTH"))
+    elif cfg.env.id == "GymMicrorts":
+        env_cls = GymMicrorts
     else:
         raise KeyError(
             f"Unknown gym_id: {cfg.env.id}\nAvailable environments: {list(ENV_REGISTRY.keys()) + list(GRIDDLY_ENVS.keys())}"
