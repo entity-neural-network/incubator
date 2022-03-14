@@ -64,7 +64,7 @@ jobs:
 
       - name: Run pre-commit utilities
         run: |
-          pre-commit run  --all-files
+          poetry run pre-commit run  --all-files
 
   # mypy:
   #   name: mypy
