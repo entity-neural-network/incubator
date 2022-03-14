@@ -153,7 +153,7 @@ class RelposEncoding(nn.Module, RelposEncodingConfig):
             per_entity_type_indices = indices
         values = self.values(per_entity_type_indices)
 
-        if self.value_relpos_projection or self.value_relpos_projection:
+        if self.value_relpos_projection or self.key_relpos_projection:
             dist = relative_positions.norm(p=2, dim=-1).unsqueeze(-1)
             relpos_dist = torch.cat([relative_positions, dist], dim=-1)
             norm_relpos_dist = self.relpos_norm(relpos_dist)
