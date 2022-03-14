@@ -45,7 +45,7 @@ def test_griddly_wrapper() -> None:
         "entity_2_variable",
     ]
 
-    # Check the action space is being created correctly fro the test environment
+    # Check the action space is being created correctly for the test environment
     action_space = env_class.action_space()
     assert isinstance(action_space["move_one"], CategoricalActionSpace)
     assert action_space["move_one"].choices == [

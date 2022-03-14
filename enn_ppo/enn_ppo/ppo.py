@@ -49,7 +49,7 @@ def ppo_loss(
     # TODO: we can reuse the mb_advantages across all actions that have the same number of actors
     # TODO: what's the correct way of combining loss from multiple actions/actors on the same timestep? should we split the advantages across actions/actors?
     with tracer.span("broadcast_advantages"):
-        # Brodcast the advantage value from each timestep to all actors/actions on that timestep
+        # Broadcast the advantage value from each timestep to all actors/actions on that timestep
         bc_mb_advantages = {
             action_name: advantages[
                 torch.tensor(

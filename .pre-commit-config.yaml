@@ -22,18 +22,13 @@ repos:
       - id: black
         args:
           - --exclude=wandb
-  # - repo: https://github.com/codespell-project/codespell
-  #   rev: v2.1.0
-  #   hooks:
-  #     - id: codespell
-  #       args:
-  #         - --ignore-words-list=nd,reacher,thist,ths,magent
-  #         - --skip=docs/css/termynal.css,docs/js/termynal.js
-  # - repo: https://github.com/pre-commit/mirrors-mypy
-  #   rev: v0.910
-  #   hooks:
-  #     - id: mypy
-
+  - repo: https://github.com/codespell-project/codespell
+    rev: v2.1.0
+    hooks:
+      - id: codespell
+        args:
+          - --ignore-words-list=nd,reacher,thist,ths,magent
+          - --skip=docs/css/termynal.css,docs/js/termynal.js
   - repo: local
     hooks:
       - id: mypy
