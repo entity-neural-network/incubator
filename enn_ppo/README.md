@@ -2,10 +2,33 @@
 
 PPO implementation compatible with Entity Gym.
 
-Example usage:
+Example usage for training a policy in one of the entity-gym example environments:
 
 ```bash
 poetry run python enn_ppo/enn_ppo/train.py
+```
+
+To get a list of available hyperparameters, run:
+
+```python
+poetry run python enn_ppo/enn_ppo/train.py --hps-info
+```
+
+To use ENN-PPO with a [custom entity gym environment](/entity_gym/TUTORIAL.md), you can use something like the following code:
+
+```python
+import hyperstate
+from enn_ppo.config import TrainConfig
+from enn_ppo.train import train
+from custom_env import CustomEnv
+
+
+@hyperstate.command(TrainConfig)
+def main(cfg: TrainConfig) -> None:
+    train(cfg=cfg, env_cls=CustomEnv)
+
+if __name__ == "__main__":
+    main()
 ```
 
 To run behavioral cloning on recorded samples:
