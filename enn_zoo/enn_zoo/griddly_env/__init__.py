@@ -4,9 +4,11 @@ import types
 import numpy as np
 from typing import Tuple, Type, Dict, Optional, Any, Callable
 
-from enn_zoo.griddly.level_generators.clusters_generator import ClustersLevelGenerator
-from enn_zoo.griddly.level_generators.level_generator import LevelGenerator
-from enn_zoo.griddly.wrapper import GriddlyEnv
+from enn_zoo.griddly_env.level_generators.clusters_generator import (
+    ClustersLevelGenerator,
+)
+from enn_zoo.griddly_env.level_generators.level_generator import LevelGenerator
+from enn_zoo.griddly_env.wrapper import GriddlyEnv
 from entity_gym.environment import (
     ActionSpace,
     ObsSpace,
