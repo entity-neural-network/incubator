@@ -283,8 +283,8 @@ def train(
         # flatten the batch
         with tracer.span("flatten"):
             b_advantages = advantages.reshape(-1)
-            b_returns = returns.reshape(-1).detach()
-            b_values = values.reshape(-1).detach()
+            b_returns = returns.reshape(-1)
+            b_values = values.reshape(-1)
 
         tracer.end("rollout")
 
@@ -389,6 +389,8 @@ def train(
                 if approx_kl > cfg.ppo.target_kl:
                     break
 
+        if cfg.cuda_empty_cache:
+            torch.cuda.empty_cache()
         tracer.end("optimize")
 
         tracer.start("metrics")

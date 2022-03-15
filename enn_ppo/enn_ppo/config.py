@@ -145,7 +145,7 @@ class TrainConfig:
         capture_samples_subsample: only persist every nth sample, chosen randomly
         trial: trial number of experiment spawned by hyperparameter tuner
         data_dir: Directory to save output from training and logging
-
+        cuda_empty_cache: If toggled, empty the cuda cache after each optimizer step.
     """
 
     env: EnvConfig
@@ -170,3 +170,4 @@ class TrainConfig:
     capture_samples_subsample: int = 1
     trial: Optional[int] = None
     data_dir: str = "."
+    cuda_empty_cache: bool = False
