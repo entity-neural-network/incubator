@@ -28,17 +28,18 @@ class EntityEmbedding(nn.Module):
         else:
             self.feature_transforms = None
 
-        self.embeddings: Dict[str, nn.Module] = {}
+        embeddings: Dict[str, nn.Module] = {}
         for name, entity in obs_space.entities.items():
             if entity.features:
-                self.embeddings[name] = nn.Sequential(
+                embeddings[name] = nn.Sequential(
                     InputNorm(len(entity.features)),
                     nn.Linear(len(entity.features), d_model),
                     nn.ReLU(),
                     nn.LayerNorm(d_model),
                 )
             else:
-                self.embeddings[name] = FeaturelessEmbedding(d_model)
+                embeddings[name] = FeaturelessEmbedding(d_model)
+        self.embeddings = nn.ModuleDict(embeddings)
 
     def forward(
         self,
