@@ -1,6 +1,6 @@
 from typing import Tuple, List, Dict, Any
 
-from enn_zoo.griddly.level_generators.level_generator import LevelGenerator
+from enn_zoo.griddly_env.level_generators.level_generator import LevelGenerator
 import numpy as np
 import numpy.typing as npt
 

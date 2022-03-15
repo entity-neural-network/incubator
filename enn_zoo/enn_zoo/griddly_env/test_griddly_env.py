@@ -2,7 +2,7 @@ import os
 from typing import List, Optional
 
 import numpy as np
-from enn_zoo.griddly import create_env, GRIDDLY_ENVS
+from enn_zoo.griddly_env import create_env, GRIDDLY_ENVS
 from entity_gym.environment import (
     CategoricalActionSpace,
     CategoricalActionMask,
