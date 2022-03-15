@@ -4,6 +4,7 @@ from rogue_net.input_norm import InputNorm
 import torch.nn as nn
 import torch
 from ragged_buffer import RaggedBufferI64
+import math
 
 from entity_gym.environment import ObsSpace
 
@@ -18,6 +19,10 @@ class RelposEncodingConfig:
         scale: Relative positions are divided by the scale before being assigned an embedding.
         per_entity_values: Whether to use per-entity embeddings for relative positional values.
         exclude_entities: List of entity types to exclude from relative position encoding.
+        key_relpos_projection: Adds a learnable projection from the relative position/distance to the relative positional keys.
+        value_relpos_projection: Adds a learnable projection from the relative position/distance to the relative positional values.
+        per_entity_projections: Uses a different learned projection per entity type for the `key_relpos_projection` and `value_relpos_projection`.
+        radial: Buckets all relative positions by their angle. The `extent` is interpreted as the number of buckets.
     """
 
     extent: List[int]
@@ -28,9 +33,17 @@ class RelposEncodingConfig:
     value_relpos_projection: bool = False
     key_relpos_projection: bool = False
     per_entity_projections: bool = False
+    radial: bool = False
 
     def __post_init__(self) -> None:
-        assert len(self.extent) == len(self.position_features)
+        if self.radial:
+            assert (
+                len(self.extent) == 1
+            ), "Radial relative position encoding expects a single extent value (number of angle buckets)"
+        else:
+            assert len(self.extent) == len(
+                self.position_features
+            ), "Relative position encoding expects a extent value for each position feature"
 
 
 class RelposEncoding(nn.Module, RelposEncodingConfig):
@@ -132,15 +145,23 @@ class RelposEncoding(nn.Module, RelposEncodingConfig):
             1.0 / self.scale
         )
 
-        clamped_positions = torch.max(
-            torch.min(
-                self.extent_tensor,  # type: ignore
-                relative_positions,
-            ),
-            -self.extent_tensor,  # type: ignore
-        )
-        positive_positions = clamped_positions + self.extent_tensor
-        indices = (positive_positions * self.strides).sum(dim=-1).round().long()
+        if self.radial:
+            angles = torch.atan2(
+                relative_positions[:, :, :, 1], relative_positions[:, :, :, 0]
+            )
+            indices = (
+                (angles + math.pi) * (1.0 / (2 * math.pi)) * self.extent[0]
+            ).long()
+        else:
+            clamped_positions = torch.max(
+                torch.min(
+                    self.extent_tensor,  # type: ignore
+                    relative_positions,
+                ),
+                -self.extent_tensor,  # type: ignore
+            )
+            positive_positions = clamped_positions + self.extent_tensor
+            indices = (positive_positions * self.strides).sum(dim=-1).round().long()
 
         # Batch x Seq x Seq x d_model
         keys = self.keys(indices)
@@ -174,8 +195,5 @@ class RelposEncoding(nn.Module, RelposEncodingConfig):
                     values += self.vproj(norm_relpos_dist)
                 if self.key_relpos_projection:
                     keys += self.kproj(norm_relpos_dist)
-        # values[:, :, :] += self.distance_values(entity_type.long()) * (
-        #    1 - relative_positions.norm(p=2, dim=-1).unsqueeze(-1) / 100.0
-        # )
 
         return keys, values
