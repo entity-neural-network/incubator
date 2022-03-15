@@ -21,19 +21,31 @@ from entity_gym.environment import (
 DELTA_SPEED_STEPS: List = [-45, -30, -15, -5, -1, 0, 1, 5, 15, 30, 45]
 DELTA_SPEED_STEPS_STRS: List = [str(x) for x in DELTA_SPEED_STEPS]
 
-FORCED_GAME_VARIABLES: List = [
+# Add player location as part of the observations
+FORCED_GAME_VARIABLES: List = {
     vzd.GameVariable.POSITION_X,
     vzd.GameVariable.POSITION_Y,
     vzd.GameVariable.POSITION_Z,
     vzd.GameVariable.ANGLE,
-    vzd.GameVariable.PITCH,
-]
+    vzd.GameVariable.PITCH
+}
+
+RENAME_GAME_VARIABLES: Dict = {
+    vzd.GameVariable.POSITION_X.name: "x",
+    vzd.GameVariable.POSITION_Y.name: "y",
+    vzd.GameVariable.POSITION_Z.name: "z",
+    vzd.GameVariable.ANGLE.name: "angle",
+    vzd.GameVariable.PITCH.name: "pitch",
+}
 
 
 class DoomEntityEnvironment(Environment):
     """
     Wrap ViZDoom environments in an appropiate way for Entity Gym, where instead of images
     the environment returns lists of enemies and walls and sectors and whatnot.
+
+    Note that this may not be the most sensible thing to do, but is done as a curious
+    experiment for the entity-gym code :).
     """
     def __init__(
         self,
@@ -62,6 +74,10 @@ class DoomEntityEnvironment(Environment):
         self._game_variables = list(set(self._game_variables).union(set(FORCED_GAME_VARIABLES)))
         self._doomgame.set_available_game_variables(self._game_variables)
         self._game_variable_names = [game_variable.name for game_variable in self._game_variables]
+        # Rename variables where needed
+        for original_name, new_name in RENAME_GAME_VARIABLES.items():
+            if original_name in self._game_variable_names:
+                self._game_variable_names[self._game_variable_names.index(original_name)] = new_name
 
         # When episode terminates the buffers may be empty, so instead we return the last valid observation
         self._last_observation = None
@@ -73,9 +89,8 @@ class DoomEntityEnvironment(Environment):
                 "Player": Entity(self._game_variable_names),
                 "Objects": Entity(
                     # TODO "type" here will be just the ord(name[0])
-                    ["x_pos", "y_pos", "z_pos", "type"]
+                    ["x", "y", "z", "type"]
                 )
-                # TODO sectors/lines/walls
             }
         )
 
@@ -134,7 +149,6 @@ class DoomEntityEnvironment(Environment):
         return doom_action
 
     def act(self, action: Mapping[str, Action]) -> Observation:
-        # TODO update
         doom_action = self._enn_action_to_doom(action)
         reward = self._doomgame.make_action(doom_action, self._frame_skip)
         terminal = self._doomgame.is_episode_finished()

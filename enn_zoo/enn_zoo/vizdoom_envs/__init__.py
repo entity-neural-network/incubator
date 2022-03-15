@@ -13,6 +13,8 @@ init_path = os.path.dirname(os.path.realpath(__file__))
 VIZDOOM_ENVS = {
     "DoomHealthGathering": os.path.join(init_path, "scenarios/health_gathering.cfg"),
     "DoomHealthGatheringSupreme": os.path.join(init_path, "scenarios/health_gathering_supreme.cfg"),
+    "DoomDefendTheCenter": os.path.join(init_path, "scenarios/defend_the_center.cfg"),
+    "DoomBasic": os.path.join(init_path, "scenarios/basic.cfg"),
 }
 
 
