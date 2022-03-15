@@ -283,8 +283,8 @@ def train(
         # flatten the batch
         with tracer.span("flatten"):
             b_advantages = advantages.reshape(-1)
-            b_returns = returns.reshape(-1)
-            b_values = values.reshape(-1)
+            b_returns = returns.reshape(-1).detach()
+            b_values = values.reshape(-1).detach()
 
         tracer.end("rollout")
 
@@ -331,8 +331,9 @@ def train(
                             prev_actions=b_actions,
                             tracer=tracer,
                         )
-                        newvalue = aux["value"]
-                        if value_function is not None:
+                        if value_function is None:
+                            newvalue = aux["value"]
+                        else:
                             newvalue = value_function.get_auxiliary_head(
                                 b_entities, "value", tracer=tracer
                             )
