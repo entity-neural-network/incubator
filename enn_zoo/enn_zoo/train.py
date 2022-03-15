@@ -28,7 +28,9 @@ class TrainConfig(config.TrainConfig):
 
 
 def create_cc_env(cfg: config.EnvConfig, num_envs: int, num_processes: int) -> VecEnv:
-    return CodeCraftVecEnv(num_envs, json.loads(cfg.kwargs))
+    return CodeCraftVecEnv(
+        num_envs, json.loads(cfg.kwargs).get("objective", "ALLIED_WEALTH")
+    )
 
 
 def load_codecraft_policy(
