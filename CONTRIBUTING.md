@@ -11,7 +11,8 @@ If you plan to work on an issue, let us know in the issue thread so we can avoid
 
 ```bash
 poetry install
-poetry run pip install torch==1.11.0+cu113 -f https://download.pytorch.org/whl/cu113/torch_stable.html
+poetry run pip install setuptools==59.5.0  # Required to work around bug in torch (https://github.com/pytorch/pytorch/pull/57040). We can remove this step once we upgrade to torch >= 1.11.0.
+poetry run pip install torch==1.10.2+cu113 -f https://download.pytorch.org/whl/cu113/torch_stable.html
 poetry run pip install torch-scatter -f https://data.pyg.org/whl/torch-1.10.0+cu113.html
 ```
 
