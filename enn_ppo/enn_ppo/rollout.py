@@ -21,12 +21,14 @@ class Rollout:
         agent: Union[PPOAgent, List[Tuple[npt.NDArray[np.int64], PPOAgent]]],
         device: torch.device,
         tracer: Tracer,
+        value_function: Optional[PPOAgent] = None,
     ) -> None:
         self.envs = envs
         self.obs_space = obs_space
         self.action_space = action_space
         self.device = device
         self.agent = agent
+        self.value_function = value_function
         self.tracer = tracer
 
         self.global_step = 0
@@ -129,7 +131,14 @@ class Rollout:
                         RaggedBufferF32, probs_tensor, actor_counts
                     )
             if record_samples:
-                self.values[step] = aux["value"].flatten()
+                if self.value_function is None:
+                    value = aux["value"]
+                else:
+                    value = self.value_function.get_auxiliary_head(
+                        next_obs.features, "value", tracer=self.tracer
+                    )
+
+                self.values[step] = value.flatten()
                 self.actions.extend(action)
                 self.logprobs.extend(logprob)
 

@@ -153,7 +153,6 @@ def train(
             action_space,
             regression_heads={"value": 1},
         ).to(device)
-
     optimizer = optim.AdamW(
         agent.parameters(),
         lr=cfg.optim.lr,
@@ -163,6 +162,23 @@ def train(
     if cfg.track:
         wandb.watch(agent)
 
+    if cfg.vf_net is not None:
+        value_function: Optional[RogueNet] = RogueNet(
+            cfg.vf_net,
+            obs_space,
+            action_space,
+            regression_heads={"value": 1},
+        ).to(device)
+        vf_optimizer: Optional[optim.AdamW] = optim.AdamW(
+            value_function.parameters(),  # type: ignore
+            lr=cfg.optim.lr,
+            weight_decay=cfg.optim.weight_decay,
+            eps=1e-5,
+        )
+    else:
+        value_function = None
+        vf_optimizer = None
+
     num_updates = cfg.total_timesteps // (cfg.rollout.num_envs * cfg.rollout.steps)
 
     rollout = Rollout(
@@ -170,6 +186,7 @@ def train(
         obs_space=obs_space,
         action_space=action_space,
         agent=agent,
+        value_function=value_function,
         device=device,
         tracer=tracer,
     )
@@ -227,6 +244,8 @@ def train(
                 )
             lrnow = frac * cfg.optim.lr
             optimizer.param_groups[0]["lr"] = lrnow
+            if vf_optimizer is not None:
+                vf_optimizer.param_groups[0]["lr"] = lrnow
 
         tracer.start("rollout")
 
@@ -248,7 +267,7 @@ def train(
 
         with torch.no_grad(), tracer.span("advantages"):
             returns, advantages = returns_and_advantages(
-                agent,
+                value_function or agent,
                 next_obs,
                 next_done,
                 rollout.rewards,
@@ -264,8 +283,8 @@ def train(
         # flatten the batch
         with tracer.span("flatten"):
             b_advantages = advantages.reshape(-1)
-            b_returns = returns.reshape(-1)
-            b_values = values.reshape(-1)
+            b_returns = returns.reshape(-1).detach()
+            b_values = values.reshape(-1).detach()
 
         tracer.end("rollout")
 
@@ -286,6 +305,8 @@ def train(
                 )
 
                 optimizer.zero_grad()
+                if vf_optimizer is not None:
+                    vf_optimizer.zero_grad()
                 for _start in range(start, end, microbatch_size):
                     _end = _start + microbatch_size
                     mb_inds = b_inds[_start:_end]
@@ -310,7 +331,12 @@ def train(
                             prev_actions=b_actions,
                             tracer=tracer,
                         )
-                        newvalue = aux["value"]
+                        if value_function is None:
+                            newvalue = aux["value"]
+                        else:
+                            newvalue = value_function.get_auxiliary_head(
+                                b_entities, "value", tracer=tracer
+                            )
 
                     pg_loss, clipfrac, approx_kl = ppo_loss(
                         cfg.ppo, newlogprob, b_logprobs, mb_advantages, device, tracer
@@ -350,6 +376,14 @@ def train(
                     agent.parameters(), cfg.optim.max_grad_norm
                 )
                 optimizer.step()
+                if value_function is not None:
+                    vf_gradnorm = nn.utils.clip_grad_norm_(
+                        value_function.parameters(), cfg.optim.max_grad_norm
+                    ).item()
+                else:
+                    vf_gradnorm = 0.0
+                if vf_optimizer is not None:
+                    vf_optimizer.step()
 
             if cfg.ppo.target_kl is not None:
                 if approx_kl > cfg.ppo.target_kl:
@@ -374,6 +408,7 @@ def train(
         writer.add_scalar("losses/clipfrac", np.mean(clipfracs), global_step)
         writer.add_scalar("losses/explained_variance", explained_var, global_step)
         writer.add_scalar("losses/gradnorm", gradnorm, global_step)
+        writer.add_scalar("losses/vf_gradnorm", vf_gradnorm, global_step)
         for action_name, space in action_space.items():
             if isinstance(space, CategoricalActionSpace):
                 _actions = actions.buffers[action_name].as_array().flatten()
