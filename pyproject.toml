@@ -12,8 +12,6 @@ enn_ppo = {path = "enn_ppo", develop = true}
 enn_zoo = {path = "enn_zoo", develop = true}
 griddly = {version = "1.2.31"}
 gym-microrts = {version = "0.6.0"}
-# Required to work around bug in torch (https://github.com/pytorch/pytorch/pull/57040). We can remove this dependency once we upgrade to torch >= 1.11.0.
-setuptools = {version = "59.5.0"}
 
 [tool.poetry.dev-dependencies]
 black = "^21.11b1"
