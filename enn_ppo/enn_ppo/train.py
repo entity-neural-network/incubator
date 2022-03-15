@@ -1,396 +1,609 @@
 # adapted from https://github.com/vwxyzjn/cleanrl
-from dataclasses import asdict
+import argparse
+from dataclasses import dataclass, field
 import os
-from pathlib import Path
 import random
 import time
+from distutils.util import strtobool
 from typing import (
     Any,
-    Callable,
     Dict,
+    Generic,
+    List,
     Mapping,
     Optional,
     Type,
+    TypeVar,
+    Union,
 )
 import json
-from enn_ppo.agent import PPOAgent
-import hyperstate
+
 import numpy as np
+import numpy.typing as npt
+from entity_gym.environment import (
+    ActionMaskBatch,
+    ActionSpace,
+    CategoricalAction,
+    CategoricalActionSpace,
+    DenseSelectEntityActionMask,
+    EnvList,
+    ObsSpace,
+    SelectEntityAction,
+    SelectEntityActionMaskBatch,
+    SelectEntityActionSpace,
+)
+from entity_gym.envs import ENV_REGISTRY
+from enn_zoo.griddly import GRIDDLY_ENVS, create_env
+from enn_zoo.vizdoom import VIZDOOM_ENVS, create_vizdoom_env
+from enn_ppo.sample_recorder import SampleRecorder
+from enn_ppo.simple_trace import Tracer
+from rogue_net.actor import AutoActor
+from rogue_net import head_creator
 import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.tensorboard import SummaryWriter
-
-from entity_gym.environment import *
-from entity_gym.examples import ENV_REGISTRY
-from entity_gym.serialization import SampleRecordingVecEnv
-from entity_gym.simple_trace import Tracer
-from rogue_net.rogue_net import RogueNet
-
-from enn_ppo.eval import run_eval
-from enn_ppo.gae import returns_and_advantages
-from enn_ppo.rollout import Rollout
-from enn_ppo.config import *
-from enn_ppo.ppo import ppo_loss, value_loss
+from ragged_buffer import RaggedBufferF32, RaggedBufferI64, RaggedBuffer
 
 
-def _env_factory(env_cls: Type[Environment]) -> Callable[[EnvConfig, int, int], VecEnv]:
-    def _create_env(cfg: EnvConfig, num_envs: int, processes: int) -> VecEnv:
-        kwargs = json.loads(cfg.kwargs)
-        if processes > 1:
-            return ParallelEnvList(env_cls, kwargs, num_envs, processes)
-        else:
-            return EnvList(env_cls, kwargs, num_envs)
+def parse_args(override_args: Optional[List[str]] = None) -> argparse.Namespace:
+    # fmt: off
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--exp-name', type=str, default=os.path.basename(__file__).rstrip(".py"),
+        help='the name of this experiment')
+    parser.add_argument('--gym-id', type=str, default="MoveToOrigin",
+        help='the id of the gym environment')
+    parser.add_argument('--env-kwargs', type=str, default="{}",
+        help='JSON dictionary with keyword arguments for the environment')
+    parser.add_argument('--learning-rate', type=float, default=2.5e-4,
+        help='the learning rate of the optimizer')
+    parser.add_argument('--seed', type=int, default=1,
+        help='seed of the experiment')
+    parser.add_argument('--total-timesteps', type=int, default=25000,
+        help='total timesteps of the experiments')
+    parser.add_argument('--torch-deterministic', type=lambda x:bool(strtobool(x)), default=True, nargs='?', const=True,
+        help='if toggled, `torch.backends.cudnn.deterministic=False`')
+    parser.add_argument('--cuda', type=lambda x:bool(strtobool(x)), default=True, nargs='?', const=True,
+        help='if toggled, cuda will be enabled by default')
+    parser.add_argument('--track', type=lambda x:bool(strtobool(x)), default=False, nargs='?', const=True,
+        help='if toggled, this experiment will be tracked with Weights and Biases')
+    parser.add_argument('--wandb-project-name', type=str, default="enn-ppo",
+        help="the wandb's project name")
+    parser.add_argument('--wandb-entity', type=str, default="entity-neural-network",
+        help="the entity (team) of wandb's project")
+    parser.add_argument('--capture-video', type=lambda x:bool(strtobool(x)), default=False, nargs='?', const=True,
+        help='weather to capture videos of the agent performances (check out `videos` folder)')
+    parser.add_argument('--capture-samples', type=str, default=None,
+        help='if set, write the samples to this file')
+    
+    # Network architecture
+    parser.add_argument('--d-model', type=int, default=64,
+        help='the hidden size of the network layers')
+    parser.add_argument('--d-qk', type=int, default=64,
+        help='the size queries and keys in action heads')
+    parser.add_argument('--n-layer', type=int, default=1,
+        help='the number of layers of the network')
 
-    return _create_env
+    # Algorithm specific arguments
+    parser.add_argument('--num-envs', type=int, default=4,
+        help='the number of parallel game environments')
+    parser.add_argument('--num-steps', type=int, default=128,
+        help='the number of steps to run in each environment per policy rollout')
+    parser.add_argument('--anneal-lr', type=lambda x:bool(strtobool(x)), default=True, nargs='?', const=True,
+        help="Toggle learning rate annealing for policy and value networks")
+    parser.add_argument('--gae', type=lambda x:bool(strtobool(x)), default=True, nargs='?', const=True,
+        help='Use GAE for advantage computation')
+    parser.add_argument('--gamma', type=float, default=0.99,
+        help='the discount factor gamma')
+    parser.add_argument('--gae-lambda', type=float, default=0.95,
+        help='the lambda for the general advantage estimation')
+    parser.add_argument('--num-minibatches', type=int, default=4,
+        help='the number of mini-batches')
+    parser.add_argument('--update-epochs', type=int, default=4,
+        help="the K epochs to update the policy")
+    parser.add_argument('--norm-adv', type=lambda x:bool(strtobool(x)), default=True, nargs='?', const=True,
+        help="Toggles advantages normalization")
+    parser.add_argument('--clip-coef', type=float, default=0.2,
+        help="the surrogate clipping coefficient")
+    parser.add_argument('--clip-vloss', type=lambda x:bool(strtobool(x)), default=True, nargs='?', const=True,
+        help='Toggles wheter or not to use a clipped loss for the value function, as per the paper.')
+    parser.add_argument('--ent-coef', type=float, default=0.01,
+        help="coefficient of the entropy")
+    parser.add_argument('--vf-coef', type=float, default=0.5,
+        help="coefficient of the value function")
+    parser.add_argument('--max-grad-norm', type=float, default=0.5,
+        help='the maximum norm for the gradient clipping')
+    parser.add_argument('--target-kl', type=float, default=None,
+        help='the target KL divergence threshold')
+    args = parser.parse_args(args=override_args)
+    args.batch_size = int(args.num_envs * args.num_steps)
+    args.minibatch_size = int(args.batch_size // args.num_minibatches)
+    # fmt: on
+    return args
 
 
-def create_random_opponent(
-    path: str,
-    obs_space: ObsSpace,
-    action_space: Mapping[str, ActionSpace],
-    device: torch.device,
-) -> PPOAgent:
-    return RogueNet(
-        RogueNetConfig(),
-        obs_space,
-        dict(action_space),
-        regression_heads={"value": 1},
-    ).to(device)
+def layer_init(layer: Any, std: float = np.sqrt(2), bias_const: float = 0.0) -> Any:
+    torch.nn.init.orthogonal_(layer.weight, std)
+    torch.nn.init.constant_(layer.bias, bias_const)
+    return layer
 
 
-def train(
-    cfg: TrainConfig,
-    env_cls: Type[Environment],
-    agent: Optional[PPOAgent] = None,
-    create_env: Optional[Callable[[EnvConfig, int, int], VecEnv]] = None,
-    create_opponent: Optional[
-        Callable[[str, ObsSpace, Mapping[str, ActionSpace], torch.device], PPOAgent]
-    ] = None,
-) -> float:
-    run_name = f"{cfg.env.id}__{cfg.name}__{cfg.seed}__{int(time.time())}"
+ScalarType = TypeVar("ScalarType", bound=np.generic, covariant=True)
 
-    config = asdict(cfg)
-    if os.path.exists("/xprun/info/config.ron"):
-        import xprun  # type: ignore
 
-        xp_info = xprun.current_xp()
-        config["name"] = xp_info.xp_def.name
-        config["base_name"] = xp_info.xp_def.base_name
-        config["id"] = xp_info.id
-        if "-" in xp_info.xp_def.name and xp_info.xp_def.name.split("-")[-1].isdigit():
-            cfg.seed = int(xp_info.xp_def.name.split("-")[-1])
-            config["seed"] = cfg.seed
-        run_name = xp_info.xp_def.name
-        out_dir: Optional[str] = os.path.join(
-            "/mnt/xprun",
-            xp_info.xp_def.project,
-            xp_info.sanitized_name + "-" + xp_info.id,
+@dataclass
+class RaggedBatchDict(Generic[ScalarType]):
+    rb_cls: Type[RaggedBuffer[ScalarType]]
+    buffers: Dict[str, RaggedBuffer[ScalarType]] = field(default_factory=dict)
+
+    def extend(self, batch: Mapping[str, RaggedBuffer[ScalarType]]) -> None:
+        for k, v in batch.items():
+            if k not in self.buffers:
+                self.buffers[k] = v
+            else:
+                self.buffers[k].extend(v)
+
+    def clear(self) -> None:
+        for buffer in self.buffers.values():
+            buffer.clear()
+
+    def __getitem__(
+        self, index: npt.NDArray[np.int64]
+    ) -> Dict[str, RaggedBuffer[ScalarType]]:
+        return {k: v[index] for k, v in self.buffers.items()}
+
+
+@dataclass
+class RaggedActionDict:
+    buffers: Dict[str, ActionMaskBatch] = field(default_factory=dict)
+
+    def extend(self, batch: Mapping[str, ActionMaskBatch]) -> None:
+        for k, v in batch.items():
+            if k not in self.buffers:
+                self.buffers[k] = v
+            else:
+                self.buffers[k].extend(v)
+
+    def clear(self) -> None:
+        for buffer in self.buffers.values():
+            buffer.clear()
+
+    def __getitem__(self, index: npt.NDArray[np.int64]) -> Dict[str, ActionMaskBatch]:
+        return {k: v[index] for k, v in self.buffers.items()}
+
+
+def tensor_dict_to_ragged(
+    rb_cls: Type[RaggedBuffer[ScalarType]],
+    d: Dict[str, torch.Tensor],
+    lengths: Dict[str, np.ndarray],
+) -> Dict[str, RaggedBuffer[ScalarType]]:
+    return {k: rb_cls.from_flattened(v.cpu().numpy(), lengths[k]) for k, v in d.items()}
+
+
+class PPOActor(AutoActor):
+    def __init__(
+        self,
+        obs_space: ObsSpace,
+        action_space: Dict[str, ActionSpace],
+        d_model: int = 64,
+        d_qk: int = 16,
+        n_layer: int = 1,
+    ):
+        auxiliary_heads = nn.ModuleDict(
+            {"value": head_creator.create_value_head(d_model)}
         )
-        Path(str(out_dir)).mkdir(parents=True, exist_ok=True)
-    else:
-        out_dir = None
+        super().__init__(
+            obs_space, action_space, d_model, d_qk, auxiliary_heads, n_layer=n_layer
+        )
 
-    data_path = Path(cfg.data_dir).absolute()
-    data_path.mkdir(parents=True, exist_ok=True)
-    data_dir = str(data_path)
+    def get_value(
+        self, entities: Dict[str, RaggedBufferF32], tracer: Tracer
+    ) -> torch.Tensor:
+        return self.get_auxiliary_head(entities, "value", tracer)
 
-    if cfg.track:
+
+def train(args: argparse.Namespace) -> float:
+    run_name = f"{args.gym_id}__{args.exp_name}__{args.seed}__{int(time.time())}"
+    if args.track:
         import wandb
 
         wandb.init(
-            project=cfg.wandb_project_name,
-            entity=cfg.wandb_entity,
+            project=args.wandb_project_name,
+            entity=args.wandb_entity,
             sync_tensorboard=True,
-            config=config,
+            config=vars(args),
             name=run_name,
             save_code=True,
-            dir=data_dir,
         )
-    writer = SummaryWriter(os.path.join(data_dir, f"runs/{run_name}"))
-
-    def flatten(config: Dict[str, Any], prefix: str = "") -> Dict[str, Any]:
-        flattened = {}
-        for k, v in config.items():
-            if isinstance(v, dict):
-                flattened.update(flatten(v, k if prefix == "" else f"{prefix}.{k}"))
-            else:
-                flattened[prefix + k] = v
-        return flattened
-
+    writer = SummaryWriter(f"runs/{run_name}")
     writer.add_text(
         "hyperparameters",
         "|param|value|\n|-|-|\n%s"
-        % ("\n".join([f"|{key}|{value}|" for key, value in flatten(config).items()])),
+        % ("\n".join([f"|{key}|{value}|" for key, value in vars(args).items()])),
     )
 
-    random.seed(cfg.seed)
-    np.random.seed(cfg.seed)
-    torch.manual_seed(cfg.seed)
-    torch.backends.cudnn.deterministic = cfg.torch_deterministic
+    tracer = Tracer()
 
-    cuda = torch.cuda.is_available() and cfg.cuda
-    device = torch.device("cuda" if cuda else "cpu")
-    tracer = Tracer(cuda=cuda)
+    # TRY NOT TO MODIFY: seeding
+    random.seed(args.seed)
+    np.random.seed(args.seed)
+    torch.manual_seed(args.seed)
+    torch.backends.cudnn.deterministic = args.torch_deterministic
 
-    if create_env is None:
-        create_env = _env_factory(env_cls)
-    envs = create_env(cfg.env, cfg.rollout.num_envs, cfg.rollout.processes)
+    device = torch.device("cuda" if torch.cuda.is_available() and args.cuda else "cpu")
+
+    if args.gym_id in ENV_REGISTRY:
+        env_cls = ENV_REGISTRY[args.gym_id]
+    elif args.gym_id in GRIDDLY_ENVS:
+        path, level = GRIDDLY_ENVS[args.gym_id]
+        env_cls = create_env(yaml_file=path, level=level)
+    elif args.gym_id in VIZDOOM_ENVS:
+        scenario_config_path = VIZDOOM_ENVS[args.gym_id]
+        env_cls = create_vizdoom_env(config_file_path=scenario_config_path)
+    else:
+        raise KeyError(
+            f"Unknown gym_id: {args.gym_id}\nAvailable environments: {list(ENV_REGISTRY.keys()) + list(GRIDDLY_ENVS.keys())}"
+        )
+
+    # env setup
+    env_kwargs = json.loads(args.env_kwargs)
+    envs = EnvList([env_cls(**env_kwargs) for _ in range(args.num_envs)])  # type: ignore
     obs_space = env_cls.obs_space()
     action_space = env_cls.action_space()
+    if args.capture_samples:
+        sample_recorder = SampleRecorder(args.capture_samples, action_space, obs_space)
 
-    if cfg.capture_samples:
-        if out_dir is None:
-            sample_file = cfg.capture_samples
-        else:
-            sample_file = os.path.join(out_dir, cfg.capture_samples)
-        envs = SampleRecordingVecEnv(envs, sample_file, cfg.capture_samples_subsample)
+    agent = PPOActor(
+        obs_space, action_space, d_model=args.d_model, n_layer=args.n_layer
+    ).to(device)
+    optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5)
 
-    if agent is None:
-        agent = RogueNet(
-            cfg.net,
-            obs_space,
-            action_space,
-            regression_heads={"value": 1},
-        ).to(device)
-    optimizer = optim.AdamW(
-        agent.parameters(),
-        lr=cfg.optim.lr,
-        weight_decay=cfg.optim.weight_decay,
-        eps=1e-5,
-    )
-    if cfg.track:
-        wandb.watch(agent)
+    # ALGO Logic: Storage setup
+    rewards = torch.zeros((args.num_steps, args.num_envs)).to(device)
+    dones = torch.zeros((args.num_steps, args.num_envs)).to(device)
+    values = torch.zeros((args.num_steps, args.num_envs)).to(device)
+    episodes = list(range(args.num_envs))
+    curr_step = [0] * args.num_envs
+    next_episode = args.num_envs
+    last_log_step = 0
 
-    if cfg.vf_net is not None:
-        value_function: Optional[RogueNet] = RogueNet(
-            cfg.vf_net,
-            obs_space,
-            action_space,
-            regression_heads={"value": 1},
-        ).to(device)
-        vf_optimizer: Optional[optim.AdamW] = optim.AdamW(
-            value_function.parameters(),  # type: ignore
-            lr=cfg.optim.lr,
-            weight_decay=cfg.optim.weight_decay,
-            eps=1e-5,
-        )
-    else:
-        value_function = None
-        vf_optimizer = None
-
-    num_updates = cfg.total_timesteps // (cfg.rollout.num_envs * cfg.rollout.steps)
-
-    rollout = Rollout(
-        envs,
-        obs_space=obs_space,
-        action_space=action_space,
-        agent=agent,
-        value_function=value_function,
-        device=device,
-        tracer=tracer,
-    )
-
-    if cfg.eval is not None:
-        if cfg.eval.run_on_first_step:
-            next_eval_step: Optional[int] = 0
-        else:
-            next_eval_step = cfg.eval.interval
-    else:
-        next_eval_step = None
-
-    def _run_eval() -> None:
-        if cfg.eval is not None:
-            assert create_env is not None
-            assert agent is not None
-            run_eval(
-                cfg.eval,
-                cfg.env,
-                cfg.rollout,
-                env_cls,
-                create_env,
-                create_opponent or create_random_opponent,
-                agent,
-                device,
-                tracer,
-                writer,
-                rollout.global_step,
-            )
-
+    # TRY NOT TO MODIFY: start the game
+    global_step = 0
     start_time = time.time()
-    for update in range(1, num_updates + 1):
-        if (
-            cfg.eval is not None
-            and next_eval_step is not None
-            and rollout.global_step >= next_eval_step
-        ):
-            next_eval_step += cfg.eval.interval
-            _run_eval()
+    next_obs = envs.reset(obs_space)
+    next_done = torch.zeros(args.num_envs).to(device)
+    num_updates = args.total_timesteps // args.batch_size
 
+    entities: RaggedBatchDict[np.float32] = RaggedBatchDict(RaggedBufferF32)
+    action_masks = RaggedActionDict()
+    actions = RaggedBatchDict(RaggedBufferI64)
+    logprobs = RaggedBatchDict(RaggedBufferF32)
+
+    for update in range(1, num_updates + 1):
         tracer.start("update")
-        if (
-            cfg.max_train_time is not None
-            and time.time() - start_time >= cfg.max_train_time
-        ):
-            print("Max train time reached, stopping training.")
-            break
 
         # Annealing the rate if instructed to do so.
-        if cfg.optim.anneal_lr:
+        if args.anneal_lr:
             frac = 1.0 - (update - 1.0) / num_updates
-            if cfg.max_train_time is not None:
-                frac = min(
-                    frac, max(0, 1.0 - (time.time() - start_time) / cfg.max_train_time)
-                )
-            lrnow = frac * cfg.optim.lr
+            lrnow = frac * args.learning_rate
             optimizer.param_groups[0]["lr"] = lrnow
-            if vf_optimizer is not None:
-                vf_optimizer.param_groups[0]["lr"] = lrnow
 
         tracer.start("rollout")
+        entities.clear()
+        action_masks.clear()
+        actions.clear()
+        logprobs.clear()
+        total_episodic_return = 0.0
+        total_episodic_length = 0
+        total_episodes = 0
+        for step in range(0, args.num_steps):
+            global_step += 1 * args.num_envs
 
-        next_obs, next_done, metrics = rollout.run(
-            cfg.rollout.steps, record_samples=True, capture_logits=cfg.capture_logits
-        )
-        for name, value in metrics.items():
-            writer.add_scalar(name, value, rollout.global_step)
-        print(
-            f"global_step={rollout.global_step} {'  '.join(f'{name}={value}' for name, value in metrics.items())}"
-        )
+            entities.extend(next_obs.entities)
+            action_masks.extend(next_obs.action_masks)
+            dones[step] = next_done
 
-        values = rollout.values
-        actions = rollout.actions
-        entities = rollout.entities
-        action_masks = rollout.action_masks
-        logprobs = rollout.logprobs
-        global_step = rollout.global_step
+            # ALGO LOGIC: action logic
+            with torch.no_grad(), tracer.span("forward"):
+                (
+                    action,
+                    probs_tensor,
+                    _,
+                    actor_counts,
+                    aux,
+                ) = agent.get_action_and_auxiliary(
+                    next_obs.entities, next_obs.action_masks, tracer=tracer
+                )
+                logprob = tensor_dict_to_ragged(
+                    RaggedBufferF32, probs_tensor, actor_counts
+                )
+                values[step] = aux["value"].flatten()
+            actions.extend(action)
+            logprobs.extend(logprob)
+            if args.capture_samples:
+                with tracer.span("record_samples"):
+                    # TODO: fix
+                    """
+                    for i, o in enumerate(next_obs):
+                        sample_recorder.record(
+                            Sample(
+                                entities=o.entities,
+                                action_masks={
+                                    n: a.actors for n, a in o.action_masks.items()
+                                },
+                                # TODO: capture full logprobs, not just chosen action
+                                probabilities={
+                                    n: l.cpu().numpy() for n, l in logprob[i].items()
+                                },
+                                # TODO: actually want to capture returns, need to move after rollout
+                                reward=o.reward,
+                                step=curr_step[i],
+                                episode=episodes[i],
+                            )
+                        )
+                    """
 
-        with torch.no_grad(), tracer.span("advantages"):
-            returns, advantages = returns_and_advantages(
-                value_function or agent,
-                next_obs,
-                next_done,
-                rollout.rewards,
-                rollout.dones,
-                values,
-                cfg.ppo.gae,
-                cfg.ppo.gamma,
-                cfg.ppo.gae_lambda,
-                device,
-                tracer,
+            # Join all actions with corresponding `EntityID`s
+            with tracer.span("join_actions"):
+                _actions = []
+                for i, ids in enumerate(next_obs.ids):
+                    _action_dict: Dict[
+                        str, Union[CategoricalAction, SelectEntityAction]
+                    ] = {}
+                    for action_name, ragged_action_buffer in action.items():
+                        mask = next_obs.action_masks[action_name]
+                        _acts = ragged_action_buffer[i]
+                        _as = action_space[action_name]
+                        if isinstance(_as, CategoricalActionSpace):
+                            actor_action = [
+                                (ids[actor_idx], _act)
+                                for actor_idx, _act in zip(
+                                    mask.actors[i].as_array().reshape(-1),
+                                    _acts.as_array().reshape(-1),
+                                )
+                            ]
+                            _action_dict[action_name] = CategoricalAction(actor_action)
+                        elif isinstance(_as, SelectEntityActionSpace):
+                            assert isinstance(
+                                mask, SelectEntityActionMaskBatch
+                            ), f"Expected SelectEntityActionMaskBatch, got {type(mask)}"
+                            actees = mask.actees[i].as_array().flatten()
+                            actor_action = [
+                                (ids[actor_idx], ids[actees[actee_idx]])
+                                for actor_idx, actee_idx in zip(
+                                    mask.actors[i].as_array().reshape(-1),
+                                    _acts.as_array().reshape(-1),
+                                )
+                            ]
+                            _action_dict[action_name] = SelectEntityAction(actor_action)
+                    _actions.append(_action_dict)
+
+            # TRY NOT TO MODIFY: execute the game and log data.
+            with tracer.span("step"):
+                next_obs = envs.act(_actions, obs_space)
+            with tracer.span("reward_done_to_device"):
+                rewards[step] = torch.tensor(next_obs.reward).to(device).view(-1)
+                next_done = torch.tensor(next_obs.done).to(device).view(-1)
+
+            for eoei in next_obs.end_of_episode_info.values():
+                total_episodic_return += eoei.total_reward
+                total_episodic_length += eoei.length
+                total_episodes += 1
+
+            # TODO: reenable
+            """
+            if args.capture_samples:
+                for i, o in enumerate(next_obs):
+                    if o.done:
+                        episodes[i] = next_episode
+                        next_episode += 1
+                        curr_step[i] = 0
+                    else:
+                        curr_step[i] += 1
+            """
+
+        if total_episodes > 0:
+            avg_return = total_episodic_return / total_episodes
+            avg_length = total_episodic_length / total_episodes
+            writer.add_scalar(
+                "charts/episodic_return",
+                avg_return,
+                global_step,
             )
+            writer.add_scalar(
+                "charts/episodic_length",
+                avg_length,
+                global_step,
+            )
+            writer.add_scalar(
+                "charts/episodes",
+                total_episodes,
+                global_step,
+            )
+            print(
+                f"global_step={global_step}, episodic_return={avg_return}, episodic_length={avg_length}, episodes={total_episodes}"
+            )
+
+        # bootstrap value if not done
+        with torch.no_grad(), tracer.span("advantages"):
+            next_value = agent.get_value(next_obs.entities, tracer).reshape(1, -1)
+            if args.gae:
+                advantages = torch.zeros_like(rewards).to(device)
+                lastgaelam = 0
+                for t in reversed(range(args.num_steps)):
+                    if t == args.num_steps - 1:
+                        nextnonterminal = 1.0 - next_done.float()
+                        nextvalues = next_value
+                    else:
+                        nextnonterminal = 1.0 - dones[t + 1]
+                        nextvalues = values[t + 1]
+                    delta = (
+                        rewards[t]
+                        + args.gamma * nextvalues * nextnonterminal
+                        - values[t]
+                    )
+                    advantages[t] = lastgaelam = (
+                        delta
+                        + args.gamma * args.gae_lambda * nextnonterminal * lastgaelam
+                    )
+                returns = advantages + values
+            else:
+                returns = torch.zeros_like(rewards).to(device)
+                for t in reversed(range(args.num_steps)):
+                    if t == args.num_steps - 1:
+                        nextnonterminal = 1.0 - next_done
+                        next_return = next_value
+                    else:
+                        nextnonterminal = 1.0 - dones[t + 1]
+                        next_return = returns[t + 1]
+                    returns[t] = rewards[t] + args.gamma * nextnonterminal * next_return
+                advantages = returns - values
 
         # flatten the batch
         with tracer.span("flatten"):
             b_advantages = advantages.reshape(-1)
-            b_returns = returns.reshape(-1).detach()
-            b_values = values.reshape(-1).detach()
+            b_returns = returns.reshape(-1)
+            b_values = values.reshape(-1)
 
         tracer.end("rollout")
 
-        # Optimize the policy and value network
-        tracer.start("optimize")
-        frames = cfg.rollout.num_envs * cfg.rollout.steps
-        b_inds = np.arange(frames)
-        clipfracs = []
+        def dictcat(x: Dict[str, torch.Tensor]) -> torch.Tensor:
+            return torch.cat(list(x.values()))
 
-        for epoch in range(cfg.optim.update_epochs):
+        # Optimizaing the policy and value network
+        tracer.start("optimize")
+        b_inds = np.arange(args.batch_size)
+        clipfracs = []
+        for epoch in range(args.update_epochs):
             np.random.shuffle(b_inds)
-            for start in range(0, frames, cfg.optim.bs):
-                end = start + cfg.optim.bs
-                microbatch_size = (
-                    cfg.optim.micro_bs
-                    if cfg.optim.micro_bs is not None
-                    else cfg.optim.bs
-                )
+            for start in range(0, args.batch_size, args.minibatch_size):
+                end = start + args.minibatch_size
+                mb_inds = b_inds[start:end]
+
+                b_entities = entities[mb_inds]
+                b_action_masks = action_masks[mb_inds]
+                b_logprobs = logprobs[mb_inds]
+                b_actions = actions[mb_inds]
+
+                with tracer.span("forward"):
+                    _, newlogprob, entropy, _, aux = agent.get_action_and_auxiliary(
+                        b_entities,
+                        b_action_masks,
+                        prev_actions=b_actions,
+                        tracer=tracer,
+                    )
+                    newvalue = aux["value"]
+
+                with tracer.span("ratio"):
+                    logratio = {
+                        k: newlogprob[k]
+                        - torch.tensor(b_logprobs[k].as_array()).to(device)
+                        for k in newlogprob.keys()
+                    }
+                    ratio = {k: l.exp() for k, l in logratio.items()}
+
+                with torch.no_grad(), tracer.span("kl"):
+                    # calculate approx_kl http://joschu.net/blog/kl-approx.html
+                    # old_approx_kl = (-logratio).mean()
+                    # TODO: mean across everything rather than nested mean? or do summation over different actions?
+                    approx_kl = torch.tensor(
+                        [
+                            ((_ratio - 1) - _logratio).mean()
+                            for (_ratio, _logratio) in zip(
+                                ratio.values(), logratio.values()
+                            )
+                        ]
+                    ).mean()
+                    clipfracs += [
+                        torch.tensor(
+                            [
+                                ((_ratio - 1.0).abs() > args.clip_coef)
+                                .float()
+                                .mean()
+                                .item()
+                                for _ratio in ratio.values()
+                            ]
+                        ).mean()
+                    ]
+
+                mb_advantages = b_advantages[mb_inds]
+                if args.norm_adv:
+                    assert (
+                        len(mb_advantages) > 1
+                    ), "Can't normalize advantages with minibatch size 1"
+                    mb_advantages = (mb_advantages - mb_advantages.mean()) / (
+                        mb_advantages.std() + 1e-8
+                    )
+
+                # TODO: we can elide the index op and get better performance when there is exactly one actor per action
+                # TODO: we can reuse the mb_advantages across all actions that have the same number of actors
+                # TODO: what's the correct way of combining loss from multiple actions/actors on the same timestep? should we split the advantages across actions/actors?
+                with tracer.span("broadcast_advantages"):
+                    # Brodcast the advantage value from each timestep to all actors/actions on that timestep
+                    bc_mb_advantages = {
+                        action_name: mb_advantages[
+                            torch.tensor(
+                                _b_logprobs.indices(dim=0).as_array().flatten()
+                            ).to(device),
+                        ]
+                        for action_name, _b_logprobs in b_logprobs.items()
+                    }
+
+                # Policy loss
+                with tracer.span("policy_loss"):
+                    pg_loss1 = torch.cat(
+                        [
+                            -_advantages * _ratio.flatten()
+                            for _advantages, _ratio in zip(
+                                bc_mb_advantages.values(), ratio.values()
+                            )
+                        ]
+                    )
+                    pg_loss2 = torch.cat(
+                        [
+                            -_advantages
+                            * torch.clamp(
+                                _ratio.flatten(), 1 - args.clip_coef, 1 + args.clip_coef
+                            )
+                            for _advantages, _ratio in zip(
+                                bc_mb_advantages.values(), ratio.values()
+                            )
+                        ]
+                    )
+                    pg_loss = torch.max(pg_loss1, pg_loss2).mean()
+
+                # Value loss
+                with tracer.span("value_loss"):
+                    newvalue = newvalue.view(-1)
+                    if args.clip_vloss:
+                        v_loss_unclipped = (newvalue - b_returns[mb_inds]) ** 2
+                        v_clipped = b_values[mb_inds] + torch.clamp(
+                            newvalue - b_values[mb_inds],
+                            -args.clip_coef,
+                            args.clip_coef,
+                        )
+                        v_loss_clipped = (v_clipped - b_returns[mb_inds]) ** 2
+                        v_loss_max = torch.max(v_loss_unclipped, v_loss_clipped)
+                        v_loss = 0.5 * v_loss_max.mean()
+                    else:
+                        v_loss = 0.5 * ((newvalue - b_returns[mb_inds]) ** 2).mean()
+
+                # TODO: what's correct way of combining entropy loss from multiple actions/actors on the same timestep?
+                entropy_loss = torch.cat([e for e in entropy.values()]).mean()
+                loss = pg_loss - args.ent_coef * entropy_loss + v_loss * args.vf_coef
 
                 optimizer.zero_grad()
-                if vf_optimizer is not None:
-                    vf_optimizer.zero_grad()
-                for _start in range(start, end, microbatch_size):
-                    _end = _start + microbatch_size
-                    mb_inds = b_inds[_start:_end]
-
-                    b_entities = entities[mb_inds]
-                    b_action_masks = action_masks[mb_inds]
-                    b_logprobs = logprobs[mb_inds]
-                    b_actions = actions[mb_inds]
-                    mb_advantages = b_advantages[mb_inds]  # type: ignore
-
-                    with tracer.span("forward"):
-                        (
-                            _,
-                            newlogprob,
-                            entropy,
-                            _,
-                            aux,
-                            _,
-                        ) = agent.get_action_and_auxiliary(
-                            b_entities,
-                            b_action_masks,
-                            prev_actions=b_actions,
-                            tracer=tracer,
-                        )
-                        if value_function is None:
-                            newvalue = aux["value"]
-                        else:
-                            newvalue = value_function.get_auxiliary_head(
-                                b_entities, "value", tracer=tracer
-                            )
-
-                    pg_loss, clipfrac, approx_kl = ppo_loss(
-                        cfg.ppo, newlogprob, b_logprobs, mb_advantages, device, tracer
-                    )
-                    clipfracs += [clipfrac]
-
-                    v_loss = value_loss(
-                        cfg.ppo,
-                        newvalue,
-                        b_returns[mb_inds],  # type: ignore
-                        b_values[mb_inds],  # type: ignore
-                        tracer,
-                    )
-
-                    # TODO: what's correct way of combining entropy loss from multiple actions/actors on the same timestep?
-                    if cfg.ppo.anneal_entropy:
-                        frac = 1.0 - (update - 1.0) / num_updates
-                        if cfg.max_train_time is not None:
-                            frac = min(
-                                frac,
-                                max(
-                                    0,
-                                    1.0
-                                    - (time.time() - start_time) / cfg.max_train_time,
-                                ),
-                            )
-                        ent_coef = frac * cfg.ppo.ent_coef
-                    else:
-                        ent_coef = cfg.ppo.ent_coef
-                    entropy_loss = torch.cat([e for e in entropy.values()]).mean()
-                    loss = pg_loss - ent_coef * entropy_loss + v_loss * cfg.ppo.vf_coef
-                    loss *= microbatch_size / cfg.optim.bs
-
-                    with tracer.span("backward"):
-                        loss.backward()
+                with tracer.span("backward"):
+                    loss.backward()
                 gradnorm = nn.utils.clip_grad_norm_(
-                    agent.parameters(), cfg.optim.max_grad_norm
+                    agent.parameters(), args.max_grad_norm
                 )
                 optimizer.step()
-                if value_function is not None:
-                    vf_gradnorm = nn.utils.clip_grad_norm_(
-                        value_function.parameters(), cfg.optim.max_grad_norm
-                    ).item()
-                else:
-                    vf_gradnorm = 0.0
-                if vf_optimizer is not None:
-                    vf_optimizer.step()
 
-            if cfg.ppo.target_kl is not None:
-                if approx_kl > cfg.ppo.target_kl:
+            if args.target_kl is not None:
+                if approx_kl > args.target_kl:
                     break
 
-        if cfg.cuda_empty_cache:
-            torch.cuda.empty_cache()
         tracer.end("optimize")
 
         tracer.start("metrics")
@@ -402,7 +615,6 @@ def train(
         writer.add_scalar(
             "charts/learning_rate", optimizer.param_groups[0]["lr"], global_step
         )
-        writer.add_scalar("charts/entropy_coef", ent_coef, global_step)
         writer.add_scalar("losses/value_loss", v_loss.item(), global_step)
         writer.add_scalar("losses/policy_loss", pg_loss.item(), global_step)
         writer.add_scalar("losses/entropy", entropy_loss.item(), global_step)
@@ -410,17 +622,16 @@ def train(
         writer.add_scalar("losses/clipfrac", np.mean(clipfracs), global_step)
         writer.add_scalar("losses/explained_variance", explained_var, global_step)
         writer.add_scalar("losses/gradnorm", gradnorm, global_step)
-        writer.add_scalar("losses/vf_gradnorm", vf_gradnorm, global_step)
+        writer.add_scalar("meanrew", rewards.mean().item(), global_step)
         for action_name, space in action_space.items():
             if isinstance(space, CategoricalActionSpace):
-                _actions = actions.buffers[action_name].as_array().flatten()
-                if len(_actions) > 0:
-                    for i, label in enumerate(space.choices):
-                        writer.add_scalar(
-                            "actions/{}/{}".format(action_name, label),
-                            np.sum(_actions == i).item() / len(_actions),
-                            global_step,
-                        )
+                choices = actions.buffers[action_name].as_array().flatten()
+                for i, label in enumerate(space.choices):
+                    writer.add_scalar(
+                        "actions/{}/{}".format(action_name, label),
+                        np.sum(choices == i).item() / len(choices),
+                        global_step,
+                    )
         print("SPS:", int(global_step / (time.time() - start_time)))
         writer.add_scalar(
             "charts/SPS", int(global_step / (time.time() - start_time)), global_step
@@ -431,23 +642,14 @@ def train(
         for callstack, timing in traces.items():
             writer.add_scalar(f"trace/{callstack}", timing, global_step)
 
-    if cfg.eval is not None:
-        _run_eval()
-
-    envs.close()
+    # envs.close()
+    if args.capture_samples:
+        sample_recorder.close()
     writer.close()
 
-    return rollout.rewards.mean().item()
-
-
-def _train(cfg: TrainConfig) -> float:
-    return train(cfg, ENV_REGISTRY[cfg.env.id])
-
-
-@hyperstate.command(TrainConfig)
-def _main(cfg: TrainConfig) -> None:
-    _train(cfg)
+    return rewards.mean().item()
 
 
 if __name__ == "__main__":
-    _main()
+    args = parse_args()
+    train(args)

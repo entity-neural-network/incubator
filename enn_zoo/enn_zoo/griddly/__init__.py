@@ -1,19 +1,10 @@
 import os
-import types
+from abc import abstractmethod
+from typing import Tuple, Type, Dict, Optional, Any
 
-import numpy as np
-from typing import Tuple, Type, Dict, Optional, Any, Callable
-
-from enn_zoo.griddly.level_generators.clusters_generator import ClustersLevelGenerator
-from enn_zoo.griddly.level_generators.level_generator import LevelGenerator
 from enn_zoo.griddly.wrapper import GriddlyEnv
-from entity_gym.environment import (
-    ActionSpace,
-    ObsSpace,
-    Entity,
-    CategoricalActionSpace,
-    Observation,
-)
+from entity_gym.environment import ActionSpace, ObsSpace, Entity, CategoricalActionSpace
+from entity_gym.environment import Environment
 from griddly import GymWrapper, gd
 
 init_path = os.path.dirname(os.path.realpath(__file__))
@@ -28,7 +19,7 @@ def generate_obs_space(env: Any) -> ObsSpace:
     space = {"__global__": Entity(global_variables)}
     for name in env.object_names:
         space[name] = Entity(
-            ["x", "y", "z", "ox", "oy", "player_id", *object_variable_map[name]]
+            ["x", "y", "z", "orientation", "player_id", *object_variable_map[name]]
         )
 
     return ObsSpace(space)
@@ -60,8 +51,6 @@ def create_env(
     image_path: Optional[str] = None,
     shader_path: Optional[str] = None,
     level: int = 0,
-    random_levels: bool = False,
-    level_generator: Optional[LevelGenerator] = None,
 ) -> Type[GriddlyEnv]:
     """
     In order to fit the API for the Environment, we need to pre-load the environment from the yaml and then pass in
@@ -74,7 +63,6 @@ def create_env(
     env.reset()
     action_space = generate_action_space(env)
     observation_space = generate_obs_space(env)
-    level_count = env.level_count
     env.close()
 
     class InstantiatedGriddlyEnv(GriddlyEnv):
@@ -85,7 +73,7 @@ def create_env(
                 image_path=image_path,
                 shader_path=shader_path,
                 player_observer_type=gd.ObserverType.NONE,
-                global_observer_type=gd.ObserverType.BLOCK_2D,
+                global_observer_type=gd.ObserverType.NONE,
                 level=level,
             )
 
@@ -97,179 +85,13 @@ def create_env(
         def action_space(cls) -> Dict[str, ActionSpace]:
             return action_space
 
-        def reset(self) -> Observation:
-            if random_levels:
-                random_level = np.random.choice(level_count)
-                self._env.reset(level_id=random_level)
-            elif isinstance(level_generator, LevelGenerator):
-                level_string = level_generator.generate()
-                self._env.reset(level_string=level_string)
-            else:
-                self._env.reset()
-
-            self.total_reward = 0
-            self.step = 0
-
-            return self._make_observation()
-
     return InstantiatedGriddlyEnv
 
 
-GRIDDLY_ENVS: Dict[str, Dict[str, Any]] = {
-    "GDY-Clusters-Multi-Generated-Small": {
-        "yaml_file": os.path.join(init_path, "env_descriptions/clusters_entities.yaml"),
-        "level_generator": ClustersLevelGenerator(
-            {
-                "width": 10,
-                "height": 10,
-                "p_red": 1.0,
-                "p_green": 1.0,
-                "p_blue": 1.0,
-                "m_red": 5,
-                "m_blue": 5,
-                "m_green": 5,
-                "m_spike": 5,
-                "walls": False,
-                "avatar": False,
-            }
-        ),
-    },
-    "GDY-Clusters-Multi-Generated-Medium": {
-        "yaml_file": os.path.join(init_path, "env_descriptions/clusters_entities.yaml"),
-        "level_generator": ClustersLevelGenerator(
-            {
-                "width": 20,
-                "height": 20,
-                "p_red": 1.0,
-                "p_green": 1.0,
-                "p_blue": 1.0,
-                "m_red": 10,
-                "m_blue": 10,
-                "m_green": 10,
-                "m_spike": 10,
-                "walls": False,
-                "avatar": False,
-            }
-        ),
-    },
-    "GDY-Clusters-Multi-Generated-Large": {
-        "yaml_file": os.path.join(init_path, "env_descriptions/clusters_entities.yaml"),
-        "level_generator": ClustersLevelGenerator(
-            {
-                "width": 50,
-                "height": 50,
-                "p_red": 1.0,
-                "p_green": 1.0,
-                "p_blue": 1.0,
-                "m_red": 20,
-                "m_blue": 20,
-                "m_green": 20,
-                "m_spike": 20,
-                "walls": False,
-                "avatar": False,
-            }
-        ),
-    },
-    "GDY-Clusters-Multi-All": {
-        "yaml_file": os.path.join(init_path, "env_descriptions/clusters_entities.yaml"),
-        "random_levels": True,
-    },
-    "GDY-Clusters-Multi-0": {
-        "yaml_file": os.path.join(init_path, "env_descriptions/clusters_entities.yaml"),
-        "level": 0,
-    },
-    "GDY-Clusters-Multi-1": {
-        "yaml_file": os.path.join(init_path, "env_descriptions/clusters_entities.yaml"),
-        "level": 1,
-    },
-    "GDY-Clusters-Multi-2": {
-        "yaml_file": os.path.join(init_path, "env_descriptions/clusters_entities.yaml"),
-        "level": 2,
-    },
-    "GDY-Clusters-Multi-3": {
-        "yaml_file": os.path.join(init_path, "env_descriptions/clusters_entities.yaml"),
-        "level": 3,
-    },
-    "GDY-Clusters-Multi-4": {
-        "yaml_file": os.path.join(init_path, "env_descriptions/clusters_entities.yaml"),
-        "level": 4,
-    },
-    "GDY-Clusters-Generated-Small": {
-        "yaml_file": os.path.join(init_path, "env_descriptions/clusters.yaml"),
-        "level_generator": ClustersLevelGenerator(
-            {
-                "width": 10,
-                "height": 10,
-                "p_red": 1.0,
-                "p_green": 1.0,
-                "p_blue": 1.0,
-                "m_red": 5,
-                "m_blue": 5,
-                "m_green": 5,
-                "m_spike": 5,
-                "walls": False,
-                "avatar": True,
-            }
-        ),
-    },
-    "GDY-Clusters-Generated-Medium": {
-        "yaml_file": os.path.join(init_path, "env_descriptions/clusters.yaml"),
-        "level_generator": ClustersLevelGenerator(
-            {
-                "width": 20,
-                "height": 20,
-                "p_red": 1.0,
-                "p_green": 1.0,
-                "p_blue": 1.0,
-                "m_red": 10,
-                "m_blue": 10,
-                "m_green": 10,
-                "m_spike": 10,
-                "walls": False,
-                "avatar": True,
-            }
-        ),
-    },
-    "GDY-Clusters-Generated-Large": {
-        "yaml_file": os.path.join(init_path, "env_descriptions/clusters.yaml"),
-        "level_generator": ClustersLevelGenerator(
-            {
-                "width": 50,
-                "height": 50,
-                "p_red": 1.0,
-                "p_green": 1.0,
-                "p_blue": 1.0,
-                "m_red": 20,
-                "m_blue": 20,
-                "m_green": 20,
-                "m_spike": 20,
-                "walls": False,
-                "avatar": True,
-            }
-        ),
-    },
-    "GDY-Clusters-All": {
-        "yaml_file": os.path.join(init_path, "env_descriptions/clusters.yaml"),
-        "random_levels": True,
-    },
-    "GDY-Clusters-0": {
-        "yaml_file": os.path.join(init_path, "env_descriptions/clusters.yaml"),
-        "level": 0,
-    },
-    "GDY-Clusters-1": {
-        "yaml_file": os.path.join(init_path, "env_descriptions/clusters.yaml"),
-        "level": 1,
-    },
-    "GDY-Clusters-2": {
-        "yaml_file": os.path.join(init_path, "env_descriptions/clusters.yaml"),
-        "level": 2,
-    },
-    "GDY-Clusters-3": {
-        "yaml_file": os.path.join(init_path, "env_descriptions/clusters.yaml"),
-        "level": 3,
-    },
-    "GDY-Clusters-4": {
-        "yaml_file": os.path.join(init_path, "env_descriptions/clusters.yaml"),
-        "level": 4,
-    },
+GRIDDLY_ENVS: Dict[str, Tuple[str, int]] = {
+    "GDY-Clusters-0": (os.path.join(init_path, "env_descriptions/clusters.yaml"), 0),
+    "GDY-Clusters-1": (os.path.join(init_path, "env_descriptions/clusters.yaml"), 1),
+    "GDY-Clusters-2": (os.path.join(init_path, "env_descriptions/clusters.yaml"), 2),
+    "GDY-Clusters-3": (os.path.join(init_path, "env_descriptions/clusters.yaml"), 3),
+    "GDY-Clusters-4": (os.path.join(init_path, "env_descriptions/clusters.yaml"), 4),
 }

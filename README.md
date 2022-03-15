@@ -11,10 +11,6 @@ Collection of in-progress libraries for entity neural networks: [Neural Network 
 - [ENN-Zoo](enn_zoo): Collection of entity gym bindings for different environments.
 - [ENN-BC](enn_bc): Supervised training loop on behavioral cloning datasets collected from entity-gym policies.
 
-## Contributing
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for pointers on how to contribute.
-
 ## License
 
 All ENN Incubator projects are dual-licensed under Apache-2.0 and MIT.

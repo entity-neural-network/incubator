@@ -1,6 +1,6 @@
 from abc import abstractmethod
-from typing import Mapping, Dict, Any
-from entity_gym.environment.environment import CategoricalAction
+from collections import defaultdict
+from typing import Mapping, Dict, Set, Tuple, Any
 
 import numpy as np
 from entity_gym.environment import (
@@ -9,11 +9,11 @@ from entity_gym.environment import (
     Observation,
     ActionSpace,
     EpisodeStats,
-    CategoricalActionMask,
+    DenseCategoricalActionMask,
     ObsSpace,
+    ActionMask,
 )
-
-import numpy.typing as npt
+from griddly import GymWrapper
 
 
 class GriddlyEnv(Environment):
@@ -48,33 +48,12 @@ class GriddlyEnv(Environment):
 
     def _to_griddly_action(self, action: Mapping[str, Action]) -> np.ndarray:
 
-        if len(self._env.action_space_parts) > 2:
-            entity_actions = []
-            for action_name, a in action.items():
-                action_type = self._env.action_names.index(action_name)
-                for entity_id, action_id in a.items():
-                    entity_location = self.entity_locations[entity_id]
-                    entity_actions.append(
-                        np.array(
-                            [
-                                entity_location[0],
-                                entity_location[1],
-                                action_type,
-                                action_id,
-                            ]
-                        )
-                    )
+        for action_name, a in action.items():
+            action_type = self._env.action_names.index(action_name)
+            # TODO: this only works if we have a single entity, otherwise we have to map the entityID to an x,y coordinate
+            action_id = a.actions[0][1]
 
-            return np.stack(entity_actions)
-        else:
-
-            for action_name, a in action.items():
-                action_type = self._env.action_names.index(action_name)
-                assert isinstance(a, CategoricalAction)
-                # TODO: this only works if we have a single entity, otherwise we have to map the entityID to an x,y coordinate
-                action_id = a.actions[0]
-
-            return np.array([action_type, action_id])
+        return np.array([action_type, action_id])
 
     def _make_observation(self, reward: int = 0, done: bool = False) -> Observation:
         griddly_entity_observation = self._entity_observer.observe(1)
@@ -82,23 +61,21 @@ class GriddlyEnv(Environment):
         entity_ids = griddly_entity_observation["EntityIds"]
         entity_masks = griddly_entity_observation["EntityMasks"]
 
-        self.entity_locations = griddly_entity_observation["EntityLocations"]
-
         entities = {
             name: np.array(obs, dtype=np.float32) for name, obs in entities.items()
         }
 
         action_masks = {}
         for action_name, entity_mask in entity_masks.items():
-            action_masks[action_name] = CategoricalActionMask(
-                actor_ids=entity_mask["ActorEntityIds"],
-                mask=np.array(entity_mask["Masks"]).astype(np.bool_),
+            action_masks[action_name] = DenseCategoricalActionMask(
+                actors=np.array(entity_mask["ActorIdx"]),
+                mask=np.array(entity_mask["Masks"], dtype=np.float32),
             )
 
         return Observation(
-            features=entities,
+            entities=entities,
             ids=entity_ids,
-            actions=action_masks,
+            action_masks=action_masks,
             reward=reward,
             done=done,
             end_of_episode_info=EpisodeStats(self.step, self.total_reward)
@@ -106,7 +83,7 @@ class GriddlyEnv(Environment):
             else None,
         )
 
-    def reset(self) -> Observation:
+    def _reset(self) -> Observation:
         self._env.reset()
 
         self.total_reward = 0
@@ -114,7 +91,7 @@ class GriddlyEnv(Environment):
 
         return self._make_observation()
 
-    def act(self, action: Mapping[str, Action]) -> Observation:
+    def _act(self, action: Mapping[str, Action]) -> Observation:
         g_action = self._to_griddly_action(action)
         _, reward, done, info = self._env.step(g_action)
 
@@ -122,6 +99,3 @@ class GriddlyEnv(Environment):
         self.step += 1
 
         return self._make_observation(reward, done)
-
-    def render(self, **kwargs: Any) -> npt.NDArray[np.uint8]:
-        return self._env.render(**kwargs, observer="global")  # type: ignore
