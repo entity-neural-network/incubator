@@ -389,6 +389,8 @@ def train(
                 if approx_kl > cfg.ppo.target_kl:
                     break
 
+        if cfg.cuda_empty_cache:
+            torch.cuda.empty_cache()
         tracer.end("optimize")
 
         tracer.start("metrics")

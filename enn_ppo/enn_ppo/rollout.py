@@ -138,7 +138,9 @@ class Rollout:
                         next_obs.features, "value", tracer=self.tracer
                     )
 
-                self.values[step] = value.flatten()
+                # Need to detach here because bug in pytorch that otherwise causes spurious autograd errors and memory leaks when dedicated value function network is used.
+                # possibly same cause as this: https://github.com/pytorch/pytorch/issues/71495
+                self.values[step] = value.detach().flatten()
                 self.actions.extend(action)
                 self.logprobs.extend(logprob)
 

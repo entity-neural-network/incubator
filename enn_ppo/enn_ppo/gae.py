@@ -54,4 +54,6 @@ def returns_and_advantages(
                 next_return = returns[t + 1]
             returns[t] = rewards[t] + gamma * nextnonterminal * next_return
         advantages = returns - values
-    return returns, advantages
+    # Need to detach here because bug in pytorch that otherwise causes spurious autograd errors and memory leaks when dedicated value function network is used.
+    # possibly same cause as this: https://github.com/pytorch/pytorch/issues/71495
+    return returns.detach(), advantages.detach()
