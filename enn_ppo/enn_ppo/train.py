@@ -283,8 +283,8 @@ def train(
         # flatten the batch
         with tracer.span("flatten"):
             b_advantages = advantages.reshape(-1)
-            b_returns = returns.reshape(-1)
-            b_values = values.reshape(-1)
+            b_returns = returns.reshape(-1).detach()
+            b_values = values.reshape(-1).detach()
 
         tracer.end("rollout")
 
