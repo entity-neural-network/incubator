@@ -5,15 +5,17 @@ import json
 from typing import Mapping, Optional
 from enn_ppo.agent import PPOAgent
 from enn_ppo.train import train
-from enn_zoo import griddly
+from enn_zoo import griddly_envs
 import hyperstate
 import enn_ppo.config as config
 from entity_gym.environment import *
 from entity_gym.examples import ENV_REGISTRY
-from enn_zoo.griddly import GRIDDLY_ENVS
+from enn_zoo.griddly_envs import GRIDDLY_ENVS
 from enn_zoo.codecraft.cc_vec_env import codecraft_env_class, CodeCraftVecEnv
 from enn_zoo.codecraft.codecraftnet.adapter import CCNetAdapter
 from enn_zoo.microrts import GymMicrorts
+from enn_zoo import vizdoom_envs
+from enn_zoo.vizdoom_envs import VIZDOOM_ENVS
 
 
 @dataclass
@@ -53,12 +55,14 @@ def main(cfg: TrainConfig) -> None:
     if cfg.env.id in ENV_REGISTRY:
         env_cls = ENV_REGISTRY[cfg.env.id]
     elif cfg.env.id in GRIDDLY_ENVS:
-        env_cls = griddly.create_env(**GRIDDLY_ENVS[cfg.env.id])
+        env_cls = griddly_envs.create_env(**GRIDDLY_ENVS[cfg.env.id])
     elif cfg.env.id == "CodeCraft":
         objective = json.loads(cfg.env.kwargs).get("objective", "ALLIED_WEALTH")
         env_cls = codecraft_env_class(objective)
     elif cfg.env.id == "GymMicrorts":
         env_cls = GymMicrorts
+    elif cfg.env.id in VIZDOOM_ENVS:
+        env_cls = vizdoom_envs.create_vizdoom_env(VIZDOOM_ENVS[cfg.env.id])
     else:
         raise KeyError(
             f"Unknown gym_id: {cfg.env.id}\nAvailable environments: {list(ENV_REGISTRY.keys()) + list(GRIDDLY_ENVS.keys()) + ['CodeCraft']}"

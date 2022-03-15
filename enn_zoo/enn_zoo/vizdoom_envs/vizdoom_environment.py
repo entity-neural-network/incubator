@@ -1,11 +1,11 @@
 import numpy as np
-from typing import List, Dict, Type
+from typing import List, Dict, Type, Mapping
 
 import vizdoom as vzd
 
 from entity_gym.environment import (
     CategoricalAction,
-    DenseCategoricalActionMask,
+    CategoricalActionMask,
     Entity,
     Environment,
     CategoricalActionSpace,
@@ -28,28 +28,6 @@ FORCED_GAME_VARIABLES: List = [
     vzd.GameVariable.ANGLE,
     vzd.GameVariable.PITCH,
 ]
-
-# Map GameVariables to functions that take in
-# said GameVariable and return something more
-# convenient for networks (one-hots, in range [0,1],
-# etc)
-# TODO removed for now (entity gym has normalization, I guess?)
-# GAME_VARIABLE_PROCESSOR = {
-#    vzd.GameVariable.HEALTH: lambda health: min(health, 200) / 100,
-#    vzd.GameVariable.ARMOR: lambda armor: min(armor, 200) / 200,
-#    vzd.GameVariable.SELECTED_WEAPON_AMMO: lambda ammo: int(ammo > 0),
-#    vzd.GameVariable.SELECTED_WEAPON: lambda weapon: weapon,
-#    vzd.GameVariable.AMMO0: lambda ammo: int(ammo > 0),
-#    vzd.GameVariable.AMMO1: lambda ammo: int(ammo > 0),
-#    vzd.GameVariable.AMMO2: lambda ammo: int(ammo > 0),
-#    vzd.GameVariable.AMMO3: lambda ammo: int(ammo > 0),
-#    vzd.GameVariable.AMMO4: lambda ammo: int(ammo > 0),
-#    vzd.GameVariable.AMMO5: lambda ammo: int(ammo > 0),
-#    vzd.GameVariable.AMMO6: lambda ammo: int(ammo > 0),
-#    vzd.GameVariable.AMMO7: lambda ammo: int(ammo > 0),
-#    vzd.GameVariable.AMMO8: lambda ammo: int(ammo > 0),
-#    vzd.GameVariable.AMMO9: lambda ammo: int(ammo > 0),
-# }
 
 
 class DoomEntityEnvironment(Environment):
@@ -112,7 +90,7 @@ class DoomEntityEnvironment(Environment):
                 self._action_space[action] = CategoricalActionSpace(DELTA_SPEED_STEPS_STRS)
             else:
                 self._action_space[action] = CategoricalActionSpace(["off", "on"])
-            self._action_mask[action] = DenseCategoricalActionMask(actors=np.array([0]), mask=None)
+            self._action_mask[action] = CategoricalActionMask(actor_ids=np.array([0]), mask=None)
 
     def obs_space(self) -> ObsSpace:
         return self._observation_space
@@ -130,12 +108,12 @@ class DoomEntityEnvironment(Environment):
             dtype=np.float32
         )
         return Observation(
-            entities={
+            features={
                 "Player": game_variable_list,
                 "Objects": object_list,
             },
-            ids=[0],
-            action_masks=self._action_mask,
+            ids={"Player": [0]},
+            actions=self._action_mask,
             reward=reward,
             done=terminal,
             end_of_episode_info=EpisodeStats(
@@ -147,15 +125,15 @@ class DoomEntityEnvironment(Environment):
     def _enn_action_to_doom(self, action):
         doom_action = [0 for _ in range(len(self._available_buttons))]
         for i, button in enumerate(self._available_buttons):
-            # First select player (only a single one), then selects its action
-            button_action = action[button.name].actions[0][1]
+            # There is only one actor (player)
+            button_action = action[button.name].actions[0]
             if "DELTA" in button.name:
                 doom_action[i] = DELTA_SPEED_STEPS[button_action]
             else:
                 doom_action[i] = button_action
         return doom_action
 
-    def _act(self, action):
+    def act(self, action: Mapping[str, Action]) -> Observation:
         # TODO update
         doom_action = self._enn_action_to_doom(action)
         reward = self._doomgame.make_action(doom_action, self._frame_skip)
@@ -187,7 +165,7 @@ class DoomEntityEnvironment(Environment):
         self._init_done = True
         self._doomgame.init()
 
-    def _reset(self):
+    def reset(self) -> Observation:
         if not self._init_done:
             self.initialize()
         self._doomgame.new_episode()
