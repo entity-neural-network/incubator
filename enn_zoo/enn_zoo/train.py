@@ -111,6 +111,9 @@ def main(cfg: TrainConfig) -> None:
             env_cls=env_cls,
             agent=agent,
             create_env=create_cc_env if cfg.env.id == "CodeCraft" else None,
+            create_opponent=load_codecraft_policy
+            if cfg.env.id == "CodeCraft"
+            else None,
         )
 
 

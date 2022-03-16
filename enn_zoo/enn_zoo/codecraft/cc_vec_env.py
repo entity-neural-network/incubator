@@ -22,7 +22,7 @@ from entity_gym.environment.environment import (
 )
 from entity_gym.environment.vec_env import VecCategoricalActionMask, VecObs
 
-from .maps import map_allied_wealth, map_arena_tiny, map_enhanced
+from .maps import map_allied_wealth, map_arena_tiny, map_arena_tiny_2v2, map_enhanced
 
 LAST_OBS = {}
 VERIFY = False
@@ -376,6 +376,10 @@ class CodeCraftVecEnv(VecEnv):
                 tiles=5,
                 num_builds=1 + len(objective.extra_builds()),
             )
+        elif objective == Objective.ARENA_TINY_2V2:
+            self.obs_config = ObsConfig(
+                allies=2, drones=4, minerals=1, tiles=0, num_builds=1
+            )
         else:
             raise NotImplementedError()
         self.hardness = hardness
@@ -419,6 +423,9 @@ class CodeCraftVecEnv(VecEnv):
         elif objective == Objective.ARENA_TINY:
             self.custom_map = map_arena_tiny
             self.game_length = 1 * 60 * 60
+        elif objective == Objective.ARENA_TINY_2V2:
+            self.game_length = 1 * 30 * 60
+            self.custom_map = map_arena_tiny_2v2
         elif objective == Objective.ENHANCED:
             self.game_length = 3 * 60 * 60
             self.custom_map = map_enhanced

@@ -65,6 +65,47 @@ def map_arena_tiny(
     }
 
 
+def map_arena_tiny_2v2(
+    randomize: bool, hardness: int, require_default_mothership: bool
+) -> Dict[str, Any]:
+    s1 = 1
+    s2 = 1
+    if randomize:
+        s1 = np.random.randint(0, 2)
+        s2 = np.random.randint(0, 2)
+    return {
+        "mapWidth": 1500,
+        "mapHeight": 1500,
+        "minerals": [],
+        "player1Drones": [
+            drone_dict(
+                np.random.randint(-450, 450),
+                np.random.randint(-450, 450),
+                missile_batteries=1 - s1,
+                shield_generators=s1,
+            ),
+            drone_dict(
+                np.random.randint(-450, 450),
+                np.random.randint(-450, 450),
+                missile_batteries=1,
+            ),
+        ],
+        "player2Drones": [
+            drone_dict(
+                np.random.randint(-450, 450),
+                np.random.randint(-450, 450),
+                missile_batteries=1 - s2,
+                shield_generators=s2,
+            ),
+            drone_dict(
+                np.random.randint(-450, 450),
+                np.random.randint(-450, 450),
+                missile_batteries=1,
+            ),
+        ],
+    }
+
+
 def drone_dict(
     x: int,
     y: int,
