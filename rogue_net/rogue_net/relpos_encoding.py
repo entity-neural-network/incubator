@@ -26,6 +26,7 @@ class RelposEncodingConfig:
         distance: Buckets all relative positions by their distance. The `extent` is interpreted as the number of buckets.
         rotation_vec_features: Name of features that give a unit orientation vector for each entity by which to rotate relative positions.
         rotation_angle_feature: Name of feature that gives an angle in radians by which to rotate relative positions.
+        interpolate: Whether to interpolate between the embeddings of neighboring positions.
     """
 
     extent: List[int]
@@ -40,6 +41,7 @@ class RelposEncodingConfig:
     distance: bool = False
     rotation_vec_features: Optional[List[str]] = None
     rotation_angle_feature: Optional[str] = None
+    interpolate: bool = False
 
     def __post_init__(self) -> None:
         if self.radial:
@@ -174,18 +176,45 @@ class RelposEncoding(nn.Module, RelposEncodingConfig):
             if self.radial
             else None
         )
-        indices = self._partition(relative_positions, torientation)
 
-        # Batch x Seq x Seq x d_model
-        keys = self.keys(indices)
+        if self.interpolate:
+            indices_weights = self._interpolated_partition(
+                relative_positions, torientation
+            )
 
-        if self.per_entity_values:
-            per_entity_type_indices = indices + (
-                entity_type * self.positions
-            ).transpose(2, 1).long().repeat(1, indices.size(2), 1)
+            keys: torch.Tensor = sum(  # type: ignore
+                self.keys(indices) * weights.unsqueeze(-1)
+                for indices, weights in indices_weights
+            )
+            if self.per_entity_values:
+                per_entity_indices_weights = [
+                    (
+                        indices
+                        + (entity_type * self.positions)
+                        .transpose(2, 1)
+                        .long()
+                        .repeat(1, indices.size(2), 1),
+                        weights,
+                    )
+                    for indices, weights in indices_weights
+                ]
+            else:
+                per_entity_indices_weights = indices_weights
+            values: torch.Tensor = sum(  # type: ignore
+                self.values(indices) * weights.unsqueeze(-1)
+                for indices, weights in per_entity_indices_weights
+            )
         else:
-            per_entity_type_indices = indices
-        values = self.values(per_entity_type_indices)
+            indices = self._partition(relative_positions, torientation)
+            # Batch x Seq x Seq x d_model
+            keys = self.keys(indices)
+            if self.per_entity_values:
+                per_entity_type_indices = indices + (
+                    entity_type * self.positions
+                ).transpose(2, 1).long().repeat(1, indices.size(2), 1)
+            else:
+                per_entity_type_indices = indices
+            values = self.values(per_entity_type_indices)
 
         if self.value_relpos_projection or self.key_relpos_projection:
             # TODO: torch.norm deprecated, does this do the right thing?
@@ -301,9 +330,24 @@ class RelposEncoding(nn.Module, RelposEncodingConfig):
         if self.radial:
             return self._radial_partition(relative_positions, torientation)
         elif self.distance:
-            return self._distance_partition(relative_positions, torientation)
+            return self._distance_partition(relative_positions)
         else:
             return self._grid_partition(relative_positions, torientation)
+
+    def _interpolated_partition(
+        self,
+        relative_positions: torch.Tensor,  # Batch x Seq(k) x Seq(q) x Pos relative positions
+        torientation: Optional[torch.Tensor],
+    ) -> List[Tuple[torch.Tensor, torch.Tensor]]:
+        """
+        Maps a sequence of relative positions to indices.
+        """
+        if self.radial:
+            raise NotImplementedError("interpolated radial partition not implemented")
+        elif self.distance:
+            return self._interpolated_distance_partition(relative_positions)
+        else:
+            raise NotImplementedError("interpolated grid partition not implemented")
 
     def _grid_partition(
         self,
@@ -326,6 +370,7 @@ class RelposEncoding(nn.Module, RelposEncodingConfig):
         relative_positions: torch.Tensor,  # Batch x Seq(k) x Seq(q) x Pos relative positions
         torientation: Optional[torch.Tensor],
     ) -> torch.Tensor:
+        assert not self.interpolate, "`interpolate` not implemented for radial"
         angles = torch.atan2(
             relative_positions[:, :, :, 1], relative_positions[:, :, :, 0]
         )
@@ -336,10 +381,28 @@ class RelposEncoding(nn.Module, RelposEncodingConfig):
     def _distance_partition(
         self,
         relative_positions: torch.Tensor,  # Batch x Seq(k) x Seq(q) x Pos relative positions
-        torientation: Optional[torch.Tensor],
     ) -> torch.Tensor:
         distances: torch.Tensor = torch.linalg.norm(relative_positions, dim=-1)
         return torch.min(
             (distances * (1.0 / self.scale)).long(),
             self.extent_tensor.view(-1) - 1,  # type: ignore
         )
+
+    def _interpolated_distance_partition(
+        self,
+        relative_positions: torch.Tensor,  # Batch x Seq(k) x Seq(q) x Pos relative positions
+    ) -> List[Tuple[torch.Tensor, torch.Tensor]]:
+        distances: torch.Tensor = torch.linalg.norm(relative_positions, dim=-1) * (
+            1.0 / self.scale
+        )
+        index1 = torch.min(
+            distances.long(),
+            self.extent_tensor.view(-1) - 1,  # type: ignore
+        )
+        index2 = torch.min(
+            index1 + 1,
+            self.extent_tensor.view(-1) - 1,  # type: ignore
+        )
+        weight1 = index2 - distances
+        weight2 = 1.0 - weight1
+        return [(index1, weight1), (index2, weight2)]
