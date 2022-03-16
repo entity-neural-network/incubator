@@ -5,7 +5,7 @@ from entity_gym.environment import (
     ActionSpace,
     ObsSpace,
 )
-from enn_zoo.vizdoom_envs.vizdoom_environment import DoomEntityEnvironment
+from enn_zoo.vizdoom_env.vizdoom_environment import DoomEntityEnvironment
 
 
 init_path = os.path.dirname(os.path.realpath(__file__))
