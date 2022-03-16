@@ -23,6 +23,7 @@ class RelposEncodingConfig:
         value_relpos_projection: Adds a learnable projection from the relative position/distance to the relative positional values.
         per_entity_projections: Uses a different learned projection per entity type for the `key_relpos_projection` and `value_relpos_projection`.
         radial: Buckets all relative positions by their angle. The `extent` is interpreted as the number of buckets.
+        distance: Buckets all relative positions by their distance. The `extent` is interpreted as the number of buckets.
         rotation_vec_features: Name of features that give a unit orientation vector for each entity by which to rotate relative positions.
         rotation_angle_feature: Name of feature that gives an angle in radians by which to rotate relative positions.
     """
@@ -36,6 +37,7 @@ class RelposEncodingConfig:
     key_relpos_projection: bool = False
     per_entity_projections: bool = False
     radial: bool = False
+    distance: bool = False
     rotation_vec_features: Optional[List[str]] = None
     rotation_angle_feature: Optional[str] = None
 
@@ -44,6 +46,10 @@ class RelposEncodingConfig:
             assert (
                 len(self.extent) == 1
             ), "Radial relative position encoding expects a single extent value (number of angle buckets)"
+        elif self.distance:
+            assert (
+                len(self.extent) == 1
+            ), "Distance relative position encoding expects a single extent value (number of distance buckets)"
         else:
             assert len(self.extent) == len(
                 self.position_features
@@ -61,7 +67,7 @@ class RelposEncoding(nn.Module, RelposEncodingConfig):
         RelposEncodingConfig.__init__(self, **config.__dict__)
 
         self.n_entity = len(obs_space.entities)
-        if self.radial:
+        if self.radial or self.distance:
             strides = [1.0]
             positions = self.extent[0]
         else:
@@ -182,6 +188,7 @@ class RelposEncoding(nn.Module, RelposEncodingConfig):
         values = self.values(per_entity_type_indices)
 
         if self.value_relpos_projection or self.key_relpos_projection:
+            # TODO: torch.norm deprecated, does this do the right thing?
             dist = relative_positions.norm(p=2, dim=-1).unsqueeze(-1)
             relpos_dist = torch.cat([relative_positions, dist], dim=-1)
             norm_relpos_dist = self.relpos_norm(relpos_dist)
@@ -293,6 +300,8 @@ class RelposEncoding(nn.Module, RelposEncodingConfig):
         """
         if self.radial:
             return self._radial_partition(relative_positions, torientation)
+        elif self.distance:
+            return self._distance_partition(relative_positions, torientation)
         else:
             return self._grid_partition(relative_positions, torientation)
 
@@ -323,3 +332,14 @@ class RelposEncoding(nn.Module, RelposEncodingConfig):
         if torientation is not None:
             angles = angles - torientation
         return ((angles % (2 * math.pi) / (2 * math.pi)) * self.extent[0]).long()
+
+    def _distance_partition(
+        self,
+        relative_positions: torch.Tensor,  # Batch x Seq(k) x Seq(q) x Pos relative positions
+        torientation: Optional[torch.Tensor],
+    ) -> torch.Tensor:
+        distances: torch.Tensor = torch.linalg.norm(relative_positions, dim=-1)
+        return torch.min(
+            (distances * (1.0 / self.scale)).long(),
+            self.extent_tensor.view(-1) - 1,  # type: ignore
+        )
