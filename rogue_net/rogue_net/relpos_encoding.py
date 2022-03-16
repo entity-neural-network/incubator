@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Dict, List, Mapping, Optional, Tuple, overload
+from typing import List, Mapping, Optional, Tuple
 from rogue_net.input_norm import InputNorm
 import torch.nn as nn
 import torch
@@ -23,6 +23,8 @@ class RelposEncodingConfig:
         value_relpos_projection: Adds a learnable projection from the relative position/distance to the relative positional values.
         per_entity_projections: Uses a different learned projection per entity type for the `key_relpos_projection` and `value_relpos_projection`.
         radial: Buckets all relative positions by their angle. The `extent` is interpreted as the number of buckets.
+        rotation_vec_features: Name of features that give a unit orientation vector for each entity by which to rotate relative positions.
+        rotation_angle_feature: Name of feature that gives an angle in radians by which to rotate relative positions.
     """
 
     extent: List[int]
@@ -59,11 +61,15 @@ class RelposEncoding(nn.Module, RelposEncodingConfig):
         RelposEncodingConfig.__init__(self, **config.__dict__)
 
         self.n_entity = len(obs_space.entities)
-        strides = []
-        positions = 1
-        for extent in self.extent:
-            strides.append(float(positions))
-            positions *= 2 * extent + 1
+        if self.radial:
+            strides = [1.0]
+            positions = self.extent[0]
+        else:
+            strides = []
+            positions = 1
+            for extent in self.extent:
+                strides.append(float(positions))
+                positions *= 2 * extent + 1
         self.positions = positions
         self.register_buffer("strides", torch.tensor(strides).unsqueeze(0))
         self.register_buffer(
@@ -154,89 +160,15 @@ class RelposEncoding(nn.Module, RelposEncodingConfig):
         # Type of each entity
         entity_type: torch.Tensor,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
-        device = index_map.device
-        positions = []
-        for entity_name, features in x.items():
-            if entity_name not in self.exclude_entities:
-                positions.append(
-                    features[:, self.position_feature_indices[entity_name]]
-                )
-            else:
-                # TODO: add padding or something?
-                raise NotImplementedError(
-                    "exclude_entities not implemented for relative position encoding"
-                )
-        # Flat tensor of positions
-        tpos = torch.cat(positions, dim=0)
-        # Flat tensor of positions ordered by sample
-        tpos = tpos[index_map]
-        # Padded/packed Batch x Seq x Pos tensor of positions
-        if packpad_index is not None:
-            tpos = tpos[packpad_index]
-            entity_type = entity_type[packpad_index]
-        else:
-            tpos = tpos.reshape(shape.size0(), shape.size1(0), -1)
-            entity_type = entity_type.reshape(shape.size0(), shape.size1(0), 1)
-
-        # Get entity orientations
-        orientations = []
-        torientation: Optional[torch.Tensor]
-        if self.orientation_angle_index is not None:
-            for entity_name, feature in x.items():
-                feature_index = self.orientation_angle_index.get(entity_name)
-                if feature_index is None:
-                    orientations.append(torch.zeros_like(feature[:, 0], device=device))
-                else:
-                    orientations.append(feature[:, feature_index])
-            torientation = torch.cat(orientations, dim=0)
-            torientation = torientation[index_map]
-            if packpad_index is not None:
-                torientation = torientation[packpad_index]
-            else:
-                torientation = torientation.reshape(shape.size0(), shape.size1(0), -1)
-        elif self.orientation_vec_indices is not None:
-            for entity_name, feature in x.items():
-                feature_indices = self.orientation_vec_indices.get(entity_name)
-                if feature_indices is None:
-                    orientations.append(torch.zeros_like(feature[:, 0], device=device))
-                else:
-                    orientation_vec = feature[:, feature_indices]
-                    orientation = torch.atan2(
-                        orientation_vec[:, 1], orientation_vec[:, 0]
-                    )
-                    orientations.append(orientation)
-            torientation = torch.cat(orientations, dim=0)[:, None]
-            torientation = torientation[index_map]
-            if packpad_index is not None:
-                torientation = torientation[packpad_index]
-            else:
-                torientation = torientation.reshape(shape.size0(), shape.size1(0), -1)
-        else:
-            torientation = None
-
-        # Batch x Seq(k) x Seq(q) x Pos relative positions
-        relative_positions = (tpos.unsqueeze(1) - tpos.unsqueeze(2)) * (
-            1.0 / self.scale
+        relative_positions, entity_type = self._relative_positions(
+            x, index_map, packpad_index, shape, entity_type
         )
-
-        if self.radial:
-            angles = torch.atan2(
-                relative_positions[:, :, :, 1], relative_positions[:, :, :, 0]
-            )
-            if torientation is not None:
-                angles = angles - torientation
-            indices = ((angles % (2 * math.pi) / (2 * math.pi)) * self.extent[0]).long()
-        else:
-            assert self.rotation_angle_feature is None, "Not implemented"
-            clamped_positions = torch.max(
-                torch.min(
-                    self.extent_tensor,  # type: ignore
-                    relative_positions,
-                ),
-                -self.extent_tensor,  # type: ignore
-            )
-            positive_positions = clamped_positions + self.extent_tensor
-            indices = (positive_positions * self.strides).sum(dim=-1).round().long()
+        torientation = (
+            self._orientations(x, index_map, packpad_index, shape)
+            if self.radial
+            else None
+        )
+        indices = self._partition(relative_positions, torientation)
 
         # Batch x Seq x Seq x d_model
         keys = self.keys(indices)
@@ -272,3 +204,122 @@ class RelposEncoding(nn.Module, RelposEncodingConfig):
                     keys += self.kproj(norm_relpos_dist)
 
         return keys, values
+
+    def _relative_positions(
+        self,
+        x: Mapping[str, torch.Tensor],
+        index_map: torch.Tensor,
+        packpad_index: Optional[torch.Tensor],
+        shape: RaggedBufferI64,
+        entity_type: torch.Tensor,
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        positions = []
+        for entity_name, features in x.items():
+            if entity_name not in self.exclude_entities:
+                positions.append(
+                    features[:, self.position_feature_indices[entity_name]]
+                )
+            else:
+                # TODO: add padding or something?
+                raise NotImplementedError(
+                    "exclude_entities not implemented for relative position encoding"
+                )
+        # Flat tensor of positions
+        tpos = torch.cat(positions, dim=0)
+        # Flat tensor of positions ordered by sample
+        tpos = tpos[index_map]
+        # Padded/packed Batch x Seq x Pos tensor of positions
+        if packpad_index is not None:
+            tpos = tpos[packpad_index]
+            entity_type = entity_type[packpad_index]
+        else:
+            tpos = tpos.reshape(shape.size0(), shape.size1(0), -1)
+            entity_type = entity_type.reshape(shape.size0(), shape.size1(0), 1)
+        # Batch x Seq(k) x Seq(q) x Pos relative positions
+        return tpos.unsqueeze(1) - tpos.unsqueeze(2), entity_type
+
+    def _orientations(
+        self,
+        x: Mapping[str, torch.Tensor],
+        index_map: torch.Tensor,
+        packpad_index: Optional[torch.Tensor],
+        shape: RaggedBufferI64,
+    ) -> torch.Tensor:
+        """
+        Maps a sequence of relative positions to indices.
+        """
+        # Get entity orientations
+        orientations = []
+        if self.orientation_angle_index is not None:
+            for entity_name, feature in x.items():
+                feature_index = self.orientation_angle_index.get(entity_name)
+                if feature_index is None:
+                    orientations.append(
+                        torch.zeros_like(feature[:, 0], device=index_map.device)
+                    )
+                else:
+                    orientations.append(feature[:, feature_index])
+            torientation = torch.cat(orientations, dim=0)
+        elif self.orientation_vec_indices is not None:
+            for entity_name, feature in x.items():
+                feature_indices = self.orientation_vec_indices.get(entity_name)
+                if feature_indices is None:
+                    orientations.append(
+                        torch.zeros_like(feature[:, 0], device=index_map.device)
+                    )
+                else:
+                    orientation_vec = feature[:, feature_indices]
+                    orientation = torch.atan2(
+                        orientation_vec[:, 1], orientation_vec[:, 0]
+                    )
+                    orientations.append(orientation)
+            torientation = torch.cat(orientations, dim=0)[:, None]
+        else:
+            raise ValueError("No orientation information")
+
+        torientation = torientation[index_map]
+        if packpad_index is not None:
+            return torientation[packpad_index]
+        else:
+            return torientation.reshape(shape.size0(), shape.size1(0), -1)
+
+    def _partition(
+        self,
+        relative_positions: torch.Tensor,  # Batch x Seq(k) x Seq(q) x Pos relative positions
+        torientation: Optional[torch.Tensor],
+    ) -> torch.Tensor:
+        """
+        Maps a sequence of relative positions to indices.
+        """
+        if self.radial:
+            return self._radial_partition(relative_positions, torientation)
+        else:
+            return self._grid_partition(relative_positions, torientation)
+
+    def _grid_partition(
+        self,
+        relative_positions: torch.Tensor,  # Batch x Seq(k) x Seq(q) x Pos relative positions
+        torientation: Optional[torch.Tensor],
+    ) -> torch.Tensor:
+        assert torientation is None, "Not implemented for non-radial"
+        clamped_positions = torch.max(
+            torch.min(
+                self.extent_tensor,  # type: ignore
+                relative_positions * (1.0 / self.scale),
+            ),
+            -self.extent_tensor,  # type: ignore
+        )
+        positive_positions = clamped_positions + self.extent_tensor
+        return (positive_positions * self.strides).sum(dim=-1).round().long()
+
+    def _radial_partition(
+        self,
+        relative_positions: torch.Tensor,  # Batch x Seq(k) x Seq(q) x Pos relative positions
+        torientation: Optional[torch.Tensor],
+    ) -> torch.Tensor:
+        angles = torch.atan2(
+            relative_positions[:, :, :, 1], relative_positions[:, :, :, 0]
+        )
+        if torientation is not None:
+            angles = angles - torientation
+        return ((angles % (2 * math.pi) / (2 * math.pi)) * self.extent[0]).long()
