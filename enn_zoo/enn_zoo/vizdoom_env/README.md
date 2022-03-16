@@ -9,11 +9,7 @@ Originally, [ViZDoom](https://github.com/mwydmuch/ViZDoom) (original DOOM) playe
 Run an experiment locally, from the root directory of the project:
 
 ```bash
-poetry run python enn_zoo/enn_zoo/train.py \
-    env.id=DoomBasic \
-    env.num_envs=8 \
-    total_timesteps=1000000 \
-    env.num_steps=256 \
+poetry run python enn_zoo/enn_zoo/train.py --config enn_zoo/enn_zoo/vizdoom_env/vizdoom_config.ron
 ```
 
 Available environments:

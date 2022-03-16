@@ -1,0 +1,27 @@
+ExperimentConfig(
+    total_timesteps: 1000000,
+    env: (
+        id: "DoomBasic",
+    ),
+    rollout: (
+        num_envs: 16,
+        steps: 128,
+        processes: 1,
+    ),
+    net: (
+        d_model: 128,
+        n_layer: 4,
+        relpos_encoding: (
+            extent: [100, 100],
+            position_features: ["x", "y"],
+        ),
+    ),
+    optim: (
+        bs: 1024,
+        lr: 0.00025,
+        update_epochs: 10
+    ),
+    ppo: (
+        ent_coef: 0.01,
+    ),
+)
