@@ -506,7 +506,7 @@ cleanrl = ["cleanrl[cloud] (==0.5.0.dev6)"]
 
 [[package]]
 name = "hyperstate"
-version = "0.2.7"
+version = "0.2.8"
 description = "Library for managing hyperparameters and mutable state of machine learning training systems."
 category = "main"
 optional = false
@@ -1876,8 +1876,8 @@ gym-microrts = [
     {file = "gym-microrts-0.6.0.tar.gz", hash = "sha256:b88bb9cba6e7686bb98a62f1f8123bda0fa43109b5e7ea9d4e02c9bc5f65ec4e"},
 ]
 hyperstate = [
-    {file = "hyperstate-0.2.7-py3-none-any.whl", hash = "sha256:c6f74760375aef6fb7c199aca4f11f5bdace0e18546b8ad616bd7c7a29dbf2cf"},
-    {file = "hyperstate-0.2.7.tar.gz", hash = "sha256:67081aac86aed2a03657fc486a932fac9bc5a5f8aea0e28b8e4e70abdad7ef72"},
+    {file = "hyperstate-0.2.8-py3-none-any.whl", hash = "sha256:60c5fedd669e5d5005d4cf0b7f83924d912c90d0f1fc8d1b591d8ae01ecb851c"},
+    {file = "hyperstate-0.2.8.tar.gz", hash = "sha256:919d35fcdf78aef268746dc33e90b2802bb954bfa98497e64fd66de68b445890"},
 ]
 identify = [
     {file = "identify-2.4.12-py2.py3-none-any.whl", hash = "sha256:5f06b14366bd1facb88b00540a1de05b69b310cbc2654db3c7e07fa3a4339323"},

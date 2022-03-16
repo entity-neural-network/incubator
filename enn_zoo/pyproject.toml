@@ -10,7 +10,7 @@ griddly = {version = "1.2.31"}
 requests = "^2.27.1"
 orjson = "^3.6.5"
 types-requests = "^2.27.7"
-hyperstate = "^0.2.7"
+hyperstate = "^0.2.8"
 enn_ppo = {path = "../enn_ppo", develop = true}
 
 [build-system]
