@@ -34,6 +34,8 @@ class RelposEncodingConfig:
     key_relpos_projection: bool = False
     per_entity_projections: bool = False
     radial: bool = False
+    rotation_vec_features: Optional[List[str]] = None
+    rotation_angle_feature: Optional[str] = None
 
     def __post_init__(self) -> None:
         if self.radial:
@@ -44,6 +46,9 @@ class RelposEncodingConfig:
             assert len(self.extent) == len(
                 self.position_features
             ), "Relative position encoding expects a extent value for each position feature"
+        assert (
+            self.rotation_vec_features is None or self.rotation_angle_feature is None
+        ), "Only one of rotation_vec_features and rotation_angle_feature can be specified"
 
 
 class RelposEncoding(nn.Module, RelposEncodingConfig):
@@ -86,6 +91,33 @@ class RelposEncoding(nn.Module, RelposEncodingConfig):
             for entity_name, entity in obs_space.entities.items()
             if entity_name not in self.exclude_entities
         }
+        self.orientation_vec_indices = (
+            {
+                entity_name: torch.LongTensor(
+                    [
+                        entity.features.index(feature_name)
+                        for feature_name in self.rotation_vec_features
+                    ]
+                )
+                for entity_name, entity in obs_space.entities.items()
+                if entity_name not in self.exclude_entities
+                and all(
+                    feature in entity.features for feature in self.rotation_vec_features
+                )
+            }
+            if self.rotation_vec_features is not None
+            else None
+        )
+        self.orientation_angle_index = (
+            {
+                entity_name: entity.features.index(self.rotation_angle_feature)
+                for entity_name, entity in obs_space.entities.items()
+                if entity_name not in self.exclude_entities
+                and self.rotation_angle_feature in entity.features
+            }
+            if self.rotation_angle_feature is not None
+            else None
+        )
         if self.value_relpos_projection:
             if self.per_entity_projections:
                 self.vproj: nn.Module = nn.ModuleDict(
@@ -122,11 +154,17 @@ class RelposEncoding(nn.Module, RelposEncodingConfig):
         # Type of each entity
         entity_type: torch.Tensor,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
+        device = index_map.device
         positions = []
         for entity_name, features in x.items():
             if entity_name not in self.exclude_entities:
                 positions.append(
                     features[:, self.position_feature_indices[entity_name]]
+                )
+            else:
+                # TODO: add padding or something?
+                raise NotImplementedError(
+                    "exclude_entities not implemented for relative position encoding"
                 )
         # Flat tensor of positions
         tpos = torch.cat(positions, dim=0)
@@ -140,7 +178,43 @@ class RelposEncoding(nn.Module, RelposEncodingConfig):
             tpos = tpos.reshape(shape.size0(), shape.size1(0), -1)
             entity_type = entity_type.reshape(shape.size0(), shape.size1(0), 1)
 
-        # Batch x Seq x Seq x Pos relative positions
+        # Get entity orientations
+        orientations = []
+        torientation: Optional[torch.Tensor]
+        if self.orientation_angle_index is not None:
+            for entity_name, feature in x.items():
+                feature_index = self.orientation_angle_index.get(entity_name)
+                if feature_index is None:
+                    orientations.append(torch.zeros_like(feature[:, 0], device=device))
+                else:
+                    orientations.append(feature[:, feature_index])
+            torientation = torch.cat(orientations, dim=0)
+            torientation = torientation[index_map]
+            if packpad_index is not None:
+                torientation = torientation[packpad_index]
+            else:
+                torientation = torientation.reshape(shape.size0(), shape.size1(0), -1)
+        elif self.orientation_vec_indices is not None:
+            for entity_name, feature in x.items():
+                feature_indices = self.orientation_vec_indices.get(entity_name)
+                if feature_indices is None:
+                    orientations.append(torch.zeros_like(feature[:, 0], device=device))
+                else:
+                    orientation_vec = feature[:, feature_indices]
+                    orientation = torch.atan2(
+                        orientation_vec[:, 1], orientation_vec[:, 0]
+                    )
+                    orientations.append(orientation)
+            torientation = torch.cat(orientations, dim=0)[:, None]
+            torientation = torientation[index_map]
+            if packpad_index is not None:
+                torientation = torientation[packpad_index]
+            else:
+                torientation = torientation.reshape(shape.size0(), shape.size1(0), -1)
+        else:
+            torientation = None
+
+        # Batch x Seq(k) x Seq(q) x Pos relative positions
         relative_positions = (tpos.unsqueeze(1) - tpos.unsqueeze(2)) * (
             1.0 / self.scale
         )
@@ -149,10 +223,11 @@ class RelposEncoding(nn.Module, RelposEncodingConfig):
             angles = torch.atan2(
                 relative_positions[:, :, :, 1], relative_positions[:, :, :, 0]
             )
-            indices = (
-                (angles + math.pi) * (1.0 / (2 * math.pi)) * self.extent[0]
-            ).long()
+            if torientation is not None:
+                angles = angles - torientation
+            indices = ((angles % (2 * math.pi) / (2 * math.pi)) * self.extent[0]).long()
         else:
+            assert self.rotation_angle_feature is None, "Not implemented"
             clamped_positions = torch.max(
                 torch.min(
                     self.extent_tensor,  # type: ignore
