@@ -93,7 +93,7 @@ class RelposEncoding(nn.Module, RelposEncodingConfig):
         self.positions = positions
         self.register_buffer("strides", torch.tensor(strides).unsqueeze(0))
         self.register_buffer(
-            "extent_tensor", torch.tensor(self.extent).view(1, 1, 1, -1)
+            "extent_tensor", torch.tensor(self.extent).view(1, 1, 1, -1).long()
         )
         # TODO: tune embedding init scale
         self.keys = nn.Embedding(self.positions, dhead)
@@ -327,7 +327,7 @@ class RelposEncoding(nn.Module, RelposEncodingConfig):
 
         torientation = torientation[index_map]
         if packpad_index is not None:
-            return torientation[packpad_index].view(shape.size0(), shape.size1(0), 1)
+            return torientation[packpad_index].unsqueeze(-1)
         else:
             return torientation.reshape(shape.size0(), shape.size1(0), 1)
 
@@ -339,7 +339,9 @@ class RelposEncoding(nn.Module, RelposEncodingConfig):
         """
         Maps a sequence of relative positions to indices.
         """
-        if self.radial:
+        if self.radial and self.distance:
+            return self._polar_partition(relative_positions, torientation)
+        elif self.radial:
             return self._radial_partition(relative_positions, torientation)
         elif self.distance:
             return self._distance_partition(relative_positions)
@@ -354,6 +356,8 @@ class RelposEncoding(nn.Module, RelposEncodingConfig):
         """
         Maps a sequence of relative positions to indices.
         """
+        if self.radial and self.distance:
+            return self._interpolated_polar_partition(relative_positions, torientation)
         if self.radial:
             return self._interpolated_radial_partition(relative_positions, torientation)
         elif self.distance:
@@ -417,7 +421,8 @@ class RelposEncoding(nn.Module, RelposEncodingConfig):
         distances: torch.Tensor = torch.linalg.norm(relative_positions, dim=-1)
         return torch.min(
             (distances * (1.0 / self.scale)).long(),
-            self.extent_tensor.view(-1) - 1,  # type: ignore
+            # For polar relative positions, distance extent is last element.
+            self.extent_tensor[0, 0, 0, -1] - 1,  # type: ignore
         )
 
     def _interpolated_distance_partition(
@@ -429,11 +434,11 @@ class RelposEncoding(nn.Module, RelposEncodingConfig):
         )
         index1 = torch.min(
             distances.long(),
-            self.extent_tensor.view(-1) - 1,  # type: ignore
+            self.extent_tensor[0, 0, 0, -1] - 1,  # type: ignore
         )
         index2 = torch.min(
             index1 + 1,
-            self.extent_tensor.view(-1) - 1,  # type: ignore
+            self.extent_tensor[0, 0, 0, -1] - 1,  # type: ignore
         )
         weight1 = index2 - distances
         weight2 = 1.0 - weight1
@@ -446,10 +451,12 @@ class RelposEncoding(nn.Module, RelposEncodingConfig):
     ) -> torch.Tensor:
         aindices = self._radial_partition(relative_positions, torientation)
         dindices = self._distance_partition(relative_positions)
-        indices = (torch.stack([aindices, dindices], dim=-1) * self.strides).sum(dim=-1)
+        indices = (torch.stack([aindices, dindices], dim=-1) * self.strides.long()).sum(  # type: ignore
+            dim=-1
+        )
         return indices
 
-    def _interpolated_polar_indices(
+    def _interpolated_polar_partition(
         self,
         relative_positions: torch.Tensor,
         torientation: Optional[torch.Tensor],
@@ -461,13 +468,13 @@ class RelposEncoding(nn.Module, RelposEncodingConfig):
             dindex2,
             dweight2,
         ) = self._interpolated_distance_partition(relative_positions)
-        indices1 = torch.stack([aindex1, dindex1], dim=-1) * self.strides
+        indices1 = (torch.stack([aindex1, dindex1], dim=-1) * self.strides.long()).sum(dim=-1)  # type: ignore
         weights1 = aweight1 * dweight1
-        indices2 = torch.stack([aindex2, dindex1], dim=-1) * self.strides
+        indices2 = (torch.stack([aindex2, dindex1], dim=-1) * self.strides.long()).sum(dim=-1)  # type: ignore
         weights2 = aweight2 * dweight1
-        indices3 = torch.stack([aindex1, dindex2], dim=-1) * self.strides
+        indices3 = (torch.stack([aindex1, dindex2], dim=-1) * self.strides.long()).sum(dim=-1)  # type: ignore
         weights3 = aweight1 * dweight2
-        indices4 = torch.stack([aindex2, dindex2], dim=-1) * self.strides
+        indices4 = (torch.stack([aindex2, dindex2], dim=-1) * self.strides.long()).sum(dim=-1)  # type: ignore
         weights4 = aweight2 * dweight2
         return [
             (indices1, weights1),
