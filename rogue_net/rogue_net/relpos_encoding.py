@@ -44,10 +44,18 @@ class RelposEncodingConfig:
     interpolate: bool = False
 
     def __post_init__(self) -> None:
-        if self.radial:
+        if self.radial and self.distance:
+            assert (
+                len(self.extent) == 2
+            ), "Polar relative position encoding expects two extent values (number of angle buckets and number of distance buckets)"
+        elif self.radial:
             assert (
                 len(self.extent) == 1
             ), "Radial relative position encoding expects a single extent value (number of angle buckets)"
+            assert (
+                self.rotation_angle_feature is not None
+                or self.rotation_vec_features is not None
+            ), "Radial relative position encoding requires `rotation_angle_feature` or `rotation_vec_features` to be set"
         elif self.distance:
             assert (
                 len(self.extent) == 1
@@ -69,7 +77,11 @@ class RelposEncoding(nn.Module, RelposEncodingConfig):
         RelposEncodingConfig.__init__(self, **config.__dict__)
 
         self.n_entity = len(obs_space.entities)
-        if self.radial or self.distance:
+        if self.radial and self.distance:
+            angles, distances = self.extent
+            strides = [1.0, angles]
+            positions = angles * distances
+        elif self.radial or self.distance:
             strides = [1.0]
             positions = self.extent[0]
         else:
@@ -315,9 +327,9 @@ class RelposEncoding(nn.Module, RelposEncodingConfig):
 
         torientation = torientation[index_map]
         if packpad_index is not None:
-            return torientation[packpad_index]
+            return torientation[packpad_index].view(shape.size0(), shape.size1(0), 1)
         else:
-            return torientation.reshape(shape.size0(), shape.size1(0), -1)
+            return torientation.reshape(shape.size0(), shape.size1(0), 1)
 
     def _partition(
         self,
@@ -343,7 +355,7 @@ class RelposEncoding(nn.Module, RelposEncodingConfig):
         Maps a sequence of relative positions to indices.
         """
         if self.radial:
-            raise NotImplementedError("interpolated radial partition not implemented")
+            return self._interpolated_radial_partition(relative_positions, torientation)
         elif self.distance:
             return self._interpolated_distance_partition(relative_positions)
         else:
@@ -370,13 +382,33 @@ class RelposEncoding(nn.Module, RelposEncodingConfig):
         relative_positions: torch.Tensor,  # Batch x Seq(k) x Seq(q) x Pos relative positions
         torientation: Optional[torch.Tensor],
     ) -> torch.Tensor:
-        assert not self.interpolate, "`interpolate` not implemented for radial"
+        angles = torch.atan2(
+            relative_positions[:, :, :, 1], relative_positions[:, :, :, 0]
+        )
+        # We need to be careful about ensuring that we don't create indices that fall outside of the extent.
+        # Specifically, taking the modulo of a small negative number can round up to the modulus:
+        # (torch.tensor([-1e-12], dtype=torch.float32) % torch.tensor([2]).long()).long() == torch.tensor([2]).long()
+        # We can avoid this by ensuring that `angles` is always positive.
+        if torientation is not None:
+            angles = angles - torientation + 2 * math.pi
+        return (angles / (2 * math.pi) * self.extent[0] % self.extent[0]).long()
+
+    def _interpolated_radial_partition(
+        self,
+        relative_positions: torch.Tensor,  # Batch x Seq(k) x Seq(q) x Pos relative positions
+        torientation: Optional[torch.Tensor],
+    ) -> List[Tuple[torch.Tensor, torch.Tensor]]:
         angles = torch.atan2(
             relative_positions[:, :, :, 1], relative_positions[:, :, :, 0]
         )
         if torientation is not None:
-            angles = angles - torientation
-        return ((angles % (2 * math.pi) / (2 * math.pi)) * self.extent[0]).long()
+            angles = angles - torientation + 2 * math.pi
+        norm_angles = angles / (2 * math.pi) * self.extent[0] % self.extent[0]
+        index1 = norm_angles.long()
+        index2 = (index1 + 1) % self.extent[0]
+        weight1 = (index2 - norm_angles) % 1
+        weight2 = 1.0 - weight1
+        return [(index1, weight1), (index2, weight2)]
 
     def _distance_partition(
         self,
@@ -406,3 +438,40 @@ class RelposEncoding(nn.Module, RelposEncodingConfig):
         weight1 = index2 - distances
         weight2 = 1.0 - weight1
         return [(index1, weight1), (index2, weight2)]
+
+    def _polar_partition(
+        self,
+        relative_positions: torch.Tensor,
+        torientation: Optional[torch.Tensor],
+    ) -> torch.Tensor:
+        aindices = self._radial_partition(relative_positions, torientation)
+        dindices = self._distance_partition(relative_positions)
+        indices = (torch.stack([aindices, dindices], dim=-1) * self.strides).sum(dim=-1)
+        return indices
+
+    def _interpolated_polar_indices(
+        self,
+        relative_positions: torch.Tensor,
+        torientation: Optional[torch.Tensor],
+    ) -> List[Tuple[torch.Tensor, torch.Tensor]]:
+        (aindex1, aweight1), (aindex2, aweight2) = self._interpolated_radial_partition(
+            relative_positions, torientation
+        )
+        (dindex1, dweight1), (
+            dindex2,
+            dweight2,
+        ) = self._interpolated_distance_partition(relative_positions)
+        indices1 = torch.stack([aindex1, dindex1], dim=-1) * self.strides
+        weights1 = aweight1 * dweight1
+        indices2 = torch.stack([aindex2, dindex1], dim=-1) * self.strides
+        weights2 = aweight2 * dweight1
+        indices3 = torch.stack([aindex1, dindex2], dim=-1) * self.strides
+        weights3 = aweight1 * dweight2
+        indices4 = torch.stack([aindex2, dindex2], dim=-1) * self.strides
+        weights4 = aweight2 * dweight2
+        return [
+            (indices1, weights1),
+            (indices2, weights2),
+            (indices3, weights3),
+            (indices4, weights4),
+        ]
