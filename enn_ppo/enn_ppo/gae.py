@@ -24,9 +24,9 @@ def returns_and_advantages(
     tracer: Tracer,
 ) -> Tuple[torch.Tensor, torch.Tensor]:
     # bootstrap value if not done
-    next_value = agent.get_auxiliary_head(next_obs.features, "value", tracer).reshape(
-        1, -1
-    )
+    next_value = agent.get_auxiliary_head(
+        next_obs.features, next_obs.visible, "value", tracer
+    ).reshape(1, -1)
     num_steps = values.size(0)
     if gae:
         advantages = torch.zeros_like(rewards).to(device)

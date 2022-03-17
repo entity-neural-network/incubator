@@ -168,7 +168,9 @@ class Objective(Enum):
             return []
 
 
-def codecraft_env_class(objective: Union[Objective, str]) -> Type[Environment]:
+def codecraft_env_class(
+    objective: Union[Objective, str], hidden_obs: bool
+) -> Type[Environment]:
     if isinstance(objective, str):
         objective = Objective(objective)
 
@@ -281,6 +283,9 @@ def codecraft_env_class(objective: Union[Objective, str]) -> Type[Environment]:
         def extra_build_actions(cls) -> List[str]:
             pass
 
+        def hidden_obs(self) -> bool:
+            return hidden_obs
+
     return CodeCraftEnv
 
 
@@ -340,6 +345,7 @@ class CodeCraftVecEnv(VecEnv):
         loss_penalty: float = 0.0,
         partial_score: float = 1.0,
         create_game_delay: float = 0.0,
+        hidden_obs: bool = False,
     ) -> None:
         if isinstance(objective, str):
             objective = Objective(objective)
@@ -400,6 +406,7 @@ class CodeCraftVecEnv(VecEnv):
         self.randomize_idle = objective != Objective.ALLIED_WEALTH
         self.config = config
         self.create_game_delay = create_game_delay
+        self.hidden_obs = hidden_obs
 
         remaining_scripted = num_envs - 2 * num_self_play
         self.scripted_opponents = []
@@ -824,14 +831,33 @@ class CodeCraftVecEnv(VecEnv):
             allies[ally_not_padding],
             ally_not_padding.sum(axis=1).astype(np.int64),
         )
-        enemies = _obs[:, obs_config.endallies() : obs_config.endenemies()].reshape(
-            num_envs, obs_config.enemies(), obs_config.dstride()
-        )
-        not_padding = enemies[:, :, 7] != 0
-        ragged_enemies = RaggedBufferF32.from_flattened(
-            enemies[not_padding],
-            not_padding.sum(axis=1).astype(np.int64),
-        )
+        if self.hidden_obs:
+            enemies = _obs[
+                :, obs_config.endtiles() : obs_config.endallenemies()
+            ].reshape(num_envs, obs_config.enemies(), obs_config.dstride())
+            not_padding = enemies[:, :, 7] != 0
+            enemies = enemies[not_padding]
+            ragged_enemies = RaggedBufferF32.from_flattened(
+                enemies,
+                not_padding.sum(axis=1).astype(np.int64),
+            )
+            assert DRONE_FEATS[19] == "is_visible"
+            enemy_is_visible: Optional[
+                RaggedBufferBool
+            ] = RaggedBufferBool.from_flattened(
+                (enemies[:, 19] == 1).reshape(-1, 1),
+                not_padding.sum(axis=1).astype(np.int64),
+            )
+        else:
+            enemies = _obs[:, obs_config.endallies() : obs_config.endenemies()].reshape(
+                num_envs, obs_config.enemies(), obs_config.dstride()
+            )
+            not_padding = enemies[:, :, 7] != 0
+            ragged_enemies = RaggedBufferF32.from_flattened(
+                enemies[not_padding],
+                not_padding.sum(axis=1).astype(np.int64),
+            )
+            enemy_is_visible = None
         minerals = _obs[:, obs_config.endenemies() : obs_config.endmins()].reshape(
             num_envs, obs_config.minerals, obs_config.mstride()
         )
@@ -856,6 +882,7 @@ class CodeCraftVecEnv(VecEnv):
                 "mineral": ragged_minerals,
                 "tile": ragged_tiles,
             },
+            visible={} if enemy_is_visible is None else {"enemy": enemy_is_visible},
             action_masks={
                 "act": VecCategoricalActionMask(
                     actors=RaggedBufferI64.from_flattened(
@@ -927,7 +954,7 @@ class CodeCraftVecEnv(VecEnv):
         return self.num_envs
 
     def env_cls(self) -> Type[Environment]:
-        return codecraft_env_class(self.objective)
+        return codecraft_env_class(self.objective, self.hidden_obs)
 
 
 def dist(x1: float, y1: float, x2: float, y2: float) -> float:

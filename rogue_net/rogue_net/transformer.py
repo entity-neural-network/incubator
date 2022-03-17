@@ -108,6 +108,7 @@ class RaggedAttention(nn.Module):
         batch_index: torch.Tensor,
         shape: RaggedBufferI64,
         relkeysvals: Optional[Tuple[torch.Tensor, torch.Tensor, torch.Tensor]] = None,
+        visible: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
         # For more details on the implementation, see: https://github.com/entity-neural-network/incubator/pull/119
         device = x.device
@@ -115,19 +116,33 @@ class RaggedAttention(nn.Module):
 
         # TODO: only compute indices once
         if padpack is None:
-            x = x.reshape(shape.size0(), shape.size1(0), -1)
-            attn_mask = None
+            nbatch, nseq = shape.size0(), shape.size1(0)
+            x = x.reshape(nbatch, nseq, -1)
+            if visible is not None:
+                attn_mask: Optional[torch.Tensor] = (
+                    visible.reshape(nbatch, nseq, 1) > visible.reshape(nbatch, 1, nseq)
+                ).unsqueeze(1)
+            else:
+                attn_mask = None
         else:
             (
                 padpack_index,
                 padpack_batch,
                 padpack_inverse_index,
             ) = padpack
-            x = x[torch.LongTensor(padpack_index).to(device)]
-            tpadpack_batch = torch.Tensor(padpack_batch).to(device)
+            tpadpack_index = torch.tensor(
+                padpack_index, dtype=torch.long, device=device
+            )
+            x = x[tpadpack_index]
+            tpadpack_batch = torch.tensor(padpack_batch, device=device)
             attn_mask = (
                 tpadpack_batch.unsqueeze(2) != tpadpack_batch.unsqueeze(1)
             ).unsqueeze(1)
+            if visible is not None:
+                visible = visible[tpadpack_index]
+                attn_mask.logical_or_(
+                    (visible.unsqueeze(2) > visible.unsqueeze(1)).unsqueeze(1)
+                )
 
         B, T, C = x.size()
 
@@ -176,7 +191,7 @@ class RaggedAttention(nn.Module):
         if padpack is None:
             return y.reshape(batch_index.size(0), -1)  # type: ignore
         else:
-            return y.reshape(y.size(0) * y.size(1), y.size(2))[torch.LongTensor(padpack_inverse_index).to(device)]  # type: ignore
+            return y.reshape(y.size(0) * y.size(1), y.size(2))[torch.tensor(padpack_inverse_index, dtype=torch.long, device=device)]  # type: ignore
 
 
 class Block(nn.Module):
@@ -201,8 +216,9 @@ class Block(nn.Module):
         batch_index: torch.Tensor,
         shape: RaggedBufferI64,
         relkeysvals: Optional[Tuple[torch.Tensor, torch.Tensor, torch.Tensor]] = None,
+        visible: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
-        x = x + self.attn(self.ln1(x), batch_index, shape, relkeysvals)
+        x = x + self.attn(self.ln1(x), batch_index, shape, relkeysvals, visible)
         x = x + self.mlp(self.ln2(x))
         return x
 
@@ -245,6 +261,7 @@ class Transformer(nn.Module):
         input_feats: Mapping[str, torch.Tensor],
         index_map: torch.Tensor,
         entity_type: torch.Tensor,
+        visible: Optional[torch.Tensor],
     ) -> torch.Tensor:
         x = self.drop(x)
 
@@ -254,7 +271,9 @@ class Transformer(nn.Module):
             if padpack is None:
                 tpadpack_index = None
             else:
-                tpadpack_index = torch.LongTensor(padpack[0]).to(device)
+                tpadpack_index = torch.tensor(
+                    padpack[0], dtype=torch.long, device=device
+                )
             relkeysvals: Optional[
                 Tuple[torch.Tensor, torch.Tensor]
             ] = self.relpos_encoding.keys_values(
@@ -268,5 +287,5 @@ class Transformer(nn.Module):
             relkeysvals = None
 
         for block in self.blocks:
-            x = block(x, batch_index, shape, relkeysvals)
+            x = block(x, batch_index, shape, relkeysvals, visible)
         return x

@@ -164,3 +164,23 @@ def test_asymmetric_relpos_encoding() -> None:
     meanrew = _train(cfg)
     print(f"Final mean reward: {meanrew}")
     assert meanrew >= 0.15
+
+
+def test_rock_paper_scissors() -> None:
+    cfg = TrainConfig(
+        total_timesteps=4000,
+        cuda=False,
+        net=RogueNetConfig(d_model=16, n_layer=2),
+        env=EnvConfig(id="RockPaperScissors"),
+        rollout=RolloutConfig(steps=1, num_envs=256),
+        optim=OptimizerConfig(bs=256, lr=0.03),
+        ppo=PPOConfig(),
+    )
+    meanrew = _train(cfg)
+    print(f"Final mean reward: {meanrew}")
+    assert 0.7 <= meanrew <= 1.2
+
+    cfg.env.kwargs = '{"cheat": true}'
+    meanrew = _train(cfg)
+    print(f"Final mean reward: {meanrew}")
+    assert meanrew > 1.9

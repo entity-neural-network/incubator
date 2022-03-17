@@ -9,7 +9,7 @@ from entity_gym.environment import *
 from entity_gym.ragged_dict import RaggedActionDict, RaggedBatchDict
 from rogue_net.rogue_net import tensor_dict_to_ragged
 import ragged_buffer
-from ragged_buffer import RaggedBufferF32, RaggedBufferI64
+from ragged_buffer import RaggedBufferF32, RaggedBufferI64, RaggedBufferBool
 
 
 class Rollout:
@@ -38,6 +38,7 @@ class Rollout:
         self.dones = torch.zeros(0)
         self.values = torch.zeros(0)
         self.entities: RaggedBatchDict[np.float32] = RaggedBatchDict(RaggedBufferF32)
+        self.visible: RaggedBatchDict[np.bool_] = RaggedBatchDict(RaggedBufferBool)
         self.action_masks = RaggedActionDict()
         self.actions = RaggedBatchDict(RaggedBufferI64)
         self.logprobs = RaggedBatchDict(RaggedBufferF32)
@@ -61,6 +62,7 @@ class Rollout:
                 self.dones = torch.zeros((steps, len(self.envs))).to(self.device)
                 self.values = torch.zeros((steps, len(self.envs))).to(self.device)
             self.entities.clear()
+            self.visible.clear()
             self.action_masks.clear()
             self.actions.clear()
             self.logprobs.clear()
@@ -91,7 +93,9 @@ class Rollout:
             self.global_step += len(self.envs)
 
             if record_samples:
+                # TODO: this breaks if entity missing on some steps, need merge full VecObs
                 self.entities.extend(next_obs.features)
+                self.visible.extend(next_obs.visible)
                 self.action_masks.extend(next_obs.action_masks)
                 self.dones[step] = next_done
 
@@ -103,6 +107,10 @@ class Rollout:
                             {
                                 name: feats[env_indices]
                                 for name, feats in next_obs.features.items()
+                            },
+                            {
+                                name: visible[env_indices]
+                                for name, visible in next_obs.visible.items()
                             },
                             {
                                 name: mask[env_indices]
@@ -125,7 +133,10 @@ class Rollout:
                         aux,
                         logits,
                     ) = self.agent.get_action_and_auxiliary(
-                        next_obs.features, next_obs.action_masks, tracer=self.tracer
+                        next_obs.features,
+                        next_obs.visible,
+                        next_obs.action_masks,
+                        tracer=self.tracer,
                     )
                     logprob = tensor_dict_to_ragged(
                         RaggedBufferF32, probs_tensor, actor_counts
@@ -134,8 +145,9 @@ class Rollout:
                 if self.value_function is None:
                     value = aux["value"]
                 else:
+                    # TODO: can ignore `visible` here, allow for full attention across all entities
                     value = self.value_function.get_auxiliary_head(
-                        next_obs.features, "value", tracer=self.tracer
+                        next_obs.features, next_obs.visible, "value", tracer=self.tracer
                     )
 
                 # Need to detach here because bug in pytorch that otherwise causes spurious autograd errors and memory leaks when dedicated value function network is used.

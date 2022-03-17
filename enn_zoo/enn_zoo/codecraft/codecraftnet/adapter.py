@@ -68,6 +68,7 @@ class CCNetAdapter(nn.Module):
     def get_action_and_auxiliary(
         self,
         entities: Mapping[str, RaggedBufferF32],
+        visible: Mapping[str, RaggedBufferBool],
         action_masks: Mapping[str, VecActionMask],
         tracer: Tracer,
         prev_actions: Optional[Dict[str, RaggedBufferI64]] = None,
@@ -169,16 +170,23 @@ class CCNetAdapter(nn.Module):
         )
 
     def get_value(
-        self, entities: Dict[str, RaggedBufferF32], tracer: Tracer
+        self,
+        entities: Dict[str, RaggedBufferF32],
+        visible: Mapping[str, RaggedBufferBool],
+        tracer: Tracer,
     ) -> torch.Tensor:
-        return self.get_auxiliary_head(entities, "value", tracer)
+        return self.get_auxiliary_head(entities, visible, "value", tracer)
 
     def get_auxiliary_head(
-        self, entities: Mapping[str, RaggedBufferF32], head_name: str, tracer: Tracer
+        self,
+        entities: Mapping[str, RaggedBufferF32],
+        visible: Mapping[str, RaggedBufferBool],
+        head_name: str,
+        tracer: Tracer,
     ) -> torch.Tensor:
-        return self.get_action_and_auxiliary(entities, action_masks={}, tracer=tracer)[
-            4
-        ][head_name]
+        return self.get_action_and_auxiliary(
+            entities, visible, action_masks={}, tracer=tracer
+        )[4][head_name]
 
 
 from dataclasses import dataclass

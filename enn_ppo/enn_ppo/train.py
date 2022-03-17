@@ -261,6 +261,7 @@ def train(
         values = rollout.values
         actions = rollout.actions
         entities = rollout.entities
+        visible = rollout.visible
         action_masks = rollout.action_masks
         logprobs = rollout.logprobs
         global_step = rollout.global_step
@@ -312,6 +313,7 @@ def train(
                     mb_inds = b_inds[_start:_end]
 
                     b_entities = entities[mb_inds]
+                    b_visible = visible[mb_inds]
                     b_action_masks = action_masks[mb_inds]
                     b_logprobs = logprobs[mb_inds]
                     b_actions = actions[mb_inds]
@@ -327,6 +329,7 @@ def train(
                             _,
                         ) = agent.get_action_and_auxiliary(
                             b_entities,
+                            b_visible,
                             b_action_masks,
                             prev_actions=b_actions,
                             tracer=tracer,
@@ -335,7 +338,7 @@ def train(
                             newvalue = aux["value"]
                         else:
                             newvalue = value_function.get_auxiliary_head(
-                                b_entities, "value", tracer=tracer
+                                b_entities, b_visible, "value", tracer=tracer
                             )
 
                     pg_loss, clipfrac, approx_kl = ppo_loss(

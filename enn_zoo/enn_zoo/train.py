@@ -31,8 +31,11 @@ class TrainConfig(config.TrainConfig):
 
 
 def create_cc_env(cfg: config.EnvConfig, num_envs: int, num_processes: int) -> VecEnv:
+    kwargs = json.loads(cfg.kwargs)
     return CodeCraftVecEnv(
-        num_envs, json.loads(cfg.kwargs).get("objective", "ALLIED_WEALTH")
+        num_envs,
+        kwargs.get("objective", "ALLIED_WEALTH"),
+        hidden_obs=kwargs.get("hidden_obs", False),
     )
 
 
@@ -61,7 +64,8 @@ def main(cfg: TrainConfig) -> None:
         env_cls = griddly_env.create_env(**GRIDDLY_ENVS[cfg.env.id])
     elif cfg.env.id == "CodeCraft":
         objective = json.loads(cfg.env.kwargs).get("objective", "ALLIED_WEALTH")
-        env_cls = codecraft_env_class(objective)
+        hidden_obs = json.loads(cfg.env.kwargs).get("hidden_obs", False)
+        env_cls = codecraft_env_class(objective, hidden_obs)
     elif cfg.env.id == "GymMicrorts":
         env_cls = GymMicrorts
     else:
