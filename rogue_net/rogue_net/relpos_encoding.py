@@ -327,7 +327,9 @@ class RelposEncoding(nn.Module, RelposEncodingConfig):
 
         torientation = torientation[index_map]
         if packpad_index is not None:
-            return torientation[packpad_index].view(packpad_index.size(0), packpad_index.size(1), 1)
+            return torientation[packpad_index].view(
+                packpad_index.size(0), packpad_index.size(1), 1
+            )
         else:
             return torientation.reshape(shape.size0(), shape.size1(0), 1)
 
