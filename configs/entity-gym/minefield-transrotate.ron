@@ -1,8 +1,7 @@
-// Achieves > 0.99 episodic return: https://wandb.ai/entity-neural-network/enn-ppo/reports/Minefield--VmlldzoxNjM3OTM5
 ExperimentConfig(
     env: (
         id: "Minefield",
-        kwargs: "{\"max_mines\": 10}",
+        kwargs: "{\"max_mines\": 10}"
     ),
     rollout: (
         num_envs: 512,
@@ -11,17 +10,6 @@ ExperimentConfig(
     ),
     total_timesteps: 5000000,
     net: (
-        d_model: 32,
-        n_layer: 2,
-        relpos_encoding: (
-            extent: [32],
-            position_features: ["x_pos", "y_pos"],
-            radial: true,
-            rotation_angle_feature: "direction",
-            interpolate: true,
-        ),
-    ),
-    vf_net: (
         d_model: 32,
         n_layer: 2,
         translation: (

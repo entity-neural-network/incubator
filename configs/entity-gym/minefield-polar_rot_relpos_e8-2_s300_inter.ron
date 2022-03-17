@@ -2,7 +2,7 @@
 ExperimentConfig(
     env: (
         id: "Minefield",
-        kwargs: "{\"max_mines\": 10}",
+        kwargs: "{\"max_mines\": 10}"
     ),
     rollout: (
         num_envs: 512,
@@ -14,20 +14,13 @@ ExperimentConfig(
         d_model: 32,
         n_layer: 2,
         relpos_encoding: (
-            extent: [32],
+            extent: [8, 2],
             position_features: ["x_pos", "y_pos"],
             radial: true,
+            distance: true,
             rotation_angle_feature: "direction",
             interpolate: true,
-        ),
-    ),
-    vf_net: (
-        d_model: 32,
-        n_layer: 2,
-        translation: (
-            reference_entity: "Vehicle",
-            position_features: ["x_pos", "y_pos"],
-            rotation_angle_feature: "direction",
+            scale: 300.0,
         ),
     ),
     optim: (

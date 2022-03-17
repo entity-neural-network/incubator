@@ -2,7 +2,7 @@
 ExperimentConfig(
     env: (
         id: "Minefield",
-        kwargs: "{\"max_mines\": 0, \"max_steps\": 110}"
+        kwargs: "{\"max_mines\": 10}",
     ),
     rollout: (
         num_envs: 512,
