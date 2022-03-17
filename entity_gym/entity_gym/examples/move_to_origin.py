@@ -32,10 +32,6 @@ class MoveToOrigin(Environment):
     last_y_pos = 0.0
     step: int = 0
 
-    target_pos_x: float = 0.0
-    target_pos_y: float = 0.0
-    random_target_pos: bool = False
-
     @classmethod
     def obs_space(cls) -> ObsSpace:
         return ObsSpace(
@@ -72,12 +68,6 @@ class MoveToOrigin(Environment):
         self.x_velocity = 0
         self.y_velocity = 0
         self.step = 0
-        if self.random_target_pos:
-            x, y = random.uniform(-1, 1), random.uniform(-1, 1)
-            self.target_pos_x = x
-            self.target_pos_y = y
-            self.x_pos += x
-            self.y_pos += y
         return self.observe()
 
     def act(self, action: Mapping[str, Action]) -> Observation:
