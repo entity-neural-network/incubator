@@ -27,6 +27,14 @@ SQLAlchemy = ">=1.3.0"
 tz = ["python-dateutil"]
 
 [[package]]
+name = "asyncore-wsgi"
+version = "0.0.10"
+description = "Asynchronous WSGI and WebSocket server based on asyncore module"
+category = "main"
+optional = false
+python-versions = "*"
+
+[[package]]
 name = "attrs"
 version = "21.4.0"
 description = "Classes Without Boilerplate"
@@ -47,6 +55,14 @@ description = "A library to provide automatic paging for console output"
 category = "main"
 optional = false
 python-versions = ">=3.6"
+
+[[package]]
+name = "bottle"
+version = "0.12.19"
+description = "Fast and simple WSGI-framework for small web-applications."
+category = "main"
+optional = false
+python-versions = "*"
 
 [[package]]
 name = "cachetools"
@@ -1103,6 +1119,18 @@ optional = false
 python-versions = "*"
 
 [[package]]
+name = "web-pdb"
+version = "1.5.7"
+description = "Web interface for Python's built-in PDB debugger"
+category = "main"
+optional = false
+python-versions = "*"
+
+[package.dependencies]
+asyncore-wsgi = ">=0.0.4"
+bottle = "0.12.19"
+
+[[package]]
 name = "werkzeug"
 version = "2.0.3"
 description = "The comprehensive WSGI web application library."
@@ -1139,7 +1167,7 @@ testing = ["pytest (>=6)", "pytest-checkdocs (>=2.4)", "pytest-flake8", "pytest-
 [metadata]
 lock-version = "1.1"
 python-versions = ">=3.8.0,<3.10"
-content-hash = "109ac982b9bd1bd740d4c25b13b73df5a2872f0e75c19672a000198a0e4b0c34"
+content-hash = "3646653298a72d50747ac0486dd7850dd8af33e17329079ea4042bd9b49c0bc4"
 
 [metadata.files]
 absl-py = [
@@ -1150,6 +1178,10 @@ alembic = [
     {file = "alembic-1.7.7-py3-none-any.whl", hash = "sha256:29be0856ec7591c39f4e1cb10f198045d890e6e2274cf8da80cb5e721a09642b"},
     {file = "alembic-1.7.7.tar.gz", hash = "sha256:4961248173ead7ce8a21efb3de378f13b8398e6630fab0eb258dc74a8af24c58"},
 ]
+asyncore-wsgi = [
+    {file = "asyncore-wsgi-0.0.10.tar.gz", hash = "sha256:22fa129dc78ee7b9d31c684bd5c049bdb67f539207eba3559b8b16cf4a33b452"},
+    {file = "asyncore_wsgi-0.0.10-py2.py3-none-any.whl", hash = "sha256:66c7cfcb209c5b0aa8bdfb48d7ebe3ef2dcd2b085c29fde2930073db2220157c"},
+]
 attrs = [
     {file = "attrs-21.4.0-py2.py3-none-any.whl", hash = "sha256:2d27e3784d7a565d36ab851fe94887c5eccd6a463168875832a1be79c82828b4"},
     {file = "attrs-21.4.0.tar.gz", hash = "sha256:626ba8234211db98e869df76230a137c4c40a12d72445c45d5f5b716f076e2fd"},
@@ -1157,6 +1189,10 @@ attrs = [
 autopage = [
     {file = "autopage-0.5.0-py3-none-any.whl", hash = "sha256:57232860f28a1867cdd54b5ea510e292c53d6dfb613f781c5120200666550b06"},
     {file = "autopage-0.5.0.tar.gz", hash = "sha256:5305b43cc0798170d7124e5a2feecf969e45f4a0baf75cb351138114eaf76b83"},
+]
+bottle = [
+    {file = "bottle-0.12.19-py3-none-any.whl", hash = "sha256:f6b8a34fe9aa406f9813c02990db72ca69ce6a158b5b156d2c41f345016a723d"},
+    {file = "bottle-0.12.19.tar.gz", hash = "sha256:a9d73ffcbc6a1345ca2d7949638db46349f5b2b77dac65d6494d45c23628da2c"},
 ]
 cachetools = [
     {file = "cachetools-5.0.0-py3-none-any.whl", hash = "sha256:8fecd4203a38af17928be7b90689d8083603073622229ca7077b72d8e5a976e4"},
@@ -1924,6 +1960,10 @@ wandb = [
 wcwidth = [
     {file = "wcwidth-0.2.5-py2.py3-none-any.whl", hash = "sha256:beb4802a9cebb9144e99086eff703a642a13d6a0052920003a230f3294bbe784"},
     {file = "wcwidth-0.2.5.tar.gz", hash = "sha256:c4d647b99872929fdb7bdcaa4fbe7f01413ed3d98077df798530e5b04f116c83"},
+]
+web-pdb = [
+    {file = "web-pdb-1.5.7.tar.gz", hash = "sha256:a13cd43ad13f53bc78d213819a097cc023a3a7069b4f841c252fa4b430d925e4"},
+    {file = "web_pdb-1.5.7-py2.py3-none-any.whl", hash = "sha256:c3f785bf39b7d94afafcffc15ee99005661251cfd7d582ded0dc743c58e2ed78"},
 ]
 werkzeug = [
     {file = "Werkzeug-2.0.3-py3-none-any.whl", hash = "sha256:1421ebfc7648a39a5c58c601b154165d05cf47a3cd0ccb70857cbdacf6c8f2b8"},

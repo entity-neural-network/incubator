@@ -49,6 +49,14 @@ six = "*"
 test = ["astroid", "pytest"]
 
 [[package]]
+name = "asyncore-wsgi"
+version = "0.0.10"
+description = "Asynchronous WSGI and WebSocket server based on asyncore module"
+category = "main"
+optional = false
+python-versions = "*"
+
+[[package]]
 name = "atomicwrites"
 version = "1.4.0"
 description = "Atomic file writes."
@@ -108,6 +116,14 @@ d = ["aiohttp (>=3.7.4)"]
 jupyter = ["ipython (>=7.8.0)", "tokenize-rt (>=3.2.0)"]
 python2 = ["typed-ast (>=1.4.3)"]
 uvloop = ["uvloop (>=0.15.2)"]
+
+[[package]]
+name = "bottle"
+version = "0.12.19"
+description = "Fast and simple WSGI-framework for small web-applications."
+category = "main"
+optional = false
+python-versions = "*"
 
 [[package]]
 name = "cachetools"
@@ -293,7 +309,7 @@ develop = true
 [package.dependencies]
 click = "^8.0.4"
 entity_gym = {path = "../entity_gym", develop = true}
-hyperstate = "^0.2.7"
+hyperstate = "^0.2.8"
 moviepy = "^1.0.3"
 msgpack = "^1.0.3"
 msgpack-numpy = "^0.4.7"
@@ -321,10 +337,11 @@ develop = true
 [package.dependencies]
 enn_ppo = {path = "../enn_ppo", develop = true}
 griddly = "1.2.31"
-hyperstate = "^0.2.7"
+hyperstate = "^0.2.8"
 orjson = "^3.6.5"
 requests = "^2.27.1"
 types-requests = "^2.27.7"
+web-pdb = "^1.5.7"
 
 [package.source]
 type = "directory"
@@ -1590,6 +1607,18 @@ optional = false
 python-versions = "*"
 
 [[package]]
+name = "web-pdb"
+version = "1.5.7"
+description = "Web interface for Python's built-in PDB debugger"
+category = "main"
+optional = false
+python-versions = "*"
+
+[package.dependencies]
+asyncore-wsgi = ">=0.0.4"
+bottle = "0.12.19"
+
+[[package]]
 name = "werkzeug"
 version = "2.0.3"
 description = "The comprehensive WSGI web application library."
@@ -1645,6 +1674,10 @@ asttokens = [
     {file = "asttokens-2.0.5-py2.py3-none-any.whl", hash = "sha256:0844691e88552595a6f4a4281a9f7f79b8dd45ca4ccea82e5e05b4bbdb76705c"},
     {file = "asttokens-2.0.5.tar.gz", hash = "sha256:9a54c114f02c7a9480d56550932546a3f1fe71d8a02f1bc7ccd0ee3ee35cf4d5"},
 ]
+asyncore-wsgi = [
+    {file = "asyncore-wsgi-0.0.10.tar.gz", hash = "sha256:22fa129dc78ee7b9d31c684bd5c049bdb67f539207eba3559b8b16cf4a33b452"},
+    {file = "asyncore_wsgi-0.0.10-py2.py3-none-any.whl", hash = "sha256:66c7cfcb209c5b0aa8bdfb48d7ebe3ef2dcd2b085c29fde2930073db2220157c"},
+]
 atomicwrites = [
     {file = "atomicwrites-1.4.0-py2.py3-none-any.whl", hash = "sha256:6d1784dea7c0c8d4a5172b6c620f40b6e4cbfdf96d783691f2e1302a7b88e197"},
     {file = "atomicwrites-1.4.0.tar.gz", hash = "sha256:ae70396ad1a434f9c7046fd2dd196fc04b12f9e91ffb859164193be8b6168a7a"},
@@ -1664,6 +1697,10 @@ backcall = [
 black = [
     {file = "black-21.12b0-py3-none-any.whl", hash = "sha256:a615e69ae185e08fdd73e4715e260e2479c861b5740057fde6e8b4e3b7dd589f"},
     {file = "black-21.12b0.tar.gz", hash = "sha256:77b80f693a569e2e527958459634f18df9b0ba2625ba4e0c2d5da5be42e6f2b3"},
+]
+bottle = [
+    {file = "bottle-0.12.19-py3-none-any.whl", hash = "sha256:f6b8a34fe9aa406f9813c02990db72ca69ce6a158b5b156d2c41f345016a723d"},
+    {file = "bottle-0.12.19.tar.gz", hash = "sha256:a9d73ffcbc6a1345ca2d7949638db46349f5b2b77dac65d6494d45c23628da2c"},
 ]
 cachetools = [
     {file = "cachetools-5.0.0-py3-none-any.whl", hash = "sha256:8fecd4203a38af17928be7b90689d8083603073622229ca7077b72d8e5a976e4"},
@@ -2603,6 +2640,10 @@ wandb = [
 wcwidth = [
     {file = "wcwidth-0.2.5-py2.py3-none-any.whl", hash = "sha256:beb4802a9cebb9144e99086eff703a642a13d6a0052920003a230f3294bbe784"},
     {file = "wcwidth-0.2.5.tar.gz", hash = "sha256:c4d647b99872929fdb7bdcaa4fbe7f01413ed3d98077df798530e5b04f116c83"},
+]
+web-pdb = [
+    {file = "web-pdb-1.5.7.tar.gz", hash = "sha256:a13cd43ad13f53bc78d213819a097cc023a3a7069b4f841c252fa4b430d925e4"},
+    {file = "web_pdb-1.5.7-py2.py3-none-any.whl", hash = "sha256:c3f785bf39b7d94afafcffc15ee99005661251cfd7d582ded0dc743c58e2ed78"},
 ]
 werkzeug = [
     {file = "Werkzeug-2.0.3-py3-none-any.whl", hash = "sha256:1421ebfc7648a39a5c58c601b154165d05cf47a3cd0ccb70857cbdacf6c8f2b8"},
