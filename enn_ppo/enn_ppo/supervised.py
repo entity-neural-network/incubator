@@ -7,7 +7,7 @@ from entity_gym.simple_trace import Tracer
 from entity_gym.environment.vec_env import VecActionMask
 from entity_gym.serialization import Trace
 from entity_gym.serialization.sample_loader import Episode, MergedSamples
-from ragged_buffer import RaggedBufferF32, RaggedBufferI64
+from ragged_buffer import RaggedBufferF32, RaggedBufferI64, RaggedBufferBool
 from rogue_net.rogue_net import RogueNet, RogueNetConfig
 from entity_gym.ragged_dict import RaggedBatchDict, RaggedActionDict
 import torch
@@ -82,6 +82,7 @@ class Config:
 @dataclass
 class DataSet:
     entities: RaggedBatchDict[np.float32]
+    visible: RaggedBatchDict[np.bool_]
     actions: RaggedBatchDict[np.int64]
     logprobs: RaggedBatchDict[np.float32]
     masks: RaggedActionDict
@@ -101,6 +102,7 @@ class DataSet:
             batch_size = frames
         return cls(
             entities=merged_samples.entities,
+            visible=merged_samples.visible,
             actions=merged_samples.actions,
             logprobs=merged_samples.logprobs,
             masks=merged_samples.masks,
@@ -112,12 +114,14 @@ class DataSet:
     @classmethod
     def from_episodes(cls, episodes: List[Episode], batch_size: int) -> "DataSet":
         entities = RaggedBatchDict(RaggedBufferF32)
+        visible = RaggedBatchDict(RaggedBufferBool)
         actions = RaggedBatchDict(RaggedBufferI64)
         logprobs = RaggedBatchDict(RaggedBufferF32)
         logits = RaggedBatchDict(RaggedBufferF32)
         masks = RaggedActionDict()
         for e in episodes:
             entities.extend(e.entities)
+            visible.extend(e.visible)
             actions.extend(e.actions)
             logprobs.extend(e.logprobs)
             masks.extend(e.masks)
@@ -126,6 +130,7 @@ class DataSet:
         return cls.from_merged_samples(
             MergedSamples(
                 entities=entities,
+                visible=visible,
                 actions=actions,
                 logprobs=logprobs,
                 masks=masks,
@@ -143,6 +148,7 @@ class DataSet:
         self, n: int
     ) -> Tuple[
         Dict[str, RaggedBufferF32],
+        Dict[str, RaggedBufferBool],
         Dict[str, RaggedBufferI64],
         Dict[str, RaggedBufferF32],
         Dict[str, VecActionMask],
@@ -154,6 +160,7 @@ class DataSet:
             indices = self.permutation[n * self.batch_size : (n + 1) * self.batch_size]
         return (
             self.entities[indices],
+            self.visible[indices],
             self.actions[indices],
             self.logprobs[indices],
             self.masks[indices],
@@ -202,9 +209,10 @@ def compute_loss(
     tracer: Tracer,
     device: torch.device,
 ) -> Tuple[torch.Tensor, float]:
-    entities, actions, logprobs, masks, logits = ds.batch(batch)
+    entities, visible, actions, logprobs, masks, logits = ds.batch(batch)
     _, newlogprob, entropy, _, aux, newlogits = model.get_action_and_auxiliary(
         entities=entities,
+        visible=visible,
         action_masks=masks,
         prev_actions=actions,
         tracer=tracer,

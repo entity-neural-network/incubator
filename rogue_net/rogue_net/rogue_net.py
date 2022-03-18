@@ -16,7 +16,12 @@ from entity_gym.environment.environment import (
     CategoricalActionSpace,
     SelectEntityActionSpace,
 )
-from ragged_buffer import RaggedBufferF32, RaggedBufferI64, RaggedBuffer
+from ragged_buffer import (
+    RaggedBufferF32,
+    RaggedBufferI64,
+    RaggedBufferBool,
+    RaggedBuffer,
+)
 from rogue_net.categorical_action_head import CategoricalActionHead
 from rogue_net.embedding import EntityEmbedding
 from rogue_net.ragged_tensor import RaggedTensor
@@ -85,7 +90,10 @@ class RogueNet(nn.Module):
         return next(self.parameters()).device
 
     def batch_and_embed(
-        self, entities: Mapping[str, RaggedBufferF32], tracer: Tracer
+        self,
+        entities: Mapping[str, RaggedBufferF32],
+        visible: Mapping[str, RaggedBufferBool],
+        tracer: Tracer,
     ) -> RaggedTensor:
         with tracer.span("embedding"):
             (
@@ -98,9 +106,39 @@ class RogueNet(nn.Module):
                 tlengths,
             ) = self.embedding(entities, tracer, self.device())
 
+        with tracer.span("visibility_mask"):
+            if len(visible) > 0:
+                visibilities = []
+                for etype, feats in entities.items():
+                    if etype in visible:
+                        visibilities.append(
+                            torch.tensor(
+                                visible[etype].as_array(), device=self.device()
+                            ).view(-1)
+                        )
+                    else:
+                        visibilities.append(
+                            torch.ones(
+                                feats.items(),
+                                dtype=torch.bool,
+                                device=self.device(),
+                            )
+                        )
+                tvisible: Optional[torch.Tensor] = torch.cat(visibilities, dim=0)[
+                    tindex_map
+                ]
+            else:
+                tvisible = None
+
         with tracer.span("backbone"):
             x = self.backbone(
-                x, tbatch_index, index_map, tentities, tindex_map, entity_types
+                x,
+                tbatch_index,
+                index_map,
+                tentities,
+                tindex_map,
+                entity_types,
+                tvisible,
             )
 
         return RaggedTensor(
@@ -110,9 +148,13 @@ class RogueNet(nn.Module):
         )
 
     def get_auxiliary_head(
-        self, entities: Mapping[str, RaggedBufferF32], head_name: str, tracer: Tracer
+        self,
+        entities: Mapping[str, RaggedBufferF32],
+        visible: Mapping[str, RaggedBufferBool],
+        head_name: str,
+        tracer: Tracer,
     ) -> torch.Tensor:
-        x = self.batch_and_embed(entities, tracer)
+        x = self.batch_and_embed(entities, visible, tracer)
         pooled = torch_scatter.scatter(
             src=x.data, dim=0, index=x.batch_index, reduce="mean"
         )
@@ -121,12 +163,13 @@ class RogueNet(nn.Module):
     def get_action_and_auxiliary(
         self,
         entities: Mapping[str, RaggedBufferF32],
+        visible: Mapping[str, RaggedBufferBool],
         action_masks: Mapping[str, VecActionMask],
         tracer: Tracer,
         prev_actions: Optional[Dict[str, RaggedBufferI64]] = None,
     ) -> Tuple[
         Dict[str, RaggedBufferI64],  # actions
-        Dict[str, torch.Tensor],  # action probabilities
+        Dict[str, torch.Tensor],  # chosen action probabilities
         Dict[str, torch.Tensor],  # entropy
         Dict[str, npt.NDArray[np.int64]],  # number of actors in each frame
         Dict[str, torch.Tensor],  # auxiliary head values
@@ -137,7 +180,7 @@ class RogueNet(nn.Module):
         entropies: Dict[str, torch.Tensor] = {}
         logits: Dict[str, torch.Tensor] = {}
         with tracer.span("batch_and_embed"):
-            x = self.batch_and_embed(entities, tracer)
+            x = self.batch_and_embed(entities, visible, tracer)
 
         tracer.start("action_heads")
         index_offsets = RaggedBufferI64.from_array(
