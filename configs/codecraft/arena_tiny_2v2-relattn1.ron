@@ -38,5 +38,6 @@ ExperimentConfig(
         interval: 1000000,
         num_envs: 256,
         steps: 360,
+        opponent: "random",
     )
 )
