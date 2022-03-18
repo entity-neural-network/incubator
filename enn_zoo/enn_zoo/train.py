@@ -15,6 +15,7 @@ from enn_zoo.codecraft.cc_vec_env import CodeCraftVecEnv, codecraft_env_class
 from enn_zoo.codecraft.codecraftnet.adapter import CCNetAdapter
 from enn_zoo.griddly_env import GRIDDLY_ENVS
 from enn_zoo.microrts import GymMicrorts
+from enn_zoo.procgen_env.big_fish import BigFish
 from entity_gym.environment import *
 from entity_gym.examples import ENV_REGISTRY
 from rogue_net.rogue_net import RogueNet, RogueNetConfig
@@ -70,6 +71,8 @@ def main(cfg: TrainConfig) -> None:
         env_cls = codecraft_env_class(objective, hidden_obs)
     elif cfg.env.id == "GymMicrorts":
         env_cls = GymMicrorts
+    elif cfg.env.id == "BigFish":
+        env_cls = BigFish
     else:
         try:
             from enn_zoo import vizdoom_env

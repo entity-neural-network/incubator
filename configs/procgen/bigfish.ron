@@ -1,0 +1,29 @@
+ExperimentConfig(
+    env: (
+        id: "BigFish",
+    ),
+    rollout: (
+        num_envs: 256,
+        steps: 64,
+        processes: 16,
+    ),
+    total_timesteps: 10000000,
+    net: (
+        d_model: 64,
+        n_layer: 2,
+        translation: (
+            position_features: ["x", "y"],
+            reference_entity: "Player",
+            add_dist_feature: true,
+        ),
+    ),
+    optim: (
+        bs: 8192,
+        lr: 0.01,
+    ),
+    ppo: (
+        ent_coef: 0.1,
+        anneal_entropy: true,
+        gamma: 0.99,
+    ),
+)

@@ -14,6 +14,7 @@ hyperstate = "^0.2.8"
 enn_ppo = {path = "../enn_ppo", develop = true}
 web-pdb = "^1.5.7"
 vizdoom = {version = "^1.1.11", optional = true}
+procgen = "^0.10.7"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
