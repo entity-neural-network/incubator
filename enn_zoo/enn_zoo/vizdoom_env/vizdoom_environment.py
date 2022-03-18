@@ -38,6 +38,8 @@ RENAME_GAME_VARIABLES: Dict = {
     vzd.GameVariable.PITCH.name: "pitch",
 }
 
+DEG2RAD_MUL = (2 * np.pi) / 360
+
 
 class DoomEntityEnvironment(Environment):
     """
@@ -46,6 +48,11 @@ class DoomEntityEnvironment(Environment):
 
     Note that this may not be the most sensible thing to do, but is done as a curious
     experiment for the entity-gym code :).
+
+    The environment will consist of "Player" entity, containing player location and rotation
+    info, and then for each entity in the labels buffer we give the location info + the first
+    letter of the "type" information (e.g. name), as a very rudimentary way of separating
+    objects from each other.
     """
     def __init__(
         self,
@@ -61,10 +68,12 @@ class DoomEntityEnvironment(Environment):
         self._doomgame.load_config(self._config)
         self._init_done = False
 
-        # We do not need screen stuff so minimize things
+        # We do not need screen stuff so minimize things (apart from rendering)
         self._doomgame.set_window_visible(False)
-        self._doomgame.set_screen_format(vzd.ScreenFormat.GRAY8)
+        self._doomgame.set_screen_format(vzd.ScreenFormat.CRCGCB)
         self._doomgame.set_screen_resolution(vzd.ScreenResolution.RES_160X120)
+        self._image_width = 160
+        self._image_height = 120
 
         # But we need list of objects
         self._doomgame.set_objects_info_enabled(True)
@@ -78,9 +87,13 @@ class DoomEntityEnvironment(Environment):
         for original_name, new_name in RENAME_GAME_VARIABLES.items():
             if original_name in self._game_variable_names:
                 self._game_variable_names[self._game_variable_names.index(original_name)] = new_name
+        # Find where angle and pitch are so we can turn them into radians
+        self._angle_index = self._game_variable_names.index("angle")
+        self._pitch_index = self._game_variable_names.index("pitch")
 
         # When episode terminates the buffers may be empty, so instead we return the last valid observation
         self._last_observation = None
+        self._last_state = None
         self._episode_steps = 0
         self._sum_reward = 0
 
@@ -116,6 +129,9 @@ class DoomEntityEnvironment(Environment):
     def _build_state(self, state, reward, terminal):
         """Build Entity Gym state from ViZDoom state"""
         game_variable_list = np.array([state.game_variables], dtype=np.float32)
+        # Turn degree-angles into radians
+        game_variable_list[0, self._angle_index] *= DEG2RAD_MUL
+        game_variable_list[0, self._pitch_index] *= DEG2RAD_MUL
         object_list = np.array(
             [
                 (o.position_x, o.position_y, o.position_z, ord(o.name[0])) for o in state.objects
@@ -165,6 +181,7 @@ class DoomEntityEnvironment(Environment):
             )
         else:
             state = self._doomgame.get_state()
+            self._last_state = state
             observation = self._build_state(state, reward, terminal)
         # Keep track of the last_observation
         # in case we hit end of the episode
@@ -184,11 +201,16 @@ class DoomEntityEnvironment(Environment):
             self.initialize()
         self._doomgame.new_episode()
         state = self._doomgame.get_state()
+        self._last_state = state
         observation = self._build_state(state, reward=0.0, terminal=False)
         self._last_observation = observation
         self._episode_steps = 0
         self._sum_reward = 0
         return observation
+
+    def render(self, mode="rgb_array"):
+        # Should always have state here
+        return self._last_state.screen_buffer.transpose([1, 2, 0])
 
     def __del__(self):
         self._doomgame.close()

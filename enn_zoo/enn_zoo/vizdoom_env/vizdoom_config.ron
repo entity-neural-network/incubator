@@ -1,5 +1,5 @@
 ExperimentConfig(
-    total_timesteps: 1000000,
+    total_timesteps: 500000,
     env: (
         id: "DoomBasic",
     ),
@@ -11,9 +11,10 @@ ExperimentConfig(
     net: (
         d_model: 128,
         n_layer: 4,
-        relpos_encoding: (
-            extent: [100, 100],
+        translation: (
+            reference_entity: "Player",
             position_features: ["x", "y"],
+            rotation_angle_feature: "angle"
         ),
     ),
     optim: (
