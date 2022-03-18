@@ -1,4 +1,5 @@
 from dataclasses import asdict, dataclass
+import math
 import os
 from pathlib import Path
 from typing import List, Literal, Optional, Tuple, Dict
@@ -163,13 +164,13 @@ class DataSet:
         self.permutation = np.random.permutation(self.frames)
 
     def deterministic_shuffle(self) -> None:
-        average_episode_length = self.frames // len(self.entities.buffers)
+        stepsize = int(math.sqrt(self.frames))
         perm = np.zeros(self.frames, dtype=np.int64)
         index = 0
         offset = 0
         for i in range(self.frames):
             perm[i] = index
-            index += average_episode_length * 3
+            index += stepsize
             if index >= self.frames:
                 offset += 1
                 index = offset
@@ -254,7 +255,8 @@ def train(
             loss, _ = compute_loss(
                 model, test_batch, testds, cfg.loss_fn, tracer, device
             )
-            test_loss = loss.item()
+            test_loss += loss.item()
+        test_loss /= testds.nbatch
         print(f"Test loss {test_loss:.4f}")
         if cfg.wandb.track:
             wandb.log(
@@ -271,26 +273,6 @@ def train(
         model.train()
         for batch in range(trainds.nbatch):
             frame = batch * trainds.batch_size + epoch * trainds.frames
-            optimizer.zero_grad()
-            if cfg.optim.anneal_lr:
-                frac = 1.0 - frame / (cfg.epochs * trainds.frames)
-                lrnow = frac * cfg.optim.lr
-                optimizer.param_groups[0]["lr"] = lrnow
-            else:
-                lrnow = cfg.optim.lr
-
-            loss, entropy = compute_loss(
-                model, batch, trainds, cfg.loss_fn, tracer, device
-            )
-            loss.backward()
-            gradnorm = nn.utils.clip_grad_norm_(
-                model.parameters(), cfg.optim.max_grad_norm
-            )
-            optimizer.step()
-            if batch % cfg.log_interval == 0:
-                print(
-                    f"Epoch {epoch}/{cfg.epochs}, Batch {batch}/{trainds.nbatch}, Loss {loss.item():.4f}, Entropy {entropy:.4f}"
-                )
             if frame % cfg.fast_eval_interval == 0:
                 test_loss = 0.0
                 for test_batch in range(cfg.fast_eval_samples // testds.batch_size):
@@ -313,6 +295,27 @@ def train(
                             "frame": frame,
                         }
                     )
+
+            optimizer.zero_grad()
+            if cfg.optim.anneal_lr:
+                frac = 1.0 - frame / (cfg.epochs * trainds.frames)
+                lrnow = frac * cfg.optim.lr
+                optimizer.param_groups[0]["lr"] = lrnow
+            else:
+                lrnow = cfg.optim.lr
+
+            loss, entropy = compute_loss(
+                model, batch, trainds, cfg.loss_fn, tracer, device
+            )
+            loss.backward()
+            gradnorm = nn.utils.clip_grad_norm_(
+                model.parameters(), cfg.optim.max_grad_norm
+            )
+            optimizer.step()
+            if batch % cfg.log_interval == 0:
+                print(
+                    f"Epoch {epoch}/{cfg.epochs}, Batch {batch}/{trainds.nbatch}, Loss {loss.item():.4f}, Entropy {entropy:.4f}"
+                )
             if cfg.wandb.track:
                 wandb.log(
                     {

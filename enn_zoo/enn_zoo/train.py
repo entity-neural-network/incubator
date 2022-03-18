@@ -1,3 +1,4 @@
+from contextlib import ExitStack
 from dataclasses import dataclass
 from rogue_net.rogue_net import RogueNet, RogueNetConfig
 import torch
@@ -16,6 +17,7 @@ from enn_zoo.codecraft.codecraftnet.adapter import CCNetAdapter
 from enn_zoo.microrts import GymMicrorts
 from enn_zoo import vizdoom_env
 from enn_zoo.vizdoom_env import VIZDOOM_ENVS
+import web_pdb
 
 
 @dataclass
@@ -27,10 +29,13 @@ class TrainConfig(config.TrainConfig):
     """
 
     codecraft_net: bool = False
+    webpdb: bool = False
 
 
 def create_cc_env(cfg: config.EnvConfig, num_envs: int, num_processes: int) -> VecEnv:
-    return CodeCraftVecEnv(num_envs, json.loads(cfg.kwargs))
+    return CodeCraftVecEnv(
+        num_envs, json.loads(cfg.kwargs).get("objective", "ALLIED_WEALTH")
+    )
 
 
 def load_codecraft_policy(
@@ -72,12 +77,15 @@ def main(cfg: TrainConfig) -> None:
     if cfg.codecraft_net:
         agent = CCNetAdapter(device)  # type: ignore
 
-    train(
-        cfg=cfg,
-        env_cls=env_cls,
-        agent=agent,
-        create_env=create_cc_env if cfg.env.id == "CodeCraft" else None,
-    )
+    with ExitStack() as stack:
+        if cfg.webpdb:
+            stack.enter_context(web_pdb.catch_post_mortem())
+        train(
+            cfg=cfg,
+            env_cls=env_cls,
+            agent=agent,
+            create_env=create_cc_env if cfg.env.id == "CodeCraft" else None,
+        )
 
 
 if __name__ == "__main__":
