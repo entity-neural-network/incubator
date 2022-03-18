@@ -123,15 +123,15 @@ def test_relpos_encoding() -> None:
         ),
         env=EnvConfig(id="FloorIsLava"),
         rollout=RolloutConfig(steps=2, num_envs=64),
-        optim=OptimizerConfig(bs=32, lr=0.02),
+        optim=OptimizerConfig(bs=32, lr=0.03),
         ppo=PPOConfig(
-            ent_coef=0.4,
+            ent_coef=1.0,
             anneal_entropy=True,
         ),
     )
     meanrew = _train(cfg)
     print(f"Final mean reward: {meanrew}")
-    assert meanrew >= 0.97
+    assert meanrew >= 0.95
 
     cfg.net.relpos_encoding = None
     meanrew = _train(cfg)
