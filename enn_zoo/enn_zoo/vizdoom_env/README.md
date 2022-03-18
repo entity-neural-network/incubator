@@ -12,7 +12,7 @@ Run an experiment locally, from the root directory of the project:
 poetry run python enn_zoo/enn_zoo/train.py --config enn_zoo/enn_zoo/vizdoom_env/vizdoom_config.ron
 ```
 
-Available environments:
+Available environments (change to DoomBasic by adding `env.id=DoomBasic` to above parameters):
 * DoomBasic ("basic.cfg")
 * DoomHealthGathering ("health_gathering.cfg)
 * DoomHealthGatheringSupreme ("health_gathering_supreme.cfg", health gathering but more difficult)
