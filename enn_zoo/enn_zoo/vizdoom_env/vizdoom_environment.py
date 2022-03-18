@@ -1,7 +1,7 @@
 import numpy as np
-from typing import List, Dict, Type, Mapping
+from typing import List, Dict, Type, Mapping, Union, Set, Any
 
-import vizdoom as vzd
+import vizdoom as vzd  # type: ignore
 
 from entity_gym.environment import (
     CategoricalAction,
@@ -22,12 +22,12 @@ DELTA_SPEED_STEPS: List = [-45, -30, -15, -5, -1, 0, 1, 5, 15, 30, 45]
 DELTA_SPEED_STEPS_STRS: List = [str(x) for x in DELTA_SPEED_STEPS]
 
 # Add player location as part of the observations
-FORCED_GAME_VARIABLES: List = {
+FORCED_GAME_VARIABLES: Set = {
     vzd.GameVariable.POSITION_X,
     vzd.GameVariable.POSITION_Y,
     vzd.GameVariable.POSITION_Z,
     vzd.GameVariable.ANGLE,
-    vzd.GameVariable.PITCH
+    vzd.GameVariable.PITCH,
 }
 
 RENAME_GAME_VARIABLES: Dict = {
@@ -43,7 +43,7 @@ DEG2RAD_MUL = (2 * np.pi) / 360
 
 class DoomEntityEnvironment(Environment):
     """
-    Wrap ViZDoom environments in an appropiate way for Entity Gym, where instead of images
+    Wrap ViZDoom environments in an appropriate way for Entity Gym, where instead of images
     the environment returns lists of enemies and walls and sectors and whatnot.
 
     Note that this may not be the most sensible thing to do, but is done as a curious
@@ -54,6 +54,7 @@ class DoomEntityEnvironment(Environment):
     letter of the "type" information (e.g. name), as a very rudimentary way of separating
     objects from each other.
     """
+
     def __init__(
         self,
         config: str,
@@ -80,13 +81,19 @@ class DoomEntityEnvironment(Environment):
 
         # Handle GameVariables. Add the ones we force
         self._game_variables = self._doomgame.get_available_game_variables()
-        self._game_variables = list(set(self._game_variables).union(set(FORCED_GAME_VARIABLES)))
+        self._game_variables = list(
+            set(self._game_variables).union(set(FORCED_GAME_VARIABLES))
+        )
         self._doomgame.set_available_game_variables(self._game_variables)
-        self._game_variable_names = [game_variable.name for game_variable in self._game_variables]
+        self._game_variable_names = [
+            game_variable.name for game_variable in self._game_variables
+        ]
         # Rename variables where needed
         for original_name, new_name in RENAME_GAME_VARIABLES.items():
             if original_name in self._game_variable_names:
-                self._game_variable_names[self._game_variable_names.index(original_name)] = new_name
+                self._game_variable_names[
+                    self._game_variable_names.index(original_name)
+                ] = new_name
         # Find where angle and pitch are so we can turn them into radians
         self._angle_index = self._game_variable_names.index("angle")
         self._pitch_index = self._game_variable_names.index("pitch")
@@ -103,7 +110,7 @@ class DoomEntityEnvironment(Environment):
                 "Objects": Entity(
                     # TODO "type" here will be just the ord(name[0])
                     ["x", "y", "z", "type"]
-                )
+                ),
             }
         )
 
@@ -111,22 +118,28 @@ class DoomEntityEnvironment(Environment):
         # You can always execute all actions in all steps, so we create a static mask thing
         self._action_mask = {}
         self._available_buttons = self._doomgame.get_available_buttons()
-        assert len(self._available_buttons) > 0, "No available buttons to the agent. Double-check your config files."
+        assert (
+            len(self._available_buttons) > 0
+        ), "No available buttons to the agent. Double-check your config files."
         for action in self._available_buttons:
             action = action.name
             if "DELTA" in action:
-                self._action_space[action] = CategoricalActionSpace(DELTA_SPEED_STEPS_STRS)
+                self._action_space[action] = CategoricalActionSpace(
+                    DELTA_SPEED_STEPS_STRS
+                )
             else:
                 self._action_space[action] = CategoricalActionSpace(["off", "on"])
-            self._action_mask[action] = CategoricalActionMask(actor_ids=np.array([0]), mask=None)
+            self._action_mask[action] = CategoricalActionMask(actor_ids=[0], mask=None)
 
     def obs_space(self) -> ObsSpace:
         return self._observation_space
 
-    def action_space(self) -> Dict[str, ActionSpace]:
+    def action_space(
+        self,
+    ) -> Dict[str, ActionSpace]:
         return self._action_space
 
-    def _build_state(self, state, reward, terminal):
+    def _build_state(self, state: Any, reward: float, terminal: bool) -> Observation:
         """Build Entity Gym state from ViZDoom state"""
         game_variable_list = np.array([state.game_variables], dtype=np.float32)
         # Turn degree-angles into radians
@@ -134,9 +147,10 @@ class DoomEntityEnvironment(Environment):
         game_variable_list[0, self._pitch_index] *= DEG2RAD_MUL
         object_list = np.array(
             [
-                (o.position_x, o.position_y, o.position_z, ord(o.name[0])) for o in state.objects
+                (o.position_x, o.position_y, o.position_z, ord(o.name[0]))
+                for o in state.objects
             ],
-            dtype=np.float32
+            dtype=np.float32,
         )
         return Observation(
             features={
@@ -150,10 +164,11 @@ class DoomEntityEnvironment(Environment):
             end_of_episode_info=EpisodeStats(
                 length=self._episode_steps, total_reward=self._sum_reward
             )
-            if terminal else None,
+            if terminal
+            else None,
         )
 
-    def _enn_action_to_doom(self, action):
+    def _enn_action_to_doom(self, action: Mapping[str, Action]) -> List[int]:
         doom_action = [0 for _ in range(len(self._available_buttons))]
         for i, button in enumerate(self._available_buttons):
             # There is only one actor (player)
@@ -170,7 +185,6 @@ class DoomEntityEnvironment(Environment):
         terminal = self._doomgame.is_episode_finished()
         self._episode_steps += 1
         self._sum_reward += reward
-        observation = None
         if terminal:
             # No observation available,
             # give the previous observation
@@ -189,7 +203,7 @@ class DoomEntityEnvironment(Environment):
         self._last_observation = observation
         return observation
 
-    def initialize(self):
+    def initialize(self) -> None:
         """
         Initialize the game
         """
@@ -208,9 +222,11 @@ class DoomEntityEnvironment(Environment):
         self._sum_reward = 0
         return observation
 
-    def render(self, mode="rgb_array"):
-        # Should always have state here
-        return self._last_state.screen_buffer.transpose([1, 2, 0])
+    def render(self, mode: str = "rgb_array") -> np.ndarray:
+        if self._last_state is not None:
+            return self._last_state.screen_buffer.transpose([1, 2, 0])
+        else:
+            return np.zeros((self._image_height, self._image_width, 3), dtype=np.uint8)
 
-    def __del__(self):
+    def __del__(self) -> None:
         self._doomgame.close()
