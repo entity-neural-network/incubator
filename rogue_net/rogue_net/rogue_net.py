@@ -124,13 +124,21 @@ class RogueNet(nn.Module):
                                 device=self.device(),
                             )
                         )
-                tvisible: Optional[torch.Tensor] = torch.cat(visibilities, dim=0)[tindex_map]
+                tvisible: Optional[torch.Tensor] = torch.cat(visibilities, dim=0)[
+                    tindex_map
+                ]
             else:
                 tvisible = None
 
         with tracer.span("backbone"):
             x = self.backbone(
-                x, tbatch_index, index_map, tentities, tindex_map, entity_types, tvisible
+                x,
+                tbatch_index,
+                index_map,
+                tentities,
+                tindex_map,
+                entity_types,
+                tvisible,
             )
 
         return RaggedTensor(
