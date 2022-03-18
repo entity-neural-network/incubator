@@ -1,4 +1,6 @@
+from entity_gym.environment.environment import SelectEntityActionSpace
 import numpy as np
+import numpy.typing as npt
 from typing import List, Dict, Type, Mapping, Union, Set, Any
 
 import vizdoom as vzd  # type: ignore
@@ -99,7 +101,7 @@ class DoomEntityEnvironment(Environment):
         self._pitch_index = self._game_variable_names.index("pitch")
 
         # When episode terminates the buffers may be empty, so instead we return the last valid observation
-        self._last_observation = None
+        self._last_observation: Observation = None  # type: ignore
         self._last_state = None
         self._episode_steps = 0
         self._sum_reward = 0
@@ -114,7 +116,9 @@ class DoomEntityEnvironment(Environment):
             }
         )
 
-        self._action_space = {}
+        self._action_space: Dict[
+            str, Union[CategoricalActionSpace, SelectEntityActionSpace]
+        ] = {}
         # You can always execute all actions in all steps, so we create a static mask thing
         self._action_mask = {}
         self._available_buttons = self._doomgame.get_available_buttons()
@@ -131,10 +135,10 @@ class DoomEntityEnvironment(Environment):
                 self._action_space[action] = CategoricalActionSpace(["off", "on"])
             self._action_mask[action] = CategoricalActionMask(actor_ids=[0], mask=None)
 
-    def obs_space(self) -> ObsSpace:
+    def obs_space(self) -> ObsSpace:  # type: ignore
         return self._observation_space
 
-    def action_space(
+    def action_space(  # type: ignore
         self,
     ) -> Dict[str, ActionSpace]:
         return self._action_space
@@ -172,7 +176,7 @@ class DoomEntityEnvironment(Environment):
         doom_action = [0 for _ in range(len(self._available_buttons))]
         for i, button in enumerate(self._available_buttons):
             # There is only one actor (player)
-            button_action = action[button.name].actions[0]
+            button_action = action[button.name].actions[0]  # type: ignore
             if "DELTA" in button.name:
                 doom_action[i] = DELTA_SPEED_STEPS[button_action]
             else:
@@ -222,11 +226,17 @@ class DoomEntityEnvironment(Environment):
         self._sum_reward = 0
         return observation
 
-    def render(self, mode: str = "rgb_array") -> np.ndarray:
-        if self._last_state is not None:
-            return self._last_state.screen_buffer.transpose([1, 2, 0])
+    def render(self, **kwargs: Any) -> npt.NDArray[np.uint8]:
+        if "mode" in kwargs and kwargs["mode"] == "rgb_array":
+            if self._last_state is not None:
+                return self._last_state.screen_buffer.transpose([1, 2, 0])
+            else:
+                return np.zeros(
+                    (self._image_height, self._image_width, 3), dtype=np.uint8
+                )
         else:
-            return np.zeros((self._image_height, self._image_width, 3), dtype=np.uint8)
+            return None  # type: ignore
+            # TODO: @Anssi I am not sure the logic here
 
     def __del__(self) -> None:
         self._doomgame.close()
