@@ -13,15 +13,19 @@ ExperimentConfig(
     net: (
         d_model: 32,
         n_layer: 2,
-        translation: (
+        relpos_encoding: (
             position_features: ["x_pos", "y_pos"],
             rotation_angle_feature: "direction",
-            reference_entity: "Vehicle",
+            extent: [8],
+            interpolate: true,
+            radial: true,
+            key_relpos_projection: true,
+            value_relpos_projection: true,
         ),
     ),
     optim: (
         bs: 1024,
-        lr: 0.001,
+        lr: 0.005,
     ),
     ppo: (
         ent_coef: 0.0001,

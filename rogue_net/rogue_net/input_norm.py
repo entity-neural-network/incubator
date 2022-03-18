@@ -39,11 +39,12 @@ class InputNorm(nn.Module):
 
     def update(self, input: torch.Tensor) -> None:
         self._dirty = True
-        count, _ = input.size()
+        count = input.numel() // input.size(-1)
         if count == 0:
             return
-        mean = input.mean(dim=0)
-        square_sum = ((input - mean) * (input - mean)).sum(dim=0)
+        dreduce = tuple(range(0, input.dim() - 1))
+        mean = input.mean(dim=dreduce)
+        square_sum = ((input - mean) * (input - mean)).sum(dim=dreduce)
         if self.count == 0:
             self.count += count
             self.mean = mean

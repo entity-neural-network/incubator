@@ -25,6 +25,11 @@ class TranslationConfig:
     rotation_angle_feature: Optional[str] = None
     add_dist_feature: bool = False
 
+    def __post_init__(self) -> None:
+        assert (
+            self.rotation_vec_features is None or self.rotation_angle_feature is None
+        ), "Only one of rotation_vec_features and rotation_angle_feature can be specified"
+
 
 class TranslatePositions(TranslationConfig):
     def __init__(
@@ -33,9 +38,6 @@ class TranslatePositions(TranslationConfig):
         obs_space: ObsSpace,
     ):
         super().__init__(**cfg.__dict__)
-        assert (
-            cfg.rotation_vec_features is None or cfg.rotation_angle_feature is None
-        ), "Only one of orientation_features and orientation_feature can be specified"
         self.feature_indices = {
             entity_name: [
                 entity.features.index(feature_name)
@@ -86,16 +88,17 @@ class TranslatePositions(TranslationConfig):
             orientation = RaggedBufferF32.from_array(
                 np.hstack([np.cos(angle), np.sin(angle)]).reshape(-1, 1, 2)
             )
+            # TODO: ragged_buffer.translate_rotate assumes that all input arguments are views, so apply identity view
+            orientation = orientation[:, :, :]
         else:
             orientation = None
         for entity_name, indices in self.feature_indices.items():
             if entity_name in entities:
                 if orientation is not None:
-                    # TODO: bug in ragged_buffer, assumes that all input arguments are view (hence, orientation[:, :, :])
                     ragged_buffer.translate_rotate(
                         entities[entity_name][:, :, indices],
                         origin,
-                        orientation[:, :, :],
+                        orientation,
                     )
                 else:
                     feats = entities[entity_name][:, :, indices]

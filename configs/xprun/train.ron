@@ -2,7 +2,7 @@ XpV0(
     project: "enn",
     containers: {
         "main": (
-            command: ["poetry", "run", "python", "-u", "enn_ppo/enn_ppo/train.py"],
+            command: ["poetry", "run", "python", "-u", "enn_zoo/enn_zoo/train.py"],
             build: [
                 From("nvcr.io/nvidia/pytorch:21.03-py3"),
 
@@ -91,7 +91,7 @@ XpV0(
                 Repo(cd: true),
             ],
             gpu: 1,
-            gpu_mem: "5GB",
+            gpu_mem: "5400MiB",
             cpu_mem: "10GiB",
             env_secrets: {
                 "WANDB_API_KEY": "wandb-api-key",
