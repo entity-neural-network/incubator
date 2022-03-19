@@ -235,8 +235,9 @@ class DoomEntityEnvironment(Environment):
                     (self._image_height, self._image_width, 3), dtype=np.uint8
                 )
         else:
-            return None  # type: ignore
-            # TODO: @Anssi I am not sure the logic here
+            raise ValueError(
+                "Only 'rgb_array' render mode is supported (`render(mode='rgb_mode')`)"
+            )
 
     def __del__(self) -> None:
         self._doomgame.close()
