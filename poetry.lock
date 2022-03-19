@@ -341,6 +341,7 @@ hyperstate = "^0.2.8"
 orjson = "^3.6.5"
 requests = "^2.27.1"
 types-requests = "^2.27.7"
+vizdoom = "^1.1.11"
 web-pdb = "^1.5.7"
 
 [package.source]
@@ -409,7 +410,7 @@ gitdb = ">=4.0.1,<5"
 
 [[package]]
 name = "google-auth"
-version = "2.6.0"
+version = "2.6.2"
 description = "Google Authentication Library"
 category = "main"
 optional = false
@@ -1295,7 +1296,7 @@ numpy = ">=1.17.3,<1.25.0"
 
 [[package]]
 name = "sentry-sdk"
-version = "1.5.7"
+version = "1.5.8"
 description = "Python client for Sentry (https://sentry.io)"
 category = "main"
 optional = false
@@ -1547,7 +1548,7 @@ socks = ["PySocks (>=1.5.6,!=1.5.7,<2.0)"]
 
 [[package]]
 name = "virtualenv"
-version = "20.13.3"
+version = "20.13.4"
 description = "Virtual Python Environment builder"
 category = "dev"
 optional = false
@@ -1562,6 +1563,17 @@ six = ">=1.9.0,<2"
 [package.extras]
 docs = ["proselint (>=0.10.2)", "sphinx (>=3)", "sphinx-argparse (>=0.2.5)", "sphinx-rtd-theme (>=0.4.3)", "towncrier (>=21.3)"]
 testing = ["coverage (>=4)", "coverage-enable-subprocess (>=1)", "flaky (>=3)", "pytest (>=4)", "pytest-env (>=0.6.2)", "pytest-freezegun (>=0.4.1)", "pytest-mock (>=2)", "pytest-randomly (>=1)", "pytest-timeout (>=1)", "packaging (>=20.0)"]
+
+[[package]]
+name = "vizdoom"
+version = "1.1.11"
+description = "Reinforcement learning platform based on Doom"
+category = "main"
+optional = false
+python-versions = "*"
+
+[package.dependencies]
+numpy = "*"
 
 [[package]]
 name = "wandb"
@@ -1785,8 +1797,8 @@ gitpython = [
     {file = "GitPython-3.1.27.tar.gz", hash = "sha256:1c885ce809e8ba2d88a29befeb385fcea06338d3640712b59ca623c220bb5704"},
 ]
 google-auth = [
-    {file = "google-auth-2.6.0.tar.gz", hash = "sha256:ad160fc1ea8f19e331a16a14a79f3d643d813a69534ba9611d2c80dc10439dad"},
-    {file = "google_auth-2.6.0-py2.py3-none-any.whl", hash = "sha256:218ca03d7744ca0c8b6697b6083334be7df49b7bf76a69d555962fd1a7657b5f"},
+    {file = "google-auth-2.6.2.tar.gz", hash = "sha256:60d449f8142c742db760f4c0be39121bc8d9be855555d784c252deaca1ced3f5"},
+    {file = "google_auth-2.6.2-py2.py3-none-any.whl", hash = "sha256:3ba4d63cb29c1e6d5ffcc1c0623c03cf02ede6240a072f213084749574e691ab"},
 ]
 google-auth-oauthlib = [
     {file = "google-auth-oauthlib-0.4.6.tar.gz", hash = "sha256:a90a072f6993f2c327067bf65270046384cda5a8ecb20b94ea9a687f1f233a7a"},
@@ -2500,8 +2512,8 @@ scipy = [
     {file = "scipy-1.8.0.tar.gz", hash = "sha256:31d4f2d6b724bc9a98e527b5849b8a7e589bf1ea630c33aa563eda912c9ff0bd"},
 ]
 sentry-sdk = [
-    {file = "sentry-sdk-1.5.7.tar.gz", hash = "sha256:aa52da941c56b5a76fd838f8e9e92a850bf893a9eb1e33ffce6c21431d07ee30"},
-    {file = "sentry_sdk-1.5.7-py2.py3-none-any.whl", hash = "sha256:411a8495bd18cf13038e5749e4710beb4efa53da6351f67b4c2f307c2d9b6d49"},
+    {file = "sentry-sdk-1.5.8.tar.gz", hash = "sha256:38fd16a92b5ef94203db3ece10e03bdaa291481dd7e00e77a148aa0302267d47"},
+    {file = "sentry_sdk-1.5.8-py2.py3-none-any.whl", hash = "sha256:32af1a57954576709242beb8c373b3dbde346ac6bd616921def29d68846fb8c3"},
 ]
 setproctitle = [
     {file = "setproctitle-1.2.2-cp36-cp36m-manylinux1_i686.whl", hash = "sha256:9106bcbacae534b6f82955b176723f1b2ca6514518aab44dffec05a583f8dca8"},
@@ -2630,8 +2642,16 @@ urllib3 = [
     {file = "urllib3-1.26.9.tar.gz", hash = "sha256:aabaf16477806a5e1dd19aa41f8c2b7950dd3c746362d7e3223dbe6de6ac448e"},
 ]
 virtualenv = [
-    {file = "virtualenv-20.13.3-py2.py3-none-any.whl", hash = "sha256:dd448d1ded9f14d1a4bfa6bfc0c5b96ae3be3f2d6c6c159b23ddcfd701baa021"},
-    {file = "virtualenv-20.13.3.tar.gz", hash = "sha256:e9dd1a1359d70137559034c0f5433b34caf504af2dc756367be86a5a32967134"},
+    {file = "virtualenv-20.13.4-py2.py3-none-any.whl", hash = "sha256:c3e01300fb8495bc00ed70741f5271fc95fed067eb7106297be73d30879af60c"},
+    {file = "virtualenv-20.13.4.tar.gz", hash = "sha256:ce8901d3bbf3b90393498187f2d56797a8a452fb2d0d7efc6fd837554d6f679c"},
+]
+vizdoom = [
+    {file = "vizdoom-1.1.11-cp310-cp310-win_amd64.whl", hash = "sha256:2094651f0bb264fe3c306f624dee1a520df22127f6b04e8beaee8f0927a7ff7e"},
+    {file = "vizdoom-1.1.11-cp36-cp36m-win_amd64.whl", hash = "sha256:c41d031d9baab682f0a36fc9c8436be97bb509eef260329537f06106e466321f"},
+    {file = "vizdoom-1.1.11-cp37-cp37m-win_amd64.whl", hash = "sha256:f67ee953f63415f8f9f3a798d6e3661a8d532501b67249970eacf87184e55805"},
+    {file = "vizdoom-1.1.11-cp38-cp38-win_amd64.whl", hash = "sha256:55c06b3bbd36197aac43558e8bf8df027be19b54248b95c02782d6dfe735a41f"},
+    {file = "vizdoom-1.1.11-cp39-cp39-win_amd64.whl", hash = "sha256:d40489f3f86add3685809999e603753bfef6e4a3a27e3e48869550656c9da0d0"},
+    {file = "vizdoom-1.1.11.tar.gz", hash = "sha256:ce4aa0e0c17fa78ee0e05399c46fe5c9f8efcbb21671661fd078474f06c40960"},
 ]
 wandb = [
     {file = "wandb-0.12.11-py2.py3-none-any.whl", hash = "sha256:3a8637ae1b580d5839bde4792d9c31ecd40392ae8a245874391edd82c74e7b17"},
