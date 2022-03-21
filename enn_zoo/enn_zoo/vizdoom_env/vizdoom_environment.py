@@ -50,7 +50,7 @@ MAX_OBJECTS = 20
 
 def select_n_closest(
     objects: np.ndarray, coordinates: np.ndarray, n: int = MAX_OBJECTS
-) -> np.ndarray:
+) -> Any:
     """
     Select n closest objects to coordinates [shape (2,)] and return new array.
     Assumes two first columns of objects are xy coordinates
@@ -71,7 +71,10 @@ class DoomEntityEnvironment(Environment):
     The environment will consist of "Player" entity, containing player location and rotation
     info, and then for each entity in the labels buffer we give the location info + the first
     letter of the "type" information (e.g. name), as a very rudimentary way of separating
-    objects from each other.
+    objects from each other. 20 closest objects to the player are included.
+
+    If "sectors_info_enabled = true" is defined in the config file, this environment
+    will also include information on the nearest walls (but this will slow down training).
     """
 
     def __init__(
@@ -201,20 +204,20 @@ class DoomEntityEnvironment(Environment):
                     wall_line_list.append(
                         (line.x1, line.y1, line.x2, line.y2, float(line.is_blocking))
                     )
-            wall_line_list = np.array(wall_line_list, dtype=np.float32)
+            wall_line_array = np.array(wall_line_list, dtype=np.float32)
 
             if len(wall_line_list) > MAX_OBJECTS:
                 player_coordinates = game_variable_list[
                     0, [self._player_x_index, self._player_y_index]
                 ]
-                wall_line_list = select_n_closest(wall_line_list, player_coordinates)
+                wall_line_array = select_n_closest(wall_line_array, player_coordinates)
 
             # We do our own translation here (player is at origin)
             # as we have two coordinates per line to translate
-            wall_line_list[:, [0, 2]] -= game_variable_list[0, self._player_x_index]
-            wall_line_list[:, [1, 3]] -= game_variable_list[0, self._player_y_index]
+            wall_line_array[:, [0, 2]] -= game_variable_list[0, self._player_x_index]
+            wall_line_array[:, [1, 3]] -= game_variable_list[0, self._player_y_index]
 
-            features["Walls"] = wall_line_list
+            features["Walls"] = wall_line_array
 
         return Observation(
             features=features,
