@@ -6,7 +6,7 @@ ExperimentConfig(
     rollout: (
         num_envs: 16,
         steps: 128,
-        processes: 1,
+        processes: 4,
     ),
     net: (
         d_model: 128,

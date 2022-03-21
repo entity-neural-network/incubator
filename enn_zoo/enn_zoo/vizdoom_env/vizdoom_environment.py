@@ -42,6 +42,23 @@ RENAME_GAME_VARIABLES: Dict = {
 
 DEG2RAD_MUL = (2 * np.pi) / 360
 
+# Only give information on
+# N nearest objects/wall-lines at most
+# (to speed things up)
+MAX_OBJECTS = 20
+
+
+def select_n_closest(
+    objects: np.ndarray, coordinates: np.ndarray, n: int = MAX_OBJECTS
+) -> np.ndarray:
+    """
+    Select n closest objects to coordinates [shape (2,)] and return new array.
+    Assumes two first columns of objects are xy coordinates
+    """
+    distances = np.sum((objects[:, :2] - coordinates) ** 2, axis=1)
+    idxs = np.argpartition(distances, n)
+    return objects[idxs[:n]]
+
 
 class DoomEntityEnvironment(Environment):
     """
@@ -96,6 +113,9 @@ class DoomEntityEnvironment(Environment):
                 self._game_variable_names[
                     self._game_variable_names.index(original_name)
                 ] = new_name
+        self._player_x_index = self._game_variable_names.index("x")
+        self._player_y_index = self._game_variable_names.index("y")
+
         # Find where angle and pitch are so we can turn them into radians
         self._angle_index = self._game_variable_names.index("angle")
         self._pitch_index = self._game_variable_names.index("pitch")
@@ -106,15 +126,20 @@ class DoomEntityEnvironment(Environment):
         self._episode_steps = 0
         self._sum_reward = 0
 
-        self._observation_space = ObsSpace(
-            {
-                "Player": Entity(self._game_variable_names),
-                "Objects": Entity(
-                    # TODO "type" here will be just the ord(name[0])
-                    ["x", "y", "z", "type"]
-                ),
-            }
-        )
+        obs_space_dict = {
+            "Player": Entity(self._game_variable_names),
+            "Objects": Entity(
+                # TODO "type" here will be just the ord(name[0])
+                ["x", "y", "z", "type"]
+            ),
+        }
+
+        # If sector buffer is enabled, include wall lines in the list of entities
+        self._is_sector_buffer_enabled = self._doomgame.is_sectors_info_enabled()
+        if self._is_sector_buffer_enabled:
+            obs_space_dict["Walls"] = Entity(["x1", "y1", "x2", "y2", "is_blocking"])
+
+        self._observation_space = ObsSpace(obs_space_dict)
 
         self._action_space: Dict[
             str, Union[CategoricalActionSpace, SelectEntityActionSpace]
@@ -156,11 +181,43 @@ class DoomEntityEnvironment(Environment):
             ],
             dtype=np.float32,
         )
+
+        if len(object_list) > MAX_OBJECTS:
+            player_coordinates = game_variable_list[
+                0, [self._player_x_index, self._player_y_index]
+            ]
+            object_list = select_n_closest(object_list, player_coordinates)
+
+        features = {
+            "Player": game_variable_list,
+            "Objects": object_list,
+        }
+
+        if self._is_sector_buffer_enabled:
+            # Include wall lines.
+            wall_line_list = []
+            for sector in state.sectors:
+                for line in sector.lines:
+                    wall_line_list.append(
+                        (line.x1, line.y1, line.x2, line.y2, float(line.is_blocking))
+                    )
+            wall_line_list = np.array(wall_line_list, dtype=np.float32)
+
+            if len(wall_line_list) > MAX_OBJECTS:
+                player_coordinates = game_variable_list[
+                    0, [self._player_x_index, self._player_y_index]
+                ]
+                wall_line_list = select_n_closest(wall_line_list, player_coordinates)
+
+            # We do our own translation here (player is at origin)
+            # as we have two coordinates per line to translate
+            wall_line_list[:, [0, 2]] -= game_variable_list[0, self._player_x_index]
+            wall_line_list[:, [1, 3]] -= game_variable_list[0, self._player_y_index]
+
+            features["Walls"] = wall_line_list
+
         return Observation(
-            features={
-                "Player": game_variable_list,
-                "Objects": object_list,
-            },
+            features=features,
             ids={"Player": [0]},
             actions=self._action_mask,
             reward=reward,
