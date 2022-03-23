@@ -27,6 +27,7 @@ def generate_obs_space(env: Any) -> ObsSpace:
 
     # Global entity for global variables and global actions (these dont really exist in Griddly)
     space = {"__global__": Entity(global_variables)}
+    
     for name, features in env.observation_space.features.items():
         space[name] = Entity(features)
 
@@ -55,13 +56,13 @@ def generate_action_space(env: Any) -> Dict[str, ActionSpace]:
 
 
 def create_env(
-    yaml_file: str,
-    global_observer_type: Any = gd.ObserverType.BLOCK_2D,
-    image_path: Optional[str] = None,
-    shader_path: Optional[str] = None,
-    level: int = 0,
-    random_levels: bool = False,
-    level_generator: Optional[LevelGenerator] = None,
+        yaml_file: str,
+        global_observer_type: Any = gd.ObserverType.BLOCK_2D,
+        image_path: Optional[str] = None,
+        shader_path: Optional[str] = None,
+        level: int = 0,
+        random_levels: bool = False,
+        level_generator: Optional[LevelGenerator] = None,
 ) -> Type[GriddlyEnv]:
     """
     In order to fit the API for the Environment, we need to pre-load the environment from the yaml and then pass in
