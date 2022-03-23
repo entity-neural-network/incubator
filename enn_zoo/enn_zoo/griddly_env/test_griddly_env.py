@@ -34,11 +34,7 @@ def test_griddly_wrapper() -> None:
         "playerId",
         "entity_1_variable",
     ]
-    assert observation_space.entities["entity_2"].features == [
-        "x",
-        "y",
-        "z"
-    ]
+    assert observation_space.entities["entity_2"].features == ["x", "y", "z"]
 
     # Check the action space is being created correctly for the test environment
     action_space = env_class.action_space()
@@ -115,9 +111,9 @@ def test_single_agent() -> None:
     # There are three entity2 and one of them is in position 3,3
     assert len(observation_1.ids["entity_2"]) == 3
     assert (
-            env.entity_locations[entity2_ids[0]] == [2, 3]
-            or env.entity_locations[entity2_ids[1]] == [2, 3]
-            or env.entity_locations[entity2_ids[2]] == [2, 3]
+        env.entity_locations[entity2_ids[0]] == [2, 3]
+        or env.entity_locations[entity2_ids[1]] == [2, 3]
+        or env.entity_locations[entity2_ids[2]] == [2, 3]
     )
 
     remove_down_action = CategoricalAction(

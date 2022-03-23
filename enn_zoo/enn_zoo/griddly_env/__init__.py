@@ -56,7 +56,7 @@ def generate_action_space(env: Any) -> Dict[str, ActionSpace]:
 
 def create_env(
     yaml_file: str,
-    global_observer_type: Union[str, gd.ObserverType] = gd.ObserverType.BLOCK_2D,
+    global_observer_type: Any = gd.ObserverType.BLOCK_2D,
     image_path: Optional[str] = None,
     shader_path: Optional[str] = None,
     level: int = 0,
@@ -69,7 +69,11 @@ def create_env(
     """
 
     env = GymWrapper(
-        yaml_file=yaml_file, player_observer_type=gd.ObserverType.ENTITY, image_path=image_path, shader_path=shader_path, level=level
+        yaml_file=yaml_file,
+        player_observer_type=gd.ObserverType.ENTITY,
+        image_path=image_path,
+        shader_path=shader_path,
+        level=level,
     )
     env.reset()
     action_space = generate_action_space(env)

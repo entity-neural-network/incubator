@@ -74,7 +74,9 @@ class GriddlyEnv(Environment):
 
             return np.array([action_type, action_id])
 
-    def _make_observation(self, obs: Dict[str, Any], reward: int = 0, done: bool = False) -> Observation:
+    def _make_observation(
+        self, obs: Dict[str, Any], reward: int = 0, done: bool = False
+    ) -> Observation:
         entities = obs["Entities"]
         entity_ids = obs["Ids"]
         actor_masks = obs["ActorMasks"]
