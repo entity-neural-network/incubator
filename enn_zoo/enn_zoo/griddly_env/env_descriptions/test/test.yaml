@@ -5,6 +5,13 @@ Environment:
   Variables:
     - Name: test_global_variable
       InitialValue: 12
+  Observers:
+    Entity:
+      IncludeMasks: true
+      IncludePlayerId: [entity_1]
+      IncludeRotation: [entity_1]
+      VariableMapping:
+        entity_1: [entity_1_variable]
   Player:
     AvatarObject: entity_1 # The player can only control a single avatar in the game
   Levels:
