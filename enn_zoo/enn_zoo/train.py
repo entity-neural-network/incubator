@@ -15,6 +15,8 @@ from enn_zoo.griddly_env import GRIDDLY_ENVS
 from enn_zoo.codecraft.cc_vec_env import codecraft_env_class, CodeCraftVecEnv
 from enn_zoo.codecraft.codecraftnet.adapter import CCNetAdapter
 from enn_zoo.microrts import GymMicrorts
+from enn_zoo import vizdoom_env
+from enn_zoo.vizdoom_env import VIZDOOM_ENVS
 import web_pdb
 
 
@@ -68,6 +70,8 @@ def main(cfg: TrainConfig) -> None:
         env_cls = codecraft_env_class(objective, hidden_obs)
     elif cfg.env.id == "GymMicrorts":
         env_cls = GymMicrorts
+    elif cfg.env.id in VIZDOOM_ENVS:
+        env_cls = vizdoom_env.create_vizdoom_env(VIZDOOM_ENVS[cfg.env.id])
     else:
         raise KeyError(
             f"Unknown gym_id: {cfg.env.id}\nAvailable environments: {list(ENV_REGISTRY.keys()) + list(GRIDDLY_ENVS.keys()) + ['CodeCraft']}"
