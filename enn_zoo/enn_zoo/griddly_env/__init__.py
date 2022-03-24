@@ -27,7 +27,6 @@ def generate_obs_space(env: Any) -> ObsSpace:
 
     # Global entity for global variables and global actions (these dont really exist in Griddly)
     space = {"__global__": Entity(global_variables)}
-    
     for name, features in env.observation_space.features.items():
         space[name] = Entity(features)
 
