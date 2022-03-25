@@ -1,10 +1,12 @@
+from copy import deepcopy
 from dataclasses import dataclass
 from typing import Dict, List, Optional
-from entity_gym.environment import ObsSpace
+
+import numpy as np
 import ragged_buffer
 from ragged_buffer import RaggedBufferF32
-import numpy as np
-from copy import deepcopy
+
+from entity_gym.environment import ObsSpace
 
 
 @dataclass

@@ -1,14 +1,12 @@
-import requests
 import logging
-import time
 import os
-
-import orjson
-import numpy as np
-
+import time
 from dataclasses import dataclass, field
-from typing import Any, List, Optional, Tuple, Dict
+from typing import Any, Dict, List, Optional, Tuple
 
+import numpy as np
+import orjson
+import requests
 
 RETRIES = 100
 

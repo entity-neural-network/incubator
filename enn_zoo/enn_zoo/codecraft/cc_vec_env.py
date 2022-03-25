@@ -1,13 +1,9 @@
+import math
+import time
 from abc import abstractmethod
 from collections import defaultdict
 from dataclasses import dataclass
 from enum import Enum
-import math
-import time
-from enn_zoo.codecraft import rest_client
-from enn_zoo.codecraft.rest_client import ObsConfig, Rules
-import numpy as np
-import numpy.typing as npt
 from typing import (
     Any,
     Callable,
@@ -20,18 +16,24 @@ from typing import (
     Type,
     Union,
 )
-from ragged_buffer import RaggedBufferF32, RaggedBufferI64, RaggedBufferBool
-from entity_gym.environment import VecEnv
-from entity_gym.environment.vec_env import VecCategoricalActionMask, VecObs
-from entity_gym.environment import Environment, ObsSpace
+
+import numpy as np
+import numpy.typing as npt
+from ragged_buffer import RaggedBufferBool, RaggedBufferF32, RaggedBufferI64
+
+from enn_zoo.codecraft import rest_client
+from enn_zoo.codecraft.rest_client import ObsConfig, Rules
+from entity_gym.environment import Environment, ObsSpace, VecEnv
 from entity_gym.environment.environment import (
     Action,
     ActionSpace,
     CategoricalActionSpace,
     Entity,
-    Observation,
     EpisodeStats,
+    Observation,
 )
+from entity_gym.environment.vec_env import VecCategoricalActionMask, VecObs
+
 from .maps import map_allied_wealth, map_arena_tiny, map_enhanced
 
 LAST_OBS = {}

@@ -1,22 +1,23 @@
+import random
 from dataclasses import dataclass, field
+from typing import Dict, List, Mapping, Optional, Tuple
+
 import numpy as np
 import numpy.typing as npt
-import random
-from typing import Dict, List, Mapping, Tuple, Optional
 
+from entity_gym.dataclass_utils import extract_features, obs_space_from_dataclasses
 from entity_gym.environment import (
+    Action,
+    ActionSpace,
     CategoricalAction,
     CategoricalActionMask,
+    CategoricalActionSpace,
     Entity,
     Environment,
-    CategoricalActionSpace,
-    ActionSpace,
     EpisodeStats,
-    ObsSpace,
     Observation,
-    Action,
+    ObsSpace,
 )
-from entity_gym.dataclass_utils import obs_space_from_dataclasses, extract_features
 
 
 @dataclass

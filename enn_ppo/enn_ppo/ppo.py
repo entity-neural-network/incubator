@@ -1,9 +1,10 @@
 from typing import Mapping, Tuple
-from enn_ppo.config import PPOConfig
-from entity_gym.environment.environment import ActionType
+
 import torch
 from ragged_buffer import RaggedBufferF32
 
+from enn_ppo.config import PPOConfig
+from entity_gym.environment.environment import ActionType
 from entity_gym.simple_trace import Tracer
 
 

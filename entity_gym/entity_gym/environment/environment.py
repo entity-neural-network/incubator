@@ -12,9 +12,9 @@ from typing import (
     Type,
     Union,
 )
+
 import numpy as np
 import numpy.typing as npt
-
 
 EntityID = Any
 EntityType = str

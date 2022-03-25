@@ -1,11 +1,9 @@
-from typing import Any, List, Dict, Type
 from dataclasses import is_dataclass
+from typing import Any, Dict, List, Type
+
 import numpy as np
 
-from .environment import (
-    Entity,
-    ObsSpace,
-)
+from .environment import Entity, ObsSpace
 
 
 def obs_space_from_dataclasses(*dss: Type) -> ObsSpace:

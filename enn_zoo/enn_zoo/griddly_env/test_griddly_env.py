@@ -2,11 +2,12 @@ import os
 from typing import List, Optional
 
 import numpy as np
-from enn_zoo.griddly_env import create_env, GRIDDLY_ENVS
+
+from enn_zoo.griddly_env import GRIDDLY_ENVS, create_env
 from entity_gym.environment import (
-    CategoricalActionSpace,
-    CategoricalActionMask,
     CategoricalAction,
+    CategoricalActionMask,
+    CategoricalActionSpace,
 )
 
 init_path = os.path.dirname(os.path.realpath(__file__))

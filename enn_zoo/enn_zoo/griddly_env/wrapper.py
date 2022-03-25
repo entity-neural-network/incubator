@@ -1,19 +1,19 @@
 from abc import abstractmethod
-from typing import Mapping, Dict, Any
-from entity_gym.environment.environment import CategoricalAction
+from typing import Any, Dict, Mapping
 
 import numpy as np
+import numpy.typing as npt
+
 from entity_gym.environment import (
-    Environment,
     Action,
-    Observation,
     ActionSpace,
-    EpisodeStats,
     CategoricalActionMask,
+    Environment,
+    EpisodeStats,
+    Observation,
     ObsSpace,
 )
-
-import numpy.typing as npt
+from entity_gym.environment.environment import CategoricalAction
 
 
 class GriddlyEnv(Environment):

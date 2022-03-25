@@ -1,8 +1,7 @@
-from rogue_net.input_norm import InputNorm
-
-
-import torch
 import numpy as np
+import torch
+
+from rogue_net.input_norm import InputNorm
 
 
 def test_correct_normalization() -> None:

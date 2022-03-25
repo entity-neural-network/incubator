@@ -1,7 +1,9 @@
 from os import listdir
-from enn_ppo.train import TrainConfig
-import hyperstate
 from pathlib import Path
+
+import hyperstate
+
+from enn_ppo.train import TrainConfig
 
 
 def test_configs() -> None:

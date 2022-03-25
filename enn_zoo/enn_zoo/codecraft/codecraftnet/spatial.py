@@ -1,6 +1,8 @@
 from typing import Any
+
 import torch
 import torch.nn as nn
+
 
 # N: Batch size
 # L: max number of visible objects

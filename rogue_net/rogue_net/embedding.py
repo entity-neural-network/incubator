@@ -1,15 +1,16 @@
 from re import S
 from typing import Dict, Mapping, Optional, Tuple
-from torch import nn
-import torch
+
 import numpy as np
-from ragged_buffer import RaggedBufferF32, RaggedBufferI64
 import ragged_buffer
+import torch
+from ragged_buffer import RaggedBufferF32, RaggedBufferI64
+from torch import nn
+
 from entity_gym.environment import ObsSpace
 from entity_gym.simple_trace import Tracer
-
-from rogue_net.translate_positions import TranslatePositions, TranslationConfig
 from rogue_net.input_norm import InputNorm
+from rogue_net.translate_positions import TranslatePositions, TranslationConfig
 
 
 class EntityEmbedding(nn.Module):

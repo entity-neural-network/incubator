@@ -1,10 +1,10 @@
-from rogue_net.categorical_action_head import CategoricalActionHead
-import torch
 import numpy as np
-
-from rogue_net.ragged_tensor import RaggedTensor
+import torch
 from ragged_buffer import RaggedBufferI64
+
 from entity_gym.environment import VecCategoricalActionMask
+from rogue_net.categorical_action_head import CategoricalActionHead
+from rogue_net.ragged_tensor import RaggedTensor
 
 
 def test_empty_actors() -> None:
