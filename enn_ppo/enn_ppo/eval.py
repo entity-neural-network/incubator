@@ -1,15 +1,16 @@
-from enn_ppo.agent import PPOAgent
-from entity_gym.environment import *
-from entity_gym.serialization import SampleRecordingVecEnv
-from entity_gym.simple_trace import Tracer
-from torch.utils.tensorboard import SummaryWriter
 from typing import Callable, List, Mapping, Tuple, Type, Union
+
 import numpy as np
 import numpy.typing as npt
 import torch
+from torch.utils.tensorboard import SummaryWriter
 
+from enn_ppo.agent import PPOAgent
 from enn_ppo.config import EnvConfig, EvalConfig, RolloutConfig
 from enn_ppo.rollout import Rollout
+from entity_gym.environment import *
+from entity_gym.serialization import SampleRecordingVecEnv
+from entity_gym.simple_trace import Tracer
 
 
 def run_eval(

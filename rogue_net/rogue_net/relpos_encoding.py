@@ -1,12 +1,13 @@
+import math
 from dataclasses import dataclass, field
 from typing import List, Mapping, Optional, Tuple
-from rogue_net.input_norm import InputNorm
-import torch.nn as nn
+
 import torch
+import torch.nn as nn
 from ragged_buffer import RaggedBufferI64
-import math
 
 from entity_gym.environment import ObsSpace
+from rogue_net.input_norm import InputNorm
 
 
 @dataclass(frozen=True, eq=False)

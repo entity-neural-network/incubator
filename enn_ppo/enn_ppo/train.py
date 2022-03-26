@@ -1,19 +1,12 @@
 # adapted from https://github.com/vwxyzjn/cleanrl
-from dataclasses import asdict
+import json
 import os
-from pathlib import Path
 import random
 import time
-from typing import (
-    Any,
-    Callable,
-    Dict,
-    Mapping,
-    Optional,
-    Type,
-)
-import json
-from enn_ppo.agent import PPOAgent
+from dataclasses import asdict
+from pathlib import Path
+from typing import Any, Callable, Dict, Mapping, Optional, Type
+
 import hyperstate
 import numpy as np
 import torch
@@ -21,17 +14,17 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.tensorboard import SummaryWriter
 
+from enn_ppo.agent import PPOAgent
+from enn_ppo.config import *
+from enn_ppo.eval import run_eval
+from enn_ppo.gae import returns_and_advantages
+from enn_ppo.ppo import ppo_loss, value_loss
+from enn_ppo.rollout import Rollout
 from entity_gym.environment import *
 from entity_gym.examples import ENV_REGISTRY
 from entity_gym.serialization import SampleRecordingVecEnv
 from entity_gym.simple_trace import Tracer
 from rogue_net.rogue_net import RogueNet
-
-from enn_ppo.eval import run_eval
-from enn_ppo.gae import returns_and_advantages
-from enn_ppo.rollout import Rollout
-from enn_ppo.config import *
-from enn_ppo.ppo import ppo_loss, value_loss
 
 
 def _env_factory(env_cls: Type[Environment]) -> Callable[[EnvConfig, int, int], VecEnv]:
@@ -420,7 +413,7 @@ def train(
                 if len(_actions) > 0:
                     for i, label in enumerate(space.choices):
                         writer.add_scalar(
-                            "actions/{}/{}".format(action_name, label),
+                            f"actions/{action_name}/{label}",
                             np.sum(_actions == i).item() / len(_actions),
                             global_step,
                         )

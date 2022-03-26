@@ -1,8 +1,8 @@
 import os
-import types
+from typing import Any, Dict, Optional, Type
 
 import numpy as np
-from typing import Tuple, Type, Dict, Optional, Any, Callable
+from griddly import GymWrapper, gd
 
 from enn_zoo.griddly_env.level_generators.clusters_generator import (
     ClustersLevelGenerator,
@@ -11,12 +11,11 @@ from enn_zoo.griddly_env.level_generators.level_generator import LevelGenerator
 from enn_zoo.griddly_env.wrapper import GriddlyEnv
 from entity_gym.environment import (
     ActionSpace,
-    ObsSpace,
-    Entity,
     CategoricalActionSpace,
+    Entity,
     Observation,
+    ObsSpace,
 )
-from griddly import GymWrapper, gd
 
 init_path = os.path.dirname(os.path.realpath(__file__))
 

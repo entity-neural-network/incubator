@@ -1,37 +1,28 @@
+import math
+import time
 from abc import abstractmethod
 from collections import defaultdict
 from dataclasses import dataclass
 from enum import Enum
-import math
-import time
-from enn_zoo.codecraft import rest_client
-from enn_zoo.codecraft.rest_client import ObsConfig, Rules
+from typing import Any, Callable, Dict, List, Mapping, Optional, Tuple, Type, Union
+
 import numpy as np
 import numpy.typing as npt
-from typing import (
-    Any,
-    Callable,
-    Dict,
-    List,
-    Mapping,
-    Optional,
-    Sequence,
-    Tuple,
-    Type,
-    Union,
-)
-from ragged_buffer import RaggedBufferF32, RaggedBufferI64, RaggedBufferBool
-from entity_gym.environment import VecEnv
-from entity_gym.environment.vec_env import VecCategoricalActionMask, VecObs
-from entity_gym.environment import Environment, ObsSpace
+from ragged_buffer import RaggedBufferBool, RaggedBufferF32, RaggedBufferI64
+
+from enn_zoo.codecraft import rest_client
+from enn_zoo.codecraft.rest_client import ObsConfig, Rules
+from entity_gym.environment import Environment, ObsSpace, VecEnv
 from entity_gym.environment.environment import (
     Action,
     ActionSpace,
     CategoricalActionSpace,
     Entity,
-    Observation,
     EpisodeStats,
+    Observation,
 )
+from entity_gym.environment.vec_env import VecCategoricalActionMask, VecObs
+
 from .maps import map_allied_wealth, map_arena_tiny, map_enhanced
 
 LAST_OBS = {}
@@ -644,7 +635,6 @@ class CodeCraftVecEnv(VecEnv):
             game = env_subset[i] if env_subset else i
             winner = obs[stride * num_envs + i * obs_config.nonobs_features()]
             outcome = 0
-            elimination_win = 0
             if self.objective.vs():
                 allied_score = obs[
                     stride * num_envs + i * obs_config.nonobs_features() + 1
@@ -674,7 +664,7 @@ class CodeCraftVecEnv(VecEnv):
                         score -= self.loss_penalty
                 if winner > 0:
                     if enemy_score == 0 or allied_score == 0:
-                        elimination_win = 1
+                        pass
                     if enemy_score + allied_score == 0:
                         outcome = 0
                     else:
@@ -736,7 +726,7 @@ class CodeCraftVecEnv(VecEnv):
 
             if winner > 0:
                 (game_id, pid, opponent_was) = games[i]
-                previous_ruleset = self.rulesets[game]
+                self.rulesets[game]
                 if pid == 0:
                     self_play = game // 2 < self.num_self_play
                     opponent = "none" if self_play else self.next_opponent()
@@ -762,7 +752,7 @@ class CodeCraftVecEnv(VecEnv):
                     ruleset = self.rulesets[game - 1]
                 # print(f"COMPLETED {i} {game} {games[i]} == {self.games[game]} new={game_id}")
                 self.games[game] = (game_id, pid, opponent)
-                observation = rest_client.observe(game_id, pid)
+                rest_client.observe(game_id, pid)
                 # TODO: use actual observation
                 if not obs.flags["WRITEABLE"]:
                     obs = obs.copy()

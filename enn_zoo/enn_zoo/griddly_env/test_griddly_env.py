@@ -2,11 +2,12 @@ import os
 from typing import List, Optional
 
 import numpy as np
-from enn_zoo.griddly_env import create_env, GRIDDLY_ENVS
+
+from enn_zoo.griddly_env import create_env
 from entity_gym.environment import (
-    CategoricalActionSpace,
-    CategoricalActionMask,
     CategoricalAction,
+    CategoricalActionMask,
+    CategoricalActionSpace,
 )
 
 init_path = os.path.dirname(os.path.realpath(__file__))
@@ -152,7 +153,7 @@ def test_single_agent_multi_entity() -> None:
     )
     env = env_cls()
 
-    observation = env.reset()
+    env.reset()
 
     def get_id_by_location(location: List[int]) -> Optional[int]:
         for k, v in env.entity_locations.items():

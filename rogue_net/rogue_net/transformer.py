@@ -1,16 +1,15 @@
 import logging
-from dataclasses import dataclass
-from typing import Dict, Literal, Mapping, Optional, Tuple, Union
 import math
-from entity_gym.environment.environment import ObsSpace
-from numpy import dtype
-from ragged_buffer import RaggedBufferI64
-
-import torch_scatter
+from dataclasses import dataclass
+from typing import Literal, Mapping, Optional, Tuple, Union
 
 import torch
 import torch.nn as nn
+import torch_scatter
+from ragged_buffer import RaggedBufferI64
 from torch.nn import functional as F
+
+from entity_gym.environment.environment import ObsSpace
 from rogue_net.relpos_encoding import RelposEncoding, RelposEncodingConfig
 
 logger = logging.getLogger(__name__)

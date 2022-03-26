@@ -1,23 +1,24 @@
+import json
 from contextlib import ExitStack
 from dataclasses import dataclass
-from rogue_net.rogue_net import RogueNet, RogueNetConfig
-import torch
-import json
 from typing import Mapping, Optional
+
+import hyperstate
+import torch
+import web_pdb
+
+import enn_ppo.config as config
 from enn_ppo.agent import PPOAgent
 from enn_ppo.train import train
-from enn_zoo import griddly_env
-import hyperstate
-import enn_ppo.config as config
+from enn_zoo import griddly_env, vizdoom_env
+from enn_zoo.codecraft.cc_vec_env import CodeCraftVecEnv, codecraft_env_class
+from enn_zoo.codecraft.codecraftnet.adapter import CCNetAdapter
+from enn_zoo.griddly_env import GRIDDLY_ENVS
+from enn_zoo.microrts import GymMicrorts
+from enn_zoo.vizdoom_env import VIZDOOM_ENVS
 from entity_gym.environment import *
 from entity_gym.examples import ENV_REGISTRY
-from enn_zoo.griddly_env import GRIDDLY_ENVS
-from enn_zoo.codecraft.cc_vec_env import codecraft_env_class, CodeCraftVecEnv
-from enn_zoo.codecraft.codecraftnet.adapter import CCNetAdapter
-from enn_zoo.microrts import GymMicrorts
-from enn_zoo import vizdoom_env
-from enn_zoo.vizdoom_env import VIZDOOM_ENVS
-import web_pdb
+from rogue_net.rogue_net import RogueNet, RogueNetConfig
 
 
 @dataclass

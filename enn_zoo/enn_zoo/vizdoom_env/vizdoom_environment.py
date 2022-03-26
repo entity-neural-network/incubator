@@ -1,23 +1,21 @@
-from entity_gym.environment.environment import SelectEntityActionSpace
+from typing import Any, Dict, List, Mapping, Set, Union
+
 import numpy as np
 import numpy.typing as npt
-from typing import List, Dict, Type, Mapping, Union, Set, Any
-
 import vizdoom as vzd  # type: ignore
 
 from entity_gym.environment import (
-    CategoricalAction,
+    Action,
+    ActionSpace,
     CategoricalActionMask,
+    CategoricalActionSpace,
     Entity,
     Environment,
-    CategoricalActionSpace,
-    ActionSpace,
     EpisodeStats,
-    ObsSpace,
     Observation,
-    Action,
+    ObsSpace,
 )
-
+from entity_gym.environment.environment import SelectEntityActionSpace
 
 # Replace Delta buttons with these discrete steps
 DELTA_SPEED_STEPS: List = [-45, -30, -15, -5, -1, 0, 1, 5, 15, 30, 45]

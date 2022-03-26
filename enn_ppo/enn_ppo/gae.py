@@ -1,12 +1,12 @@
 # adapted from https://github.com/vwxyzjn/cleanrl
-from typing import (
-    Tuple,
-)
-from enn_ppo.agent import PPOAgent
+from typing import Tuple
+
 import torch
 
+from enn_ppo.agent import PPOAgent
 from entity_gym.environment import *
 from entity_gym.simple_trace import Tracer
+
 from .config import *
 
 

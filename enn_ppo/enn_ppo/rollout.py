@@ -1,15 +1,17 @@
 from typing import Dict, List, Mapping, Optional, Tuple, Union
-from enn_ppo.agent import PPOAgent
-from entity_gym.serialization.sample_recorder import SampleRecordingVecEnv
-from entity_gym.simple_trace import Tracer
-import torch
+
 import numpy as np
 import numpy.typing as npt
+import ragged_buffer
+import torch
+from ragged_buffer import RaggedBufferBool, RaggedBufferF32, RaggedBufferI64
+
+from enn_ppo.agent import PPOAgent
 from entity_gym.environment import *
 from entity_gym.ragged_dict import RaggedActionDict, RaggedBatchDict
+from entity_gym.serialization.sample_recorder import SampleRecordingVecEnv
+from entity_gym.simple_trace import Tracer
 from rogue_net.rogue_net import tensor_dict_to_ragged
-import ragged_buffer
-from ragged_buffer import RaggedBufferF32, RaggedBufferI64, RaggedBufferBool
 
 
 class Rollout:

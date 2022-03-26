@@ -1,16 +1,14 @@
 from typing import Optional, Tuple
-from ragged_buffer import RaggedBufferI64
-from rogue_net.ragged_tensor import RaggedTensor
-from torch import nn
-from torch.distributions.categorical import Categorical
-import torch
+
 import numpy as np
 import numpy.typing as npt
-from entity_gym.environment import (
-    VecActionMask,
-    VecCategoricalActionMask,
-)
-from typing import Dict
+import torch
+from ragged_buffer import RaggedBufferI64
+from torch import nn
+from torch.distributions.categorical import Categorical
+
+from entity_gym.environment import VecActionMask, VecCategoricalActionMask
+from rogue_net.ragged_tensor import RaggedTensor
 
 
 class CategoricalActionHead(nn.Module):

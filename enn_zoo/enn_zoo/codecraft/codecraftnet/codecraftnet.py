@@ -1,14 +1,12 @@
-from telnetlib import Telnet
+from dataclasses import dataclass
 from typing import Any, Callable, Dict, Optional, Tuple, Type
+
+import hyperstate
 import torch
+import torch.distributions as distributions
 import torch.nn as nn
 import torch.nn.functional as F
-import torch.distributions as distributions
 from torch_scatter import scatter_add, scatter_max
-import torch.distributed as dist
-import hyperstate
-
-from dataclasses import dataclass
 
 from . import spatial
 
@@ -191,7 +189,7 @@ class ObsConfig:
 
 class TransformerPolicy8HS(nn.Module, hyperstate.lazy.Serializable):
     def __init__(self, config: PolicyConfig, obs_config: ObsConfig, naction: int):
-        super(TransformerPolicy8HS, self).__init__()
+        super().__init__()
         assert (
             obs_config.drones > 0 or obs_config.obs_minerals > 0
         ), "Must have at least one mineral or drones observation"
@@ -585,7 +583,7 @@ class TransformerPolicy8HS(nn.Module, hyperstate.lazy.Serializable):
 # https://www.johndcook.com/blog/standard_deviation/
 class InputNorm(nn.Module):
     def __init__(self, num_features: int, cliprange: float = 5) -> None:
-        super(InputNorm, self).__init__()
+        super().__init__()
 
         self.cliprange = cliprange
         self.register_buffer("count", torch.tensor(0.0))
@@ -647,7 +645,7 @@ class InputEmbedding(nn.Module):
     def __init__(
         self, d_in: int, d_model: int, norm_fn: Callable[[int], nn.Module]
     ) -> None:
-        super(InputEmbedding, self).__init__()
+        super().__init__()
 
         self.normalize = InputNorm(d_in)
         self.linear = nn.Linear(d_in, d_model)
@@ -664,7 +662,7 @@ class FFResblock(nn.Module):
     def __init__(
         self, d_model: int, d_ff: int, norm_fn: Callable[[int], nn.Module]
     ) -> None:
-        super(FFResblock, self).__init__()
+        super().__init__()
 
         self.linear_1 = nn.Linear(d_model, d_ff)
         self.linear_2 = nn.Linear(d_ff, d_model)
@@ -696,7 +694,7 @@ class PosItemBlock(nn.Module):
         start_privileged: Optional[int] = None,
         end_privileged: Optional[int] = None,
     ):
-        super(PosItemBlock, self).__init__()
+        super().__init__()
 
         self.d_in = d_in
         self.d_model = d_model
@@ -767,7 +765,7 @@ class ItemBlock(nn.Module):
         norm_fn: Callable[[int], nn.Module],
         resblock: bool,
     ) -> None:
-        super(ItemBlock, self).__init__()
+        super().__init__()
 
         self.embedding = InputEmbedding(d_in, d_model, norm_fn)
         if resblock:

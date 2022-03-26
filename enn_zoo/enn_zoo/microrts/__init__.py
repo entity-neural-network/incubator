@@ -1,36 +1,31 @@
-from dataclasses import dataclass
-from tokenize import String
-from typing import Any, Dict, List, Mapping, MutableMapping, Optional, Sequence, Tuple
-import random
-from entity_gym.environment.environment import EntityObs
+import json
+import os
+import xml.etree.ElementTree as ET
+from typing import Any, Dict, List, Mapping, MutableMapping, Optional, Sequence
+
+import gym_microrts
+import jpype
+import jpype.imports
 import numpy as np
 import numpy.typing as npt
-from copy import deepcopy
-import os
-import gym_microrts
 from gym_microrts import microrts_ai
-import xml.etree.ElementTree as ET
-import json
+from jpype.imports import registerDomain
+from jpype.types import JArray
 from PIL import Image
 
 from entity_gym.environment import (
+    Action,
+    ActionSpace,
     CategoricalAction,
     CategoricalActionMask,
+    CategoricalActionSpace,
     Entity,
     Environment,
     EpisodeStats,
-    ObsSpace,
-    CategoricalActionSpace,
-    ActionSpace,
     Observation,
-    Action,
-    VecEnv,
+    ObsSpace,
 )
-
-import jpype
-from jpype.imports import registerDomain
-import jpype.imports
-from jpype.types import JArray, JInt
+from entity_gym.environment.environment import EntityObs
 
 
 class GymMicrorts(Environment):
@@ -93,13 +88,13 @@ class GymMicrorts(Environment):
 
         self.real_utt = UnitTypeTable()
         from ai.rewardfunction import (
-            RewardFunctionInterface,
-            WinLossRewardFunction,
-            ResourceGatherRewardFunction,
             AttackRewardFunction,
-            ProduceWorkerRewardFunction,
             ProduceBuildingRewardFunction,
             ProduceCombatUnitRewardFunction,
+            ProduceWorkerRewardFunction,
+            ResourceGatherRewardFunction,
+            RewardFunctionInterface,
+            WinLossRewardFunction,
         )
 
         self.rfs = JArray(RewardFunctionInterface)(
@@ -117,7 +112,6 @@ class GymMicrorts(Environment):
         self.ai2s = [microrts_ai.coacAI for _ in range(1)]
 
         from ts.entity import JNIEntityClient as Client
-        from ai.core import AI
 
         self.client = Client(
             self.rfs,
@@ -246,7 +240,6 @@ class GymMicrorts(Environment):
         )
 
     def act(self, action: Mapping[str, Action]) -> Observation:
-        game_over = False
         self.step += 1
 
         unit_action_actors: Sequence[Any] = []
