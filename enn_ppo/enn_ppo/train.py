@@ -6,7 +6,6 @@ import time
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any, Callable, Dict, Mapping, Optional, Type
-from entity_gym.environment.add_metrics_wrapper import AddMetricsWrapper
 
 import hyperstate
 import numpy as np
@@ -22,6 +21,7 @@ from enn_ppo.gae import returns_and_advantages
 from enn_ppo.ppo import ppo_loss, value_loss
 from enn_ppo.rollout import Rollout
 from entity_gym.environment import *
+from entity_gym.environment.add_metrics_wrapper import AddMetricsWrapper
 from entity_gym.examples import ENV_REGISTRY
 from entity_gym.serialization import SampleRecordingVecEnv
 from entity_gym.simple_trace import Tracer

@@ -1,5 +1,4 @@
 from typing import Dict, List, Mapping, Optional, Tuple, Union
-from entity_gym.environment.vec_env import Metric
 
 import numpy as np
 import numpy.typing as npt
@@ -9,6 +8,7 @@ from ragged_buffer import RaggedBufferBool, RaggedBufferF32, RaggedBufferI64
 
 from enn_ppo.agent import PPOAgent
 from entity_gym.environment import *
+from entity_gym.environment.vec_env import Metric
 from entity_gym.ragged_dict import RaggedActionDict, RaggedBatchDict
 from entity_gym.serialization.sample_recorder import SampleRecordingVecEnv
 from entity_gym.simple_trace import Tracer

@@ -1,7 +1,7 @@
+import copy
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any, Dict, List, Mapping, Optional, Type, Union, overload
-import copy
 
 import numpy as np
 import numpy.typing as npt
@@ -117,14 +117,14 @@ class Metric:
         self.sum += value
         self.min = min(self.min, value)
         self.max = max(self.max, value)
-    
+
     def __iadd__(self, m: "Metric") -> "Metric":
         self.count += m.count
         self.sum += m.sum
         self.min = min(self.min, m.min)
         self.max = max(self.max, m.max)
         return self
-    
+
     def __add__(self, m: "Metric") -> "Metric":
         return Metric(
             count=self.count + m.count,

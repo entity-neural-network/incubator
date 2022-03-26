@@ -1,10 +1,11 @@
 from typing import Any, Mapping, Optional, Type
-from entity_gym.environment.environment import ActionType, Environment, ObsSpace
-from entity_gym.environment.vec_env import Metric, VecEnv, VecObs
 
 import numpy as np
 import numpy.typing as npt
 from ragged_buffer import RaggedBufferI64
+
+from entity_gym.environment.environment import ActionType, Environment, ObsSpace
+from entity_gym.environment.vec_env import Metric, VecEnv, VecObs
 
 
 class AddMetricsWrapper(VecEnv):

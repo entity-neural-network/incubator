@@ -72,8 +72,8 @@ def main(cfg: TrainConfig) -> None:
         env_cls = GymMicrorts
     else:
         try:
-            from enn_zoo.vizdoom_env import VIZDOOM_ENVS
             from enn_zoo import vizdoom_env
+            from enn_zoo.vizdoom_env import VIZDOOM_ENVS
 
             env_cls = vizdoom_env.create_vizdoom_env(VIZDOOM_ENVS[cfg.env.id])
         except ImportError:
