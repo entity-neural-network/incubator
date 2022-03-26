@@ -9,7 +9,6 @@ from entity_gym.environment import (
     ActionSpace,
     CategoricalActionMask,
     Environment,
-    EpisodeStats,
     Observation,
     ObsSpace,
 )
@@ -101,26 +100,15 @@ class GriddlyEnv(Environment):
             actions=action_masks,
             reward=reward,
             done=done,
-            end_of_episode_info=EpisodeStats(self.step, self.total_reward)
-            if done
-            else None,
         )
 
     def reset(self) -> Observation:
         self._env.reset()
-
-        self.total_reward = 0
-        self.step = 0
-
         return self._make_observation()
 
     def act(self, action: Mapping[str, Action]) -> Observation:
         g_action = self._to_griddly_action(action)
         _, reward, done, info = self._env.step(g_action)
-
-        self.total_reward += reward
-        self.step += 1
-
         return self._make_observation(reward, done)
 
     def render(self, **kwargs: Any) -> npt.NDArray[np.uint8]:

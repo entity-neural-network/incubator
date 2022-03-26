@@ -21,7 +21,6 @@ from entity_gym.environment import (
     CategoricalActionSpace,
     Entity,
     Environment,
-    EpisodeStats,
     Observation,
     ObsSpace,
 )
@@ -232,11 +231,6 @@ class GymMicrorts(Environment):
             },
             reward=response.reward @ self.reward_weight,
             done=response.done[0],
-            end_of_episode_info=EpisodeStats(
-                length=self.step, total_reward=float(self.reward_weight @ self.returns)
-            )
-            if response.done[0]
-            else None,
         )
 
     def act(self, action: Mapping[str, Action]) -> Observation:
@@ -308,18 +302,12 @@ class GymMicrorts(Environment):
             },
             reward=response.reward @ self.reward_weight,
             done=response.done[0],
-            end_of_episode_info=EpisodeStats(
-                length=self.step,
-                total_reward=float(self.reward_weight @ self.returns),
-                metrics=dict(
-                    zip(
-                        [f"charts/episodic_return/{item}" for item in self.rfs_names],
-                        self.returns,
-                    )
-                ),
-            )
-            if response.done[0]
-            else None,
+            metrics=dict(
+                zip(
+                    [f"charts/episodic_return/{item}" for item in self.rfs_names],
+                    self.returns,
+                )
+            ),
         )
 
     def generate_entities(self, response: Any) -> Mapping[str, Optional[EntityObs]]:

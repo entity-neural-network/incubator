@@ -6,6 +6,7 @@ import time
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any, Callable, Dict, Mapping, Optional, Type
+from entity_gym.environment.add_metrics_wrapper import AddMetricsWrapper
 
 import hyperstate
 import numpy as np
@@ -128,7 +129,9 @@ def train(
 
     if create_env is None:
         create_env = _env_factory(env_cls)
-    envs = create_env(cfg.env, cfg.rollout.num_envs, cfg.rollout.processes)
+    envs: VecEnv = AddMetricsWrapper(
+        create_env(cfg.env, cfg.rollout.num_envs, cfg.rollout.processes)
+    )
     obs_space = env_cls.obs_space()
     action_space = env_cls.action_space()
 
@@ -246,9 +249,30 @@ def train(
             cfg.rollout.steps, record_samples=True, capture_logits=cfg.capture_logits
         )
         for name, value in metrics.items():
-            writer.add_scalar(name, value, rollout.global_step)
+            writer.add_scalar(name + "/mean", value.mean, rollout.global_step)
+            writer.add_scalar(name + "/min", value.min, rollout.global_step)
+            writer.add_scalar(name + "/max", value.max, rollout.global_step)
+            writer.add_scalar(name + "/count", value.count, rollout.global_step)
+
+        # Double log these to remain compatible with old naming scheme
+        # TODO: remove before release
+        writer.add_scalar(
+            "charts/episodic_return",
+            metrics["episodic/reward"].mean,
+            rollout.global_step,
+        )
+        writer.add_scalar(
+            "charts/episodic_length",
+            metrics["episodic/length"].mean,
+            rollout.global_step,
+        )
+        writer.add_scalar(
+            "charts/episodes", metrics["episodic/reward"].count, rollout.global_step
+        )
+        writer.add_scalar("meanrew", metrics["reward"].mean, rollout.global_step)
+
         print(
-            f"global_step={rollout.global_step} {'  '.join(f'{name}={value}' for name, value in metrics.items())}"
+            f"global_step={rollout.global_step} {'  '.join(f'{name}={value.mean}' for name, value in metrics.items())}"
         )
 
         values = rollout.values
@@ -394,7 +418,6 @@ def train(
         var_y = np.var(y_true)
         explained_var = np.nan if var_y == 0 else 1 - np.var(y_true - y_pred) / var_y
 
-        # TRY NOT TO MODIFY: record rewards for plotting purposes
         writer.add_scalar(
             "charts/learning_rate", optimizer.param_groups[0]["lr"], global_step
         )
