@@ -18,7 +18,7 @@ from entity_gym.simple_trace import Tracer
 
 class CCNetAdapter(nn.Module):
     def __init__(self, device: str, load_from: Optional[str] = None) -> None:
-        super(CCNetAdapter, self).__init__()
+        super().__init__()
         if load_from is not None:
             self.network = Trainer(load_from).state.policy.to(device)
         else:

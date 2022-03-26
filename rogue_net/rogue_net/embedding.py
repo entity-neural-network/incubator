@@ -82,7 +82,7 @@ class EntityEmbedding(nn.Module):
 
         x = torch.cat(entity_embeds)
         with tracer.span("ragged_metadata"):
-            lengths = sum([entity.size1() for entity in entities.values()])
+            lengths = sum(entity.size1() for entity in entities.values())
             batch_index = np.concatenate(
                 [entity.indices(0).as_array().flatten() for entity in entities.values()]
             )

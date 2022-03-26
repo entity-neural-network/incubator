@@ -64,7 +64,7 @@ class RogueNet(nn.Module):
         action_space: Dict[str, ActionSpace],
         regression_heads: Optional[Dict[str, int]] = None,
     ):
-        super(RogueNet, self).__init__()
+        super().__init__()
 
         self.d_model = cfg.d_model
         self.action_space = action_space

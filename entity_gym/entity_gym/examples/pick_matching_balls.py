@@ -82,10 +82,8 @@ class PickMatchingBalls(Environment):
                 reward = 1.0
             else:
                 reward = (sum(b.selected for b in self.balls) - 1) / max(
-                    [
-                        len([b for b in self.balls if b.color == color])
-                        for color in range(6)
-                    ]
+                    len([b for b in self.balls if b.color == color])
+                    for color in range(6)
                 )
         else:
             reward = 0.0

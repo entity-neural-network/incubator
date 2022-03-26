@@ -413,7 +413,7 @@ def train(
                 if len(_actions) > 0:
                     for i, label in enumerate(space.choices):
                         writer.add_scalar(
-                            "actions/{}/{}".format(action_name, label),
+                            f"actions/{action_name}/{label}",
                             np.sum(_actions == i).item() / len(_actions),
                             global_step,
                         )

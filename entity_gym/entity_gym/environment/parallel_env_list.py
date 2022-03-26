@@ -29,7 +29,7 @@ class CloudpickleWrapper:
         self.var = cloudpickle.loads(var)
 
 
-class MsgpackConnectionWrapper(object):
+class MsgpackConnectionWrapper:
     """
     Use msgpack instead of pickle to send and receive data from workers.
     """

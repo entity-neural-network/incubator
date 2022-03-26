@@ -167,7 +167,7 @@ class Trace:
                             episodes[e].logits[name].extend(logits[i])
             prev_episodes = sample.episode
         return sorted(
-            [e for e in episodes.values() if e.complete or include_incomplete],
+            (e for e in episodes.values() if e.complete or include_incomplete),
             key=lambda e: e.number,
         )
 
