@@ -1,7 +1,7 @@
 import multiprocessing as mp
 import multiprocessing.connection as conn
 from multiprocessing.connection import Connection
-from typing import Any, Dict, Generator, List, Mapping, Optional, Sequence, Type
+from typing import Any, Dict, Generator, List, Mapping, Optional, Type
 
 import cloudpickle
 import msgpack_numpy
@@ -10,12 +10,7 @@ import numpy.typing as npt
 from ragged_buffer import RaggedBufferI64
 
 from entity_gym.environment.env_list import EnvList
-from entity_gym.environment.environment import (
-    Action,
-    Environment,
-    Observation,
-    ObsSpace,
-)
+from entity_gym.environment.environment import Environment, Observation, ObsSpace
 from entity_gym.environment.vec_env import VecEnv, VecObs, batch_obs
 from entity_gym.serialization.msgpack_ragged import (
     ragged_buffer_decode,

@@ -1,12 +1,11 @@
 import logging
 import math
 from dataclasses import dataclass
-from typing import Dict, Literal, Mapping, Optional, Tuple, Union
+from typing import Literal, Mapping, Optional, Tuple, Union
 
 import torch
 import torch.nn as nn
 import torch_scatter
-from numpy import dtype
 from ragged_buffer import RaggedBufferI64
 from torch.nn import functional as F
 

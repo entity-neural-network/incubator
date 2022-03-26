@@ -1,5 +1,4 @@
-import argparse
-from typing import Dict, Type
+from typing import Dict
 
 import numpy as np
 
@@ -8,7 +7,6 @@ from entity_gym.environment import (
     Action,
     CategoricalAction,
     CategoricalActionSpace,
-    Environment,
     Observation,
     ObsSpace,
     SelectEntityAction,

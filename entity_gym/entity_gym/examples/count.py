@@ -1,6 +1,6 @@
 import random
-from dataclasses import dataclass, field
-from typing import Dict, List, Mapping, Optional, Tuple
+from dataclasses import dataclass
+from typing import Dict, Mapping, Optional
 
 import numpy as np
 import numpy.typing as npt
@@ -12,7 +12,6 @@ from entity_gym.environment import (
     CategoricalAction,
     CategoricalActionMask,
     CategoricalActionSpace,
-    Entity,
     Environment,
     EpisodeStats,
     Observation,

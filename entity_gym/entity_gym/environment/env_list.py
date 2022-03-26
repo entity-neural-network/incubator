@@ -1,5 +1,4 @@
-from operator import index
-from typing import Any, Dict, List, Mapping, Sequence, Type
+from typing import Any, Dict, List, Mapping, Type
 
 import numpy as np
 import numpy.typing as npt

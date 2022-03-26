@@ -1,10 +1,9 @@
 import random
 from copy import deepcopy
 from dataclasses import dataclass
-from typing import Dict, List, Mapping, Sequence, Tuple, Type
+from typing import Dict, List, Mapping, Tuple
 
 import numpy as np
-from ragged_buffer import RaggedBufferI64
 
 from entity_gym.environment import (
     Action,
@@ -17,10 +16,7 @@ from entity_gym.environment import (
     EpisodeStats,
     Observation,
     ObsSpace,
-    VecEnv,
 )
-from entity_gym.environment.environment import ActionType
-from entity_gym.environment.vec_env import VecObs, batch_obs
 
 
 @dataclass

@@ -1,7 +1,7 @@
 import time
 from collections import defaultdict
 from contextlib import contextmanager
-from typing import DefaultDict, Dict, Generator, List, Optional, Tuple
+from typing import DefaultDict, Dict, Generator, List
 
 import torch
 

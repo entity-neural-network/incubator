@@ -6,7 +6,7 @@ import numpy as np
 import tqdm
 from ragged_buffer import RaggedBufferBool, RaggedBufferF32, RaggedBufferI64
 
-from entity_gym.environment import Action, ObsSpace
+from entity_gym.environment import ObsSpace
 from entity_gym.environment.environment import ActionSpace
 from entity_gym.environment.vec_env import VecActionMask
 from entity_gym.ragged_dict import RaggedActionDict, RaggedBatchDict

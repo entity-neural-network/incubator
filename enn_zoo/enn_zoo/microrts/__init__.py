@@ -1,11 +1,7 @@
 import json
 import os
-import random
 import xml.etree.ElementTree as ET
-from copy import deepcopy
-from dataclasses import dataclass
-from tokenize import String
-from typing import Any, Dict, List, Mapping, MutableMapping, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Mapping, MutableMapping, Optional, Sequence
 
 import gym_microrts
 import jpype
@@ -14,7 +10,7 @@ import numpy as np
 import numpy.typing as npt
 from gym_microrts import microrts_ai
 from jpype.imports import registerDomain
-from jpype.types import JArray, JInt
+from jpype.types import JArray
 from PIL import Image
 
 from entity_gym.environment import (
@@ -28,7 +24,6 @@ from entity_gym.environment import (
     EpisodeStats,
     Observation,
     ObsSpace,
-    VecEnv,
 )
 from entity_gym.environment.environment import EntityObs
 
@@ -116,7 +111,6 @@ class GymMicrorts(Environment):
 
         self.ai2s = [microrts_ai.coacAI for _ in range(1)]
 
-        from ai.core import AI
         from ts.entity import JNIEntityClient as Client
 
         self.client = Client(
@@ -246,7 +240,6 @@ class GymMicrorts(Environment):
         )
 
     def act(self, action: Mapping[str, Action]) -> Observation:
-        game_over = False
         self.step += 1
 
         unit_action_actors: Sequence[Any] = []

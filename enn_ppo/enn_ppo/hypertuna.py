@@ -5,7 +5,6 @@ import math
 import random
 import threading
 import time
-from collections import defaultdict
 from copy import deepcopy
 from dataclasses import dataclass, field
 from distutils.util import strtobool

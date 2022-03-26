@@ -11,7 +11,6 @@ from entity_gym.environment import (
     CategoricalAction,
     CategoricalActionMask,
     CategoricalActionSpace,
-    Entity,
     Environment,
     EpisodeStats,
     Observation,

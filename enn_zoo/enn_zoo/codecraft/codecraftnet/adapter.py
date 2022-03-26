@@ -1,4 +1,4 @@
-from typing import Any, Dict, Mapping, Optional, Tuple
+from typing import Dict, Mapping, Optional, Tuple
 
 import numpy as np
 import numpy.typing as npt

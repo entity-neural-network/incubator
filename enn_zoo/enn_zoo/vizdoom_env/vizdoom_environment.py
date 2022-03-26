@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Mapping, Set, Type, Union
+from typing import Any, Dict, List, Mapping, Set, Union
 
 import numpy as np
 import numpy.typing as npt
@@ -7,7 +7,6 @@ import vizdoom as vzd  # type: ignore
 from entity_gym.environment import (
     Action,
     ActionSpace,
-    CategoricalAction,
     CategoricalActionMask,
     CategoricalActionSpace,
     Entity,

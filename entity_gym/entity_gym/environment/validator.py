@@ -1,4 +1,4 @@
-from typing import Dict, Mapping, Type
+from typing import Mapping, Type
 
 import numpy as np
 

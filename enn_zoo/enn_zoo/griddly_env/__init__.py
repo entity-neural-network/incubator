@@ -1,6 +1,5 @@
 import os
-import types
-from typing import Any, Callable, Dict, Optional, Tuple, Type
+from typing import Any, Dict, Optional, Type
 
 import numpy as np
 from griddly import GymWrapper, gd

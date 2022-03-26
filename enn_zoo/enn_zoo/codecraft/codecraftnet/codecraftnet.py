@@ -1,10 +1,8 @@
 from dataclasses import dataclass
-from telnetlib import Telnet
 from typing import Any, Callable, Dict, Optional, Tuple, Type
 
 import hyperstate
 import torch
-import torch.distributed as dist
 import torch.distributions as distributions
 import torch.nn as nn
 import torch.nn.functional as F

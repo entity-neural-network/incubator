@@ -3,7 +3,7 @@ from typing import Dict, Generic, Mapping, Type, TypeVar
 
 import numpy as np
 import numpy.typing as npt
-from ragged_buffer import RaggedBuffer, RaggedBufferF32, RaggedBufferI64
+from ragged_buffer import RaggedBuffer
 
 from .environment.vec_env import VecActionMask
 
