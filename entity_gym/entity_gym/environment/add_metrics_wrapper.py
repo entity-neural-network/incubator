@@ -50,13 +50,19 @@ class AddMetricsWrapper(VecEnv):
         self.total_steps += 1
         episodic_reward = Metric()
         episodic_length = Metric()
+        obs.metrics["step"] = Metric(
+            sum=self.total_steps.sum(),
+            count=len(self.total_steps),
+            min=self.total_steps.min(),
+            max=self.total_steps.max(),
+        )
         for i in np.arange(len(self))[obs.done & self.filter]:
             episodic_reward.push(self.total_reward[i])
             episodic_length.push(self.total_steps[i])
             self.total_reward[i] = 0.0
             self.total_steps[i] = 0
-        obs.metrics["episodic/reward"] = episodic_reward
-        obs.metrics["episodic/length"] = episodic_length
+        obs.metrics["episodic_reward"] = episodic_reward
+        obs.metrics["episode_length"] = episodic_length
         obs.metrics["reward"] = Metric(
             sum=obs.reward.sum(),
             count=obs.reward.size,

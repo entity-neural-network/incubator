@@ -109,8 +109,8 @@ VecActionMask = Union[VecCategoricalActionMask, VecSelectEntityActionMask]
 class Metric:
     count: int = 0
     sum: float = 0.0
-    min: float = float("-inf")
-    max: float = float("inf")
+    min: float = float("inf")
+    max: float = float("-inf")
 
     def push(self, value: float) -> None:
         self.count += 1

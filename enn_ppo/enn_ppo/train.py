@@ -249,25 +249,25 @@ def train(
             cfg.rollout.steps, record_samples=True, capture_logits=cfg.capture_logits
         )
         for name, value in metrics.items():
-            writer.add_scalar(name + "/mean", value.mean, rollout.global_step)
-            writer.add_scalar(name + "/min", value.min, rollout.global_step)
-            writer.add_scalar(name + "/max", value.max, rollout.global_step)
-            writer.add_scalar(name + "/count", value.count, rollout.global_step)
+            writer.add_scalar(f"{name}.mean", value.mean, rollout.global_step)
+            writer.add_scalar(f"{name}.max", value.max, rollout.global_step)
+            writer.add_scalar(f"{name}.min", value.min, rollout.global_step)
+            writer.add_scalar(f"{name}.count", value.count, rollout.global_step)
 
         # Double log these to remain compatible with old naming scheme
         # TODO: remove before release
         writer.add_scalar(
             "charts/episodic_return",
-            metrics["episodic/reward"].mean,
+            metrics["episodic_reward"].mean,
             rollout.global_step,
         )
         writer.add_scalar(
             "charts/episodic_length",
-            metrics["episodic/length"].mean,
+            metrics["episode_length"].mean,
             rollout.global_step,
         )
         writer.add_scalar(
-            "charts/episodes", metrics["episodic/reward"].count, rollout.global_step
+            "charts/episodes", metrics["episodic_reward"].count, rollout.global_step
         )
         writer.add_scalar("meanrew", metrics["reward"].mean, rollout.global_step)
 
