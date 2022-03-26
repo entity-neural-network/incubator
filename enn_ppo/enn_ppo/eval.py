@@ -92,6 +92,6 @@ def run_eval(
         writer.add_scalar(f"eval/{name}.max", value.max, global_step)
         writer.add_scalar(f"eval/{name}.count", value.count, global_step)
     print(
-        f"[eval] global_step={global_step} {'  '.join(f'{name}={value}' for name, value in metrics.items())}"
+        f"[eval] global_step={global_step} {'  '.join(f'{name}={value.mean}' for name, value in metrics.items())}"
     )
     envs.close()
