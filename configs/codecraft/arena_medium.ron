@@ -1,7 +1,7 @@
 ExperimentConfig(
     env: (
         id: "CodeCraft",
-        kwargs: "{\"objective\": \"ARENA_TINY_2V2\"}",
+        kwargs: "{\"objective\": \"ARENA_MEDIUM\"}",
     ),
     rollout: (
         num_envs: 256,
@@ -25,13 +25,12 @@ ExperimentConfig(
         n_layer: 2,
         n_head: 2,
         relpos_encoding: (
-            extent: [8, 2],
+            extent: [8],
             position_features: ["x", "y"],
+            key_relpos_projection: true,
+            value_relpos_projection: true,
             rotation_vec_features: ["orientation_x", "orientation_y"],
             radial: true,
-            distance: true,
-            interpolate: true,
-            scale: 1000.0,
         ),
     ),
     total_timesteps: 10000000,
@@ -39,6 +38,7 @@ ExperimentConfig(
         interval: 1000000,
         num_envs: 256,
         steps: 360,
-        opponent: "/xprun/data/common/DeepCodeCraft/golden-models/arena_tiny_2v2/arena_tiny_2v2-e58ceea-0-25m",
+        // opponent: "/xprun/data/common/DeepCodeCraft/golden-models/arena_medium/arena_medium-5f06842-0-10m",
+        opponent: "/mnt/a/Dropbox/artifacts/xprun/common/DeepCodeCraft/golden-models/arena_medium/arena_medium-5f06842-0-10m",
     )
 )

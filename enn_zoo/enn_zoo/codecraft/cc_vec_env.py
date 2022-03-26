@@ -22,7 +22,13 @@ from entity_gym.environment.environment import (
 )
 from entity_gym.environment.vec_env import VecCategoricalActionMask, VecObs
 
-from .maps import map_allied_wealth, map_arena_tiny, map_arena_tiny_2v2, map_enhanced
+from .maps import (
+    map_allied_wealth,
+    map_arena_tiny,
+    map_arena_tiny_2v2,
+    map_enhanced,
+    map_arena_medium,
+)
 
 LAST_OBS = {}
 VERIFY = False
@@ -61,6 +67,32 @@ DRONE_FEATS = [
     "required_energy",
     "constructing_1m",
 ]
+MIN_DRONE_FEATS = [
+    "x",
+    "y",
+    "orientation_x",
+    "orientation_y",
+    "stored_resources",
+    "is_constructing",
+    "is_harvesting",
+    "hitpoints",
+    "storage_modules",
+    "missile_batteries",
+    "constructors",
+    "engines",
+    "shield_generators",
+    "long_range_missiles",
+    "is_stunned",
+    "is_enemy",
+    "long_range_missile_chargeup",
+    "is_visible",
+    # lock_build_action
+    # "build_action_locked",
+    # feat_dist_to_wall
+    "available_energy",
+    "required_energy",
+    "constructing_1m",
+]
 GLOBAL_FEATS = [
     "relative_elapsed_time",
     "allied_score",
@@ -70,6 +102,15 @@ GLOBAL_FEATS = [
     "remaining_timesteps",
     "msdm",
     "cost_multiplier_1m",
+    "unit_count",
+]
+MIN_GLOBAL_FEATS = [
+    "relative_elapsed_time",
+    "allied_score",
+    "map_height",
+    "map_width",
+    "timestep",
+    "remaining_timesteps",
     "unit_count",
 ]
 
@@ -197,8 +238,14 @@ def codecraft_env_class(
         )
         for build in objective.extra_builds()
     ]
-    drone_features = list(DRONE_FEATS) + extra_drone_features
-    global_features = list(GLOBAL_FEATS)
+    if objective == Objective.ARENA_MEDIUM or objective == objective.ARENA_TINY_2V2:
+        drone_features = list(MIN_DRONE_FEATS) + extra_drone_features
+        global_features = list(MIN_GLOBAL_FEATS)
+        mineral_features = ["x", "y", "size"]
+    else:
+        drone_features = list(DRONE_FEATS) + extra_drone_features
+        global_features = list(GLOBAL_FEATS)
+        mineral_features = ["x", "y", "size", "claimed"]
     global_features[-1:-1] = extra_global_features
 
     class CodeCraftEnv(Environment):
@@ -208,14 +255,7 @@ def codecraft_env_class(
                 entities={
                     "ally": Entity(drone_features + global_features),
                     "enemy": Entity(drone_features),
-                    "mineral": Entity(
-                        [
-                            "x",
-                            "y",
-                            "size",
-                            "claimed",
-                        ]
-                    ),
+                    "mineral": Entity(mineral_features),
                     "tile": Entity(
                         [
                             "x",
@@ -368,6 +408,10 @@ class CodeCraftVecEnv(VecEnv):
             self.obs_config = ObsConfig(
                 allies=1, drones=2, minerals=0, tiles=0, num_builds=1
             )
+        elif objective == Objective.ARENA_MEDIUM:
+            self.obs_config = ObsConfig(
+                allies=8, drones=16, minerals=8, tiles=0, num_builds=1
+            )
         elif objective == Objective.ENHANCED:
             self.obs_config = ObsConfig(
                 allies=20,
@@ -382,6 +426,12 @@ class CodeCraftVecEnv(VecEnv):
             )
         else:
             raise NotImplementedError()
+        if objective == Objective.ARENA_TINY_2V2 or objective == Objective.ARENA_MEDIUM:
+            self.obs_config.feat_dist_to_wall = False
+            self.obs_config.feat_rule_costs = False
+            self.obs_config.feat_rule_msdm = False
+            self.obs_config.feat_last_seen = False
+            self.obs_config.feat_mineral_claims = False
         self.hardness = hardness
         self.symmetric = symmetric
         self.win_bonus = win_bonus
@@ -426,6 +476,9 @@ class CodeCraftVecEnv(VecEnv):
         elif objective == Objective.ARENA_TINY_2V2:
             self.game_length = 1 * 30 * 60
             self.custom_map = map_arena_tiny_2v2
+        elif objective == Objective.ARENA_MEDIUM:
+            self.game_length = 3 * 60 * 60
+            self.custom_map = map_arena_medium
         elif objective == Objective.ENHANCED:
             self.game_length = 3 * 60 * 60
             self.custom_map = map_enhanced

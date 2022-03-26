@@ -38,6 +38,6 @@ ExperimentConfig(
         interval: 1000000,
         num_envs: 256,
         steps: 360,
-        opponent: "random",
+        opponent: "/xprun/data/common/DeepCodeCraft/golden-models/arena_tiny_2v2/arena_tiny_2v2-e58ceea-0-25m",
     )
 )
