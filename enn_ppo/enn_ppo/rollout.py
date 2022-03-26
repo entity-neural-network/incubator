@@ -8,6 +8,7 @@ from ragged_buffer import RaggedBufferBool, RaggedBufferF32, RaggedBufferI64
 
 from enn_ppo.agent import PPOAgent
 from entity_gym.environment import *
+from entity_gym.environment.vec_env import Metric
 from entity_gym.ragged_dict import RaggedActionDict, RaggedBatchDict
 from entity_gym.serialization.sample_recorder import SampleRecordingVecEnv
 from entity_gym.simple_trace import Tracer
@@ -54,7 +55,7 @@ class Rollout:
         record_samples: bool,
         capture_videos: bool = False,
         capture_logits: bool = False,
-    ) -> Tuple[VecObs, torch.Tensor, Dict[str, float]]:
+    ) -> Tuple[VecObs, torch.Tensor, Dict[str, Metric]]:
         """
         Run the agent for a number of steps. Returns next_obs, next_done, and a dictionary of statistics.
         """
@@ -76,10 +77,7 @@ class Rollout:
         else:
             invindex = np.array([], dtype=np.int64)
 
-        total_episodic_return = 0.0
-        total_episodic_length = 0
-        total_metrics = {}
-        total_episodes = 0
+        metrics: Dict[str, Metric] = {}
 
         if self.next_obs is None or self.next_done is None:
             next_obs = self.envs.reset(self.obs_space)
@@ -186,23 +184,11 @@ class Rollout:
                     )
                     next_done = torch.tensor(next_obs.done).to(self.device).view(-1)
 
-            if isinstance(self.agent, list):
-                end_of_episode_infos = []
-                for i in self.agent[0][0]:
-                    if i in next_obs.end_of_episode_info:
-                        end_of_episode_infos.append(next_obs.end_of_episode_info[i])
-            else:
-                end_of_episode_infos = list(next_obs.end_of_episode_info.values())
-            for eoei in end_of_episode_infos:
-                total_episodic_return += eoei.total_reward
-                total_episodic_length += eoei.length
-                total_episodes += 1
-                if eoei.metrics is not None:
-                    for k, v in eoei.metrics.items():
-                        if k not in total_metrics:
-                            total_metrics[k] = v
-                        else:
-                            total_metrics[k] += v
+            for mname, mvalue in next_obs.metrics.items():
+                if mname in metrics:
+                    metrics[mname] += mvalue
+                else:
+                    metrics[mname] = mvalue
 
         self.next_obs = next_obs
         self.next_done = next_done
@@ -210,14 +196,4 @@ class Rollout:
         if capture_videos:
             self.rendered = np.stack(self.rendered_frames)
 
-        metrics = {}
-        if total_episodes > 0:
-            avg_return = total_episodic_return / total_episodes
-            avg_length = total_episodic_length / total_episodes
-            metrics["charts/episodic_return"] = avg_return
-            metrics["charts/episodic_length"] = avg_length
-            metrics["charts/episodes"] = total_episodes
-            metrics["meanrew"] = self.rewards.mean().item()
-            for k, v in total_metrics.items():
-                metrics[f"metrics/{k}/avg"] = v / total_episodes
         return next_obs, next_done, metrics

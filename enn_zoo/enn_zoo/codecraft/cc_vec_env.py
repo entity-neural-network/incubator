@@ -18,7 +18,6 @@ from entity_gym.environment.environment import (
     ActionSpace,
     CategoricalActionSpace,
     Entity,
-    EpisodeStats,
     Observation,
 )
 from entity_gym.environment.vec_env import VecCategoricalActionMask, VecObs
@@ -434,8 +433,6 @@ class CodeCraftVecEnv(VecEnv):
         self.game_count = 0
 
         self.games: List[Tuple[int, int, str]] = []
-        self.eplen: List[int] = []
-        self.eprew: List[float] = []
         self.score: List[Optional[float]] = []
         self.performed_builds: List[Any] = []
         self.rulesets: List[Any] = []
@@ -463,7 +460,6 @@ class CodeCraftVecEnv(VecEnv):
 
     def reset(self, obs_config: ObsSpace) -> VecObs:
         self.games = []
-        self.eplen = []
         self.score = []
         self.performed_builds = []
         self.rulesets = []
@@ -497,15 +493,11 @@ class CodeCraftVecEnv(VecEnv):
             self.game_count += 1
 
             self.games.append((game_id, 0, opponent))
-            self.eplen.append(1)
-            self.eprew.append(0)
             self.score.append(None)
             self.performed_builds.append(defaultdict(lambda: 0))
             self.rulesets.append(ruleset)
             if self_play:
                 self.games.append((game_id, 1, opponent))
-                self.eplen.append(1)
-                self.eprew.append(0)
                 self.score.append(None)
                 self.performed_builds.append(defaultdict(lambda: 0))
                 self.rulesets.append(ruleset)
@@ -610,7 +602,6 @@ class CodeCraftVecEnv(VecEnv):
 
         rews = []
         dones = []
-        infos = {}
         obs = rest_client.observe_batch_raw(
             obs_config,
             [(gid, pid) for (gid, pid, _) in games],
@@ -722,7 +713,6 @@ class CodeCraftVecEnv(VecEnv):
                 self.score[game] = score
             reward = score - self.score[game]
             self.score[game] = score
-            self.eprew[game] += reward
 
             if winner > 0:
                 (game_id, pid, opponent_was) = games[i]
@@ -761,7 +751,6 @@ class CodeCraftVecEnv(VecEnv):
                 ] = 0.0  # codecraft.observation_to_np(observation)
 
                 dones.append(1.0)
-                infos[i] = EpisodeStats(self.eplen[game], self.eprew[game])
                 # {
                 #     "episode": {
                 #         "r": self.eprew[game],
@@ -775,13 +764,10 @@ class CodeCraftVecEnv(VecEnv):
                 #         "ruleset": previous_ruleset,
                 #     }
                 # }
-                self.eplen[game] = 1
-                self.eprew[game] = 0
                 self.score[game] = None
                 self.performed_builds[game] = defaultdict(lambda: 0)
                 self.rulesets[game] = ruleset
             else:
-                self.eplen[game] += 1
                 dones.append(0.0)
 
             rews.append(reward)
@@ -886,7 +872,7 @@ class CodeCraftVecEnv(VecEnv):
             },
             reward=np.array(rews),
             done=np.array(dones) == 1.0,
-            end_of_episode_info=infos,
+            metrics={},
         )
         return batch
 

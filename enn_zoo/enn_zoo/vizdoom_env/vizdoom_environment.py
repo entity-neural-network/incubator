@@ -11,7 +11,6 @@ from entity_gym.environment import (
     CategoricalActionSpace,
     Entity,
     Environment,
-    EpisodeStats,
     Observation,
     ObsSpace,
 )
@@ -124,8 +123,6 @@ class DoomEntityEnvironment(Environment):
         # When episode terminates the buffers may be empty, so instead we return the last valid observation
         self._last_observation: Observation = None  # type: ignore
         self._last_state = None
-        self._episode_steps = 0
-        self._sum_reward = 0
 
         obs_space_dict = {
             "Player": Entity(self._game_variable_names),
@@ -223,11 +220,6 @@ class DoomEntityEnvironment(Environment):
             actions=self._action_mask,
             reward=reward,
             done=terminal,
-            end_of_episode_info=EpisodeStats(
-                length=self._episode_steps, total_reward=self._sum_reward
-            )
-            if terminal
-            else None,
         )
 
     def _enn_action_to_doom(self, action: Mapping[str, Action]) -> List[int]:
@@ -245,16 +237,11 @@ class DoomEntityEnvironment(Environment):
         doom_action = self._enn_action_to_doom(action)
         reward = self._doomgame.make_action(doom_action, self._frame_skip)
         terminal = self._doomgame.is_episode_finished()
-        self._episode_steps += 1
-        self._sum_reward += reward
         if terminal:
             # No observation available,
             # give the previous observation
             observation = self._last_observation
             observation.done = True
-            observation.end_of_episode_info = EpisodeStats(
-                length=self._episode_steps, total_reward=self._sum_reward
-            )
         else:
             state = self._doomgame.get_state()
             self._last_state = state
@@ -280,8 +267,6 @@ class DoomEntityEnvironment(Environment):
         self._last_state = state
         observation = self._build_state(state, reward=0.0, terminal=False)
         self._last_observation = observation
-        self._episode_steps = 0
-        self._sum_reward = 0
         return observation
 
     def render(self, **kwargs: Any) -> npt.NDArray[np.uint8]:

@@ -1,4 +1,4 @@
-from typing import Callable, List, Mapping, Tuple, Type, Union
+from typing import Callable, List, Mapping, Optional, Tuple, Type, Union
 
 import numpy as np
 import numpy.typing as npt
@@ -9,6 +9,7 @@ from enn_ppo.agent import PPOAgent
 from enn_ppo.config import EnvConfig, EvalConfig, RolloutConfig
 from enn_ppo.rollout import Rollout
 from entity_gym.environment import *
+from entity_gym.environment.add_metrics_wrapper import AddMetricsWrapper
 from entity_gym.serialization import SampleRecordingVecEnv
 from entity_gym.simple_trace import Tracer
 
@@ -31,10 +32,10 @@ def run_eval(
     # TODO: metrics are biased towards short episodes
     processes = cfg.processes or rollout.processes
     num_envs = cfg.num_envs or rollout.num_envs
-    envs = create_env(env_cfg, num_envs, processes)
     obs_space = env_cls.obs_space()
     action_space = env_cls.action_space()
 
+    metric_filter: Optional[npt.NDArray[np.bool8]] = None
     if cfg.opponent is not None:
         opponent = create_opponent(cfg.opponent, obs_space, action_space, device)
         if cfg.opponent_only:
@@ -49,8 +50,13 @@ def run_eval(
                     opponent,
                 ),
             ]
+            metric_filter = np.arange(num_envs) % 2 == 0
     else:
         agents = agent
+
+    envs: VecEnv = AddMetricsWrapper(
+        create_env(env_cfg, num_envs, processes), metric_filter
+    )
 
     if cfg.capture_samples:
         envs = SampleRecordingVecEnv(
