@@ -3,6 +3,7 @@ from contextlib import ExitStack
 from dataclasses import dataclass
 from typing import Mapping, Optional
 from enn_zoo.procgen_env.boss_fight import BossFight
+from enn_zoo.procgen_env.star_pilot import StarPilot
 
 import hyperstate
 import torch
@@ -77,6 +78,8 @@ def main(cfg: TrainConfig) -> None:
             env_cls = BigFish
         elif cfg.env.id == "Procgen:BossFight":
             env_cls = BossFight
+        elif cfg.env.id == "Procgen:StarPilot":
+            env_cls = StarPilot
         else:
             raise NotImplementedError(f"Unknown procgen env: {cfg.env.id}")
     else:

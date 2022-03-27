@@ -19,6 +19,7 @@ ExperimentConfig(
     ),
     optim: (
         bs: 8192,
+        micro_bs: 512,
         lr: 0.01,
     ),
     ppo: (
