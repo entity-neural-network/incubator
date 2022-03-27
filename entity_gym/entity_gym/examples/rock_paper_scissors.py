@@ -1,20 +1,18 @@
-from dataclasses import dataclass
-import numpy as np
 import random
+from dataclasses import dataclass
 from typing import Dict, Mapping
 
+from entity_gym.dataclass_utils import extract_features, obs_space_from_dataclasses
 from entity_gym.environment import (
+    Action,
+    ActionSpace,
     CategoricalAction,
     CategoricalActionMask,
-    Environment,
     CategoricalActionSpace,
-    ActionSpace,
-    EpisodeStats,
-    ObsSpace,
+    Environment,
     Observation,
-    Action,
+    ObsSpace,
 )
-from entity_gym.dataclass_utils import obs_space_from_dataclasses, extract_features
 
 
 @dataclass
@@ -108,5 +106,4 @@ class RockPaperScissors(Environment):
             visible={"Opponent": [self.cheat]},
             reward=reward,
             done=done,
-            end_of_episode_info=EpisodeStats(1, reward),
         )

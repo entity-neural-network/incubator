@@ -1,29 +1,22 @@
+import copy
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import (
-    Any,
-    Dict,
-    List,
-    Mapping,
-    Optional,
-    Type,
-    Union,
-    overload,
-)
-from entity_gym.environment.environment import (
-    ActionSpace,
-    CategoricalActionSpace,
-    Environment,
-    EpisodeStats,
-    ObsSpace,
-    Observation,
-    SelectEntityActionSpace,
-    EntityType,
-    ActionType,
-)
+from typing import Any, Dict, List, Mapping, Optional, Type, Union, overload
+
 import numpy as np
 import numpy.typing as npt
-from ragged_buffer import RaggedBufferF32, RaggedBufferI64, RaggedBufferBool
+from ragged_buffer import RaggedBufferBool, RaggedBufferF32, RaggedBufferI64
+
+from entity_gym.environment.environment import (
+    ActionSpace,
+    ActionType,
+    CategoricalActionSpace,
+    EntityType,
+    Environment,
+    Observation,
+    ObsSpace,
+    SelectEntityActionSpace,
+)
 
 
 @dataclass
@@ -113,6 +106,42 @@ VecActionMask = Union[VecCategoricalActionMask, VecSelectEntityActionMask]
 
 
 @dataclass
+class Metric:
+    count: int = 0
+    sum: float = 0.0
+    min: float = float("inf")
+    max: float = float("-inf")
+
+    def push(self, value: float) -> None:
+        self.count += 1
+        self.sum += value
+        self.min = min(self.min, value)
+        self.max = max(self.max, value)
+
+    def __iadd__(self, m: "Metric") -> "Metric":
+        self.count += m.count
+        self.sum += m.sum
+        self.min = min(self.min, m.min)
+        self.max = max(self.max, m.max)
+        return self
+
+    def __add__(self, m: "Metric") -> "Metric":
+        return Metric(
+            count=self.count + m.count,
+            sum=self.sum + m.sum,
+            min=min(self.min, m.min),
+            max=max(self.max, m.max),
+        )
+
+    @property
+    def mean(self) -> float:
+        if self.count == 0:
+            return 0.0
+        else:
+            return self.sum / self.count
+
+
+@dataclass
 class VecObs:
     features: Dict[EntityType, RaggedBufferF32]
     # Optional mask to hide specific entities from the policy but not the value function
@@ -120,7 +149,7 @@ class VecObs:
     action_masks: Dict[ActionType, VecActionMask]
     reward: npt.NDArray[np.float32]
     done: npt.NDArray[np.bool_]
-    end_of_episode_info: Dict[int, EpisodeStats]
+    metrics: Dict[str, Metric]
 
     def extend(self, b: "VecObs") -> None:
         num_envs = len(self.reward)
@@ -141,8 +170,14 @@ class VecObs:
         self.reward = np.concatenate((self.reward, b.reward))
         self.done = np.concatenate((self.done, b.done))
         num_envs = len(self.reward)
-        for i, stats in b.end_of_episode_info.items():
-            self.end_of_episode_info[i + num_envs] = stats
+        for name, stats in b.metrics.items():
+            if name in self.metrics:
+                self.metrics[name].count += stats.count
+                self.metrics[name].sum += stats.sum
+                self.metrics[name].min = min(self.metrics[name].min, stats.min)
+                self.metrics[name].max = max(self.metrics[name].max, stats.max)
+            else:
+                self.metrics[name] = copy.copy(stats)
         for etype in self.features.keys():
             if etype in b.visible:
                 if etype not in self.visible:
@@ -205,7 +240,7 @@ def batch_obs(
     action_masks: Dict[ActionType, VecActionMask] = {}
     reward = []
     done = []
-    end_of_episode_info = {}
+    metrics = {}
 
     # Initialize the entire batch with all entities and actions
     for entity_name, entity in obs_space.entities.items():
@@ -322,8 +357,10 @@ def batch_obs(
 
         reward.append(o.reward)
         done.append(o.done)
-        if o.end_of_episode_info:
-            end_of_episode_info[len(reward) - 1] = o.end_of_episode_info
+        for name, value in o.metrics.items():
+            if name not in metrics:
+                metrics[name] = Metric()
+            metrics[name].push(value)
 
     return VecObs(
         features,
@@ -331,7 +368,7 @@ def batch_obs(
         action_masks,
         np.array(reward, dtype=np.float32),
         np.array(done, dtype=np.bool_),
-        end_of_episode_info,
+        metrics,
     )
 
 

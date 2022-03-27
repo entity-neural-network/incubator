@@ -1,10 +1,12 @@
 from typing import Dict, Iterator, Mapping, Optional, Protocol, Tuple
-import numpy.typing as npt
+
 import numpy as np
+import numpy.typing as npt
 import torch
-from ragged_buffer import RaggedBufferF32, RaggedBufferI64, RaggedBufferBool
-from entity_gym.simple_trace import Tracer
+from ragged_buffer import RaggedBufferBool, RaggedBufferF32, RaggedBufferI64
+
 from entity_gym.environment import VecActionMask
+from entity_gym.simple_trace import Tracer
 
 
 class PPOAgent(Protocol):

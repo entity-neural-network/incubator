@@ -1,22 +1,24 @@
-from enn_zoo.codecraft.cc_vec_env import LAST_OBS, VERIFY
+from typing import Dict, Mapping, Optional, Tuple
+
 import numpy as np
 import numpy.typing as npt
-from typing import Any, Mapping, Optional, Dict, Tuple
-from entity_gym.simple_trace import Tracer
-from entity_gym.environment.vec_env import VecActionMask
 import torch
+import torch.nn as nn
+from ragged_buffer import RaggedBufferBool, RaggedBufferF32, RaggedBufferI64
+
+from enn_zoo.codecraft.cc_vec_env import LAST_OBS, VERIFY
 from enn_zoo.codecraft.codecraftnet.codecraftnet import (
     ObsConfig,
     PolicyConfig,
     TransformerPolicy8HS,
 )
-import torch.nn as nn
-from ragged_buffer import RaggedBufferF32, RaggedBufferI64, RaggedBufferBool
+from entity_gym.environment.vec_env import VecActionMask
+from entity_gym.simple_trace import Tracer
 
 
 class CCNetAdapter(nn.Module):
     def __init__(self, device: str, load_from: Optional[str] = None) -> None:
-        super(CCNetAdapter, self).__init__()
+        super().__init__()
         if load_from is not None:
             self.network = Trainer(load_from).state.policy.to(device)
         else:
@@ -191,10 +193,12 @@ class CCNetAdapter(nn.Module):
 
 from dataclasses import dataclass
 from typing import Optional
+
+import hyperstate
+from hyperstate import HyperState
+
 from enn_zoo.codecraft.codecraftnet.codecraftnet import TransformerPolicy8HS
 from enn_zoo.codecraft.codecraftnet.config import Config
-from hyperstate import HyperState
-import hyperstate
 
 
 @dataclass

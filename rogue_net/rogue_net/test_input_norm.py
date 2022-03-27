@@ -1,8 +1,7 @@
-from rogue_net.input_norm import InputNorm
-
-
-import torch
 import numpy as np
+import torch
+
+from rogue_net.input_norm import InputNorm
 
 
 def test_correct_normalization() -> None:
@@ -31,7 +30,7 @@ def test_correct_normalization() -> None:
                 samples_seen_so_far = sample[: size[0] - remaining + batch_size]
                 remaining -= batch_size
                 # Compute output
-                out = layer(batch)
+                layer(batch)
                 # Compute statistics on the samples seen so far
                 mean_so_far = samples_seen_so_far.mean(dim=0)
                 std_so_far = samples_seen_so_far.std(dim=0)

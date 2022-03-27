@@ -1,5 +1,5 @@
 from enn_ppo.config import RolloutConfig
-from enn_ppo.train import TrainConfig, OptimizerConfig, PPOConfig, EnvConfig, _train
+from enn_ppo.train import EnvConfig, OptimizerConfig, PPOConfig, TrainConfig, _train
 from rogue_net.relpos_encoding import RelposEncodingConfig
 from rogue_net.rogue_net import RogueNetConfig
 

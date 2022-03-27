@@ -1,11 +1,7 @@
-from enum import Enum
-from typing import (
-    Dict,
-    List,
-    Optional,
-    Tuple,
-)
 from dataclasses import dataclass, field
+from enum import Enum
+from typing import Dict, List, Optional, Tuple
+
 from hyperstate import schema_evolution_cli
 from hyperstate.schema.rewrite_rule import (
     ChangeDefault,

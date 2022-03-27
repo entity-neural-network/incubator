@@ -1,34 +1,30 @@
 from dataclasses import dataclass
 from typing import Dict, Mapping, Optional, Tuple, Type, TypeVar
-import numpy.typing as npt
+
 import numpy as np
+import numpy.typing as npt
 import torch
 import torch.nn as nn
 import torch_scatter
-
-from entity_gym.environment import (
-    VecActionMask,
-    ActionSpace,
-    ObsSpace,
+from ragged_buffer import (
+    RaggedBuffer,
+    RaggedBufferBool,
+    RaggedBufferF32,
+    RaggedBufferI64,
 )
-from entity_gym.simple_trace import Tracer
+
+from entity_gym.environment import ActionSpace, ObsSpace, VecActionMask
 from entity_gym.environment.environment import (
     CategoricalActionSpace,
     SelectEntityActionSpace,
 )
-from ragged_buffer import (
-    RaggedBufferF32,
-    RaggedBufferI64,
-    RaggedBufferBool,
-    RaggedBuffer,
-)
+from entity_gym.simple_trace import Tracer
 from rogue_net.categorical_action_head import CategoricalActionHead
 from rogue_net.embedding import EntityEmbedding
 from rogue_net.ragged_tensor import RaggedTensor
 from rogue_net.select_entity_action_head import PaddedSelectEntityActionHead
 from rogue_net.transformer import Transformer, TransformerConfig
 from rogue_net.translate_positions import TranslationConfig
-
 
 ScalarType = TypeVar("ScalarType", bound=np.generic, covariant=True)
 
@@ -68,7 +64,7 @@ class RogueNet(nn.Module):
         action_space: Dict[str, ActionSpace],
         regression_heads: Optional[Dict[str, int]] = None,
     ):
-        super(RogueNet, self).__init__()
+        super().__init__()
 
         self.d_model = cfg.d_model
         self.action_space = action_space

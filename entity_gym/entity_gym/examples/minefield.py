@@ -1,21 +1,20 @@
-from dataclasses import dataclass, field
-import numpy as np
 import random
+from dataclasses import dataclass, field
 from typing import Dict, List, Mapping, Tuple
 
+import numpy as np
+
+from entity_gym.dataclass_utils import extract_features, obs_space_from_dataclasses
 from entity_gym.environment import (
+    Action,
+    ActionSpace,
     CategoricalAction,
     CategoricalActionMask,
-    Entity,
-    Environment,
     CategoricalActionSpace,
-    ActionSpace,
-    EpisodeStats,
-    ObsSpace,
+    Environment,
     Observation,
-    Action,
+    ObsSpace,
 )
-from entity_gym.dataclass_utils import obs_space_from_dataclasses, extract_features
 
 
 @dataclass
@@ -170,5 +169,4 @@ class Minefield(Environment):
             ids={"Vehicle": ["Vehicle"]},
             reward=reward,
             done=done,
-            end_of_episode_info=EpisodeStats(self.step, reward) if done else None,
         )

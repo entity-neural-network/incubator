@@ -14,7 +14,7 @@ class InputNorm(nn.Module):
     count: float
 
     def __init__(self, num_features: int, cliprange: float = 5) -> None:
-        super(InputNorm, self).__init__()
+        super().__init__()
 
         self.cliprange = cliprange
         self.register_buffer("count", torch.tensor(0.0))

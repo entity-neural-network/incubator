@@ -1,6 +1,7 @@
-from dataclasses import dataclass, field
 import os
-from typing import List, Optional
+from dataclasses import dataclass, field
+from typing import Optional
+
 from rogue_net.rogue_net import RogueNetConfig
 
 

@@ -1,6 +1,8 @@
 from typing import Any
+
 import torch
 import torch.nn as nn
+
 
 # N: Batch size
 # L: max number of visible objects
@@ -46,7 +48,7 @@ class ZeroPaddedCylindricalConv2d(nn.Module):
         out_channels: int,
         kernel_size: int,
     ) -> None:
-        super(ZeroPaddedCylindricalConv2d, self).__init__()
+        super().__init__()
 
         self.conv = nn.Conv2d(in_channels, out_channels, kernel_size)
         self.padding = kernel_size // 2

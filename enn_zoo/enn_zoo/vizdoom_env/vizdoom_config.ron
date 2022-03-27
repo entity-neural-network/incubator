@@ -1,0 +1,28 @@
+ExperimentConfig(
+    total_timesteps: 500000,
+    env: (
+        id: "DoomBasic",
+    ),
+    rollout: (
+        num_envs: 16,
+        steps: 128,
+        processes: 4,
+    ),
+    net: (
+        d_model: 128,
+        n_layer: 4,
+        translation: (
+            reference_entity: "Player",
+            position_features: ["x", "y"],
+            rotation_angle_feature: "angle"
+        ),
+    ),
+    optim: (
+        bs: 1024,
+        lr: 0.00025,
+        update_epochs: 10
+    ),
+    ppo: (
+        ent_coef: 0.01,
+    ),
+)

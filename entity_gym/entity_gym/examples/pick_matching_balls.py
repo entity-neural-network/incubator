@@ -1,21 +1,21 @@
-from dataclasses import dataclass, field
-from entity_gym.environment.environment import ActionType
-import numpy as np
 import random
+from dataclasses import dataclass, field
 from typing import Dict, List, Mapping
 
+import numpy as np
+
 from entity_gym.environment import (
-    SelectEntityActionMask,
+    Action,
+    ActionSpace,
     Entity,
     Environment,
-    EpisodeStats,
+    Observation,
     ObsSpace,
     SelectEntityAction,
+    SelectEntityActionMask,
     SelectEntityActionSpace,
-    ActionSpace,
-    Observation,
-    Action,
 )
+from entity_gym.environment.environment import ActionType
 
 
 @dataclass
@@ -69,7 +69,6 @@ class PickMatchingBalls(Environment):
             self.max_balls if not self.randomize else random.randint(3, self.max_balls)
         )
         self.balls = [Ball(color=random.randint(0, 5)) for _ in range(num_balls)]
-        self.step = 0
         return self.observe()
 
     def observe(self) -> Observation:
@@ -81,10 +80,8 @@ class PickMatchingBalls(Environment):
                 reward = 1.0
             else:
                 reward = (sum(b.selected for b in self.balls) - 1) / max(
-                    [
-                        len([b for b in self.balls if b.color == color])
-                        for color in range(6)
-                    ]
+                    len([b for b in self.balls if b.color == color])
+                    for color in range(6)
                 )
         else:
             reward = 0.0
@@ -117,7 +114,6 @@ class PickMatchingBalls(Environment):
             },
             reward=reward,
             done=done,
-            end_of_episode_info=EpisodeStats(self.step, reward) if done else None,
         )
 
     def act(self, actions: Mapping[ActionType, Action]) -> Observation:
@@ -126,5 +122,4 @@ class PickMatchingBalls(Environment):
         for selected_ball in action.actees:
             assert not self.balls[selected_ball].selected
             self.balls[selected_ball].selected = True
-        self.step += 1
         return self.observe()

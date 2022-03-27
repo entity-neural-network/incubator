@@ -1,34 +1,23 @@
-from operator import index
-from typing import (
-    Any,
-    Dict,
-    List,
-    Mapping,
-    Sequence,
-    Type,
-)
+from typing import Any, Dict, List, Mapping, Type
+
+import numpy as np
+import numpy.typing as npt
+from ragged_buffer import RaggedBufferI64
+
 from entity_gym.environment.environment import (
     Action,
     ActionType,
     CategoricalAction,
     CategoricalActionSpace,
-    SelectEntityActionMask,
     EntityID,
     Environment,
-    ObsSpace,
     Observation,
+    ObsSpace,
     SelectEntityAction,
+    SelectEntityActionMask,
     SelectEntityActionSpace,
 )
-from entity_gym.environment.vec_env import (
-    VecEnv,
-    VecObs,
-    batch_obs,
-)
-from ragged_buffer import RaggedBufferI64
-
-import numpy as np
-import numpy.typing as npt
+from entity_gym.environment.vec_env import VecEnv, VecObs, batch_obs
 
 
 class EnvList(VecEnv):
@@ -110,7 +99,7 @@ class EnvList(VecEnv):
                 new_obs = env.reset_filter(obs_space)
                 new_obs.done = True
                 new_obs.reward = obs.reward
-                new_obs.end_of_episode_info = obs.end_of_episode_info
+                new_obs.metrics = obs.metrics
                 observations.append(new_obs)
             else:
                 observations.append(obs)

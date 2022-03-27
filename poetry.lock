@@ -343,6 +343,9 @@ requests = "^2.27.1"
 types-requests = "^2.27.7"
 web-pdb = "^1.5.7"
 
+[package.extras]
+vizdoom = ["vizdoom (>=1.1.11,<2.0.0)"]
+
 [package.source]
 type = "directory"
 url = "enn_zoo"

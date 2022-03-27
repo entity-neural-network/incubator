@@ -1,19 +1,18 @@
 from dataclasses import dataclass
-import numpy as np
-import random
 from typing import Dict, Mapping
 
+import numpy as np
+
 from entity_gym.environment import (
+    Action,
+    ActionSpace,
     CategoricalAction,
     CategoricalActionMask,
+    CategoricalActionSpace,
     Entity,
     Environment,
-    CategoricalActionSpace,
-    ActionSpace,
-    EpisodeStats,
-    ObsSpace,
     Observation,
-    Action,
+    ObsSpace,
 )
 
 
@@ -73,7 +72,4 @@ class MultiArmedBandit(Environment):
             ids={"MultiArmedBandit": [0]},
             reward=reward,
             done=done,
-            end_of_episode_info=EpisodeStats(self.step, self._total_reward)
-            if done
-            else None,
         )

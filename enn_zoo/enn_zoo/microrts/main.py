@@ -1,19 +1,18 @@
-import argparse
-from typing import Dict, Type
-from enn_zoo.microrts import GymMicrorts
+from typing import Dict
 
+import numpy as np
+
+from enn_zoo.microrts import GymMicrorts
 from entity_gym.environment import (
-    CategoricalAction,
-    SelectEntityActionMask,
-    Environment,
-    ObsSpace,
-    CategoricalActionSpace,
     Action,
+    CategoricalAction,
+    CategoricalActionSpace,
     Observation,
+    ObsSpace,
     SelectEntityAction,
+    SelectEntityActionMask,
     SelectEntityActionSpace,
 )
-import numpy as np
 
 
 def print_obs(obs: Observation, total_reward: float, obs_filter: ObsSpace) -> None:

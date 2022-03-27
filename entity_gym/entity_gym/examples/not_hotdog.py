@@ -1,19 +1,19 @@
-from dataclasses import dataclass
-import numpy as np
 import random
+from dataclasses import dataclass
 from typing import Dict, Mapping
 
+import numpy as np
+
 from entity_gym.environment import (
+    Action,
+    ActionSpace,
     CategoricalAction,
     CategoricalActionMask,
+    CategoricalActionSpace,
     Entity,
     Environment,
-    CategoricalActionSpace,
-    ActionSpace,
-    EpisodeStats,
-    ObsSpace,
     Observation,
-    Action,
+    ObsSpace,
 )
 
 
@@ -92,5 +92,4 @@ class NotHotdog(Environment):
             ids={"Player": [0]},
             reward=reward,
             done=done,
-            end_of_episode_info=EpisodeStats(self.step, reward) if done else None,
         )

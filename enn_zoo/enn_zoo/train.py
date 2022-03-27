@@ -1,21 +1,23 @@
+import json
 from contextlib import ExitStack
 from dataclasses import dataclass
-from rogue_net.rogue_net import RogueNet, RogueNetConfig
-import torch
-import json
 from typing import Mapping, Optional
+
+import hyperstate
+import torch
+import web_pdb
+
+import enn_ppo.config as config
 from enn_ppo.agent import PPOAgent
 from enn_ppo.train import train
 from enn_zoo import griddly_env
-import hyperstate
-import enn_ppo.config as config
+from enn_zoo.codecraft.cc_vec_env import CodeCraftVecEnv, codecraft_env_class
+from enn_zoo.codecraft.codecraftnet.adapter import CCNetAdapter
+from enn_zoo.griddly_env import GRIDDLY_ENVS
+from enn_zoo.microrts import GymMicrorts
 from entity_gym.environment import *
 from entity_gym.examples import ENV_REGISTRY
-from enn_zoo.griddly_env import GRIDDLY_ENVS
-from enn_zoo.codecraft.cc_vec_env import codecraft_env_class, CodeCraftVecEnv
-from enn_zoo.codecraft.codecraftnet.adapter import CCNetAdapter
-from enn_zoo.microrts import GymMicrorts
-import web_pdb
+from rogue_net.rogue_net import RogueNet, RogueNetConfig
 
 
 @dataclass
@@ -69,9 +71,15 @@ def main(cfg: TrainConfig) -> None:
     elif cfg.env.id == "GymMicrorts":
         env_cls = GymMicrorts
     else:
-        raise KeyError(
-            f"Unknown gym_id: {cfg.env.id}\nAvailable environments: {list(ENV_REGISTRY.keys()) + list(GRIDDLY_ENVS.keys()) + ['CodeCraft']}"
-        )
+        try:
+            from enn_zoo import vizdoom_env
+            from enn_zoo.vizdoom_env import VIZDOOM_ENVS
+
+            env_cls = vizdoom_env.create_vizdoom_env(VIZDOOM_ENVS[cfg.env.id])
+        except ImportError:
+            raise KeyError(
+                f"Unknown gym_id: {cfg.env.id}\nAvailable environments: {list(ENV_REGISTRY.keys()) + list(GRIDDLY_ENVS.keys()) + ['CodeCraft']}"
+            )
 
     agent: Optional[PPOAgent] = None
     if cfg.codecraft_net:

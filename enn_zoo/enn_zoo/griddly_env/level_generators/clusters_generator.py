@@ -1,8 +1,9 @@
-from typing import Tuple, List, Dict, Any
+from typing import Any, Dict, List, Tuple
 
-from enn_zoo.griddly_env.level_generators.level_generator import LevelGenerator
 import numpy as np
 import numpy.typing as npt
+
+from enn_zoo.griddly_env.level_generators.level_generator import LevelGenerator
 
 
 class ClustersLevelGenerator(LevelGenerator):

@@ -1,25 +1,26 @@
-from entity_gym.examples.cherry_pick import CherryPick
-from entity_gym.examples.xor import Xor
-from entity_gym.environment.env_list import EnvList
-from entity_gym.environment.parallel_env_list import ParallelEnvList
-from entity_gym.environment import (
-    SelectEntityActionSpace,
-    CategoricalActionSpace,
-    SelectEntityActionMask,
-    CategoricalActionMask,
-    VecCategoricalActionMask,
-    VecSelectEntityActionMask,
-    Observation,
-    ObsSpace,
-    VecObs,
-    ActionSpace,
-    Entity,
-)
-from entity_gym.environment.vec_env import batch_obs
-import numpy as np
 from typing import Dict
 
-from ragged_buffer import RaggedBufferF32, RaggedBufferI64, RaggedBufferBool
+import numpy as np
+from ragged_buffer import RaggedBufferBool, RaggedBufferF32, RaggedBufferI64
+
+from entity_gym.environment import (
+    ActionSpace,
+    CategoricalActionMask,
+    CategoricalActionSpace,
+    Entity,
+    Observation,
+    ObsSpace,
+    SelectEntityActionMask,
+    SelectEntityActionSpace,
+    VecCategoricalActionMask,
+    VecObs,
+    VecSelectEntityActionMask,
+)
+from entity_gym.environment.env_list import EnvList
+from entity_gym.environment.parallel_env_list import ParallelEnvList
+from entity_gym.environment.vec_env import batch_obs
+from entity_gym.examples.cherry_pick import CherryPick
+from entity_gym.examples.xor import Xor
 
 
 def test_env_list() -> None:
@@ -66,7 +67,6 @@ def test_parallel_env_list() -> None:
     }
     obs_act = envs.act(actions_xor, Xor.obs_space())
     assert len(obs_act.done) == 100
-    assert len(obs_act.end_of_episode_info) == 100
 
 
 def test_batch_obs_entities() -> None:
@@ -369,7 +369,7 @@ def test_merge_obs_entities() -> None:
         action_masks={},
         reward=np.array([0] * 10, np.float32),
         done=np.array([False] * 10, np.bool_),
-        end_of_episode_info={},
+        metrics={},
         visible={},
     )
 
@@ -387,7 +387,7 @@ def test_merge_obs_entities() -> None:
         action_masks={},
         reward=np.array([0] * 10, np.float32),
         done=np.array([False] * 10, np.bool_),
-        end_of_episode_info={},
+        metrics={},
         visible={},
     )
 
@@ -459,7 +459,7 @@ def test_merge_obs_actions_categorical() -> None:
         },
         reward=np.array([0] * 10, np.float32),
         done=np.array([False] * 10, np.bool_),
-        end_of_episode_info={},
+        metrics={},
         visible={},
     )
 
@@ -506,7 +506,7 @@ def test_merge_obs_actions_categorical() -> None:
         },
         reward=np.array([0] * 10, np.float32),
         done=np.array([False] * 10, np.bool_),
-        end_of_episode_info={},
+        metrics={},
         visible={},
     )
 
@@ -570,7 +570,7 @@ def test_merge_obs_actions_select_entity() -> None:
         },
         reward=np.array([0] * 10, np.float32),
         done=np.array([False] * 10, np.bool_),
-        end_of_episode_info={},
+        metrics={},
         visible={},
     )
 
@@ -609,7 +609,7 @@ def test_merge_obs_actions_select_entity() -> None:
         },
         reward=np.array([0] * 10, np.float32),
         done=np.array([False] * 10, np.bool_),
-        end_of_episode_info={},
+        metrics={},
         visible={},
     )
 
@@ -656,7 +656,7 @@ def test_merge_empty_masks() -> None:
         },
         reward=np.array([0] * 3, np.float32),
         done=np.array([False] * 3, np.bool_),
-        end_of_episode_info={},
+        metrics={},
         visible={},
     )
 
@@ -678,7 +678,7 @@ def test_merge_empty_masks() -> None:
         },
         reward=np.array([0] * 3, np.float32),
         done=np.array([False] * 3, np.bool_),
-        end_of_episode_info={},
+        metrics={},
         visible={},
     )
 

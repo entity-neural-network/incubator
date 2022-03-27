@@ -1,21 +1,20 @@
-from collections import defaultdict
-from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional, Tuple
-from distutils.util import strtobool
 import argparse
-import optuna
-import xprun  # type: ignore
-import math
-import time
-import random
-import wandb
-from copy import deepcopy
-import threading
-import numpy as np
 import heapq
 import logging
-
+import math
+import random
+import threading
+import time
+from copy import deepcopy
+from dataclasses import dataclass, field
+from distutils.util import strtobool
 from enum import Enum
+from typing import Any, Callable, Dict, List, Optional, Tuple
+
+import numpy as np
+import optuna
+import wandb
+import xprun  # type: ignore
 
 logger = logging.getLogger(__name__)
 

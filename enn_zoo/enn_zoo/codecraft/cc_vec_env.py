@@ -1,37 +1,27 @@
+import math
+import time
 from abc import abstractmethod
 from collections import defaultdict
 from dataclasses import dataclass
 from enum import Enum
-import math
-import time
-from enn_zoo.codecraft import rest_client
-from enn_zoo.codecraft.rest_client import ObsConfig, Rules
+from typing import Any, Callable, Dict, List, Mapping, Optional, Tuple, Type, Union
+
 import numpy as np
 import numpy.typing as npt
-from typing import (
-    Any,
-    Callable,
-    Dict,
-    List,
-    Mapping,
-    Optional,
-    Sequence,
-    Tuple,
-    Type,
-    Union,
-)
-from ragged_buffer import RaggedBufferF32, RaggedBufferI64, RaggedBufferBool
-from entity_gym.environment import VecEnv
-from entity_gym.environment.vec_env import VecCategoricalActionMask, VecObs
-from entity_gym.environment import Environment, ObsSpace
+from ragged_buffer import RaggedBufferBool, RaggedBufferF32, RaggedBufferI64
+
+from enn_zoo.codecraft import rest_client
+from enn_zoo.codecraft.rest_client import ObsConfig, Rules
+from entity_gym.environment import Environment, ObsSpace, VecEnv
 from entity_gym.environment.environment import (
     Action,
     ActionSpace,
     CategoricalActionSpace,
     Entity,
     Observation,
-    EpisodeStats,
 )
+from entity_gym.environment.vec_env import VecCategoricalActionMask, VecObs
+
 from .maps import map_allied_wealth, map_arena_tiny, map_enhanced
 
 LAST_OBS = {}
@@ -443,8 +433,6 @@ class CodeCraftVecEnv(VecEnv):
         self.game_count = 0
 
         self.games: List[Tuple[int, int, str]] = []
-        self.eplen: List[int] = []
-        self.eprew: List[float] = []
         self.score: List[Optional[float]] = []
         self.performed_builds: List[Any] = []
         self.rulesets: List[Any] = []
@@ -472,7 +460,6 @@ class CodeCraftVecEnv(VecEnv):
 
     def reset(self, obs_config: ObsSpace) -> VecObs:
         self.games = []
-        self.eplen = []
         self.score = []
         self.performed_builds = []
         self.rulesets = []
@@ -506,15 +493,11 @@ class CodeCraftVecEnv(VecEnv):
             self.game_count += 1
 
             self.games.append((game_id, 0, opponent))
-            self.eplen.append(1)
-            self.eprew.append(0)
             self.score.append(None)
             self.performed_builds.append(defaultdict(lambda: 0))
             self.rulesets.append(ruleset)
             if self_play:
                 self.games.append((game_id, 1, opponent))
-                self.eplen.append(1)
-                self.eprew.append(0)
                 self.score.append(None)
                 self.performed_builds.append(defaultdict(lambda: 0))
                 self.rulesets.append(ruleset)
@@ -619,7 +602,6 @@ class CodeCraftVecEnv(VecEnv):
 
         rews = []
         dones = []
-        infos = {}
         obs = rest_client.observe_batch_raw(
             obs_config,
             [(gid, pid) for (gid, pid, _) in games],
@@ -644,7 +626,6 @@ class CodeCraftVecEnv(VecEnv):
             game = env_subset[i] if env_subset else i
             winner = obs[stride * num_envs + i * obs_config.nonobs_features()]
             outcome = 0
-            elimination_win = 0
             if self.objective.vs():
                 allied_score = obs[
                     stride * num_envs + i * obs_config.nonobs_features() + 1
@@ -674,7 +655,7 @@ class CodeCraftVecEnv(VecEnv):
                         score -= self.loss_penalty
                 if winner > 0:
                     if enemy_score == 0 or allied_score == 0:
-                        elimination_win = 1
+                        pass
                     if enemy_score + allied_score == 0:
                         outcome = 0
                     else:
@@ -732,11 +713,10 @@ class CodeCraftVecEnv(VecEnv):
                 self.score[game] = score
             reward = score - self.score[game]
             self.score[game] = score
-            self.eprew[game] += reward
 
             if winner > 0:
                 (game_id, pid, opponent_was) = games[i]
-                previous_ruleset = self.rulesets[game]
+                self.rulesets[game]
                 if pid == 0:
                     self_play = game // 2 < self.num_self_play
                     opponent = "none" if self_play else self.next_opponent()
@@ -762,7 +742,7 @@ class CodeCraftVecEnv(VecEnv):
                     ruleset = self.rulesets[game - 1]
                 # print(f"COMPLETED {i} {game} {games[i]} == {self.games[game]} new={game_id}")
                 self.games[game] = (game_id, pid, opponent)
-                observation = rest_client.observe(game_id, pid)
+                rest_client.observe(game_id, pid)
                 # TODO: use actual observation
                 if not obs.flags["WRITEABLE"]:
                     obs = obs.copy()
@@ -771,7 +751,6 @@ class CodeCraftVecEnv(VecEnv):
                 ] = 0.0  # codecraft.observation_to_np(observation)
 
                 dones.append(1.0)
-                infos[i] = EpisodeStats(self.eplen[game], self.eprew[game])
                 # {
                 #     "episode": {
                 #         "r": self.eprew[game],
@@ -785,13 +764,10 @@ class CodeCraftVecEnv(VecEnv):
                 #         "ruleset": previous_ruleset,
                 #     }
                 # }
-                self.eplen[game] = 1
-                self.eprew[game] = 0
                 self.score[game] = None
                 self.performed_builds[game] = defaultdict(lambda: 0)
                 self.rulesets[game] = ruleset
             else:
-                self.eplen[game] += 1
                 dones.append(0.0)
 
             rews.append(reward)
@@ -896,7 +872,7 @@ class CodeCraftVecEnv(VecEnv):
             },
             reward=np.array(rews),
             done=np.array(dones) == 1.0,
-            end_of_episode_info=infos,
+            metrics={},
         )
         return batch
 
