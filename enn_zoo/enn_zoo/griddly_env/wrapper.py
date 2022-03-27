@@ -28,8 +28,6 @@ class GriddlyEnv(Environment):
 
         self._current_g_state = self._env.get_state()
 
-        self._entity_observer = self._env.game.get_entity_observer()
-
     @classmethod
     @abstractmethod
     def _griddly_env(cls) -> Any:
@@ -75,23 +73,25 @@ class GriddlyEnv(Environment):
 
             return np.array([action_type, action_id])
 
-    def _make_observation(self, reward: int = 0, done: bool = False) -> Observation:
-        griddly_entity_observation = self._entity_observer.observe(1)
-        entities = griddly_entity_observation["Entities"]
-        entity_ids = griddly_entity_observation["EntityIds"]
-        entity_masks = griddly_entity_observation["EntityMasks"]
+    def _make_observation(
+        self, obs: Dict[str, Any], reward: int = 0, done: bool = False
+    ) -> Observation:
+        entities = obs["Entities"]
+        entity_ids = obs["Ids"]
+        actor_masks = obs["ActorMasks"]
+        actor_ids = obs["ActorIds"]
 
-        self.entity_locations = griddly_entity_observation["EntityLocations"]
+        self.entity_locations = obs["Locations"]
 
         entities = {
             name: np.array(obs, dtype=np.float32) for name, obs in entities.items()
         }
 
         action_masks = {}
-        for action_name, entity_mask in entity_masks.items():
+        for action_name, actor_mask in actor_masks.items():
             action_masks[action_name] = CategoricalActionMask(
-                actor_ids=entity_mask["ActorEntityIds"],
-                mask=np.array(entity_mask["Masks"]).astype(np.bool_),
+                actor_ids=actor_ids[action_name],
+                mask=np.array(actor_mask).astype(np.bool_),
             )
 
         return Observation(
@@ -103,13 +103,21 @@ class GriddlyEnv(Environment):
         )
 
     def reset(self) -> Observation:
-        self._env.reset()
-        return self._make_observation()
+        obs = self._env.reset()
+
+        self.total_reward = 0
+        self.step = 0
+
+        return self._make_observation(obs)
 
     def act(self, action: Mapping[str, Action]) -> Observation:
         g_action = self._to_griddly_action(action)
-        _, reward, done, info = self._env.step(g_action)
-        return self._make_observation(reward, done)
+        obs, reward, done, info = self._env.step(g_action)
+
+        self.total_reward += reward
+        self.step += 1
+
+        return self._make_observation(obs, reward, done)
 
     def render(self, **kwargs: Any) -> npt.NDArray[np.uint8]:
         return self._env.render(**kwargs, observer="global")  # type: ignore

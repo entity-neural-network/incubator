@@ -2,6 +2,9 @@ Version: "0.1"
 Environment:
   Name: Test
   Description: An environment only used for testing
+  Observers:
+    Entity:
+      IncludeMasks: true
   Player:
     AvatarObject: entity_1 # The player can only control a single avatar in the game
   Levels:

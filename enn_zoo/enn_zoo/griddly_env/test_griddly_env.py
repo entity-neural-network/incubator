@@ -26,25 +26,16 @@ def test_griddly_wrapper() -> None:
         "test_global_variable",
     ]
 
-    # TODO: currently we pass all possible variables to each feature, this should be fixed once features API is in a more consistent state
     assert observation_space.entities["entity_1"].features == [
         "x",
         "y",
         "z",
         "ox",
         "oy",
-        "player_id",
+        "playerId",
         "entity_1_variable",
     ]
-    assert observation_space.entities["entity_2"].features == [
-        "x",
-        "y",
-        "z",
-        "ox",
-        "oy",
-        "player_id",
-        "entity_2_variable",
-    ]
+    assert observation_space.entities["entity_2"].features == ["x", "y", "z"]
 
     # Check the action space is being created correctly for the test environment
     action_space = env_class.action_space()
@@ -66,7 +57,7 @@ def test_griddly_wrapper() -> None:
 
     # Check that observation is created correctly
     env = env_class()
-    observation = env._make_observation()
+    observation = env.reset()
 
     # Check the entities in the observation
     assert np.all(
@@ -75,10 +66,10 @@ def test_griddly_wrapper() -> None:
     )
 
     print(np.sort(observation.features["entity_2"], axis=0))
-    print(np.array([[2, 3, 0, 0, 0, 0, 10], [4, 4, 0, 0, 0, 0, 10]], dtype=np.float32))
+    print(np.array([[2, 3, 0], [4, 4, 0]], dtype=np.float32))
     assert np.all(
         np.sort(observation.features["entity_2"], axis=0)
-        == np.array([[2, 3, 0, 0, 0, 0, 10], [4, 4, 0, 0, 0, 0, 10]], dtype=np.float32)
+        == np.array([[2, 3, 0], [4, 4, 0]], dtype=np.float32)
     )
 
     # Check the masks in the observation

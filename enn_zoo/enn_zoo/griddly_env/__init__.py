@@ -23,14 +23,11 @@ init_path = os.path.dirname(os.path.realpath(__file__))
 def generate_obs_space(env: Any) -> ObsSpace:
     # Each entity contains x, y, z positions, plus the values of all variables
     global_variables = env.game.get_global_variable_names()
-    object_variable_map = env.game.get_object_variable_map()
 
     # Global entity for global variables and global actions (these dont really exist in Griddly)
     space = {"__global__": Entity(global_variables)}
-    for name in env.object_names:
-        space[name] = Entity(
-            ["x", "y", "z", "ox", "oy", "player_id", *object_variable_map[name]]
-        )
+    for name, features in env.observation_space.features.items():
+        space[name] = Entity(features)
 
     return ObsSpace(space)
 
@@ -58,6 +55,7 @@ def generate_action_space(env: Any) -> Dict[str, ActionSpace]:
 
 def create_env(
     yaml_file: str,
+    global_observer_type: Any = gd.ObserverType.BLOCK_2D,
     image_path: Optional[str] = None,
     shader_path: Optional[str] = None,
     level: int = 0,
@@ -70,7 +68,11 @@ def create_env(
     """
 
     env = GymWrapper(
-        yaml_file=yaml_file, image_path=image_path, shader_path=shader_path, level=level
+        yaml_file=yaml_file,
+        player_observer_type=gd.ObserverType.ENTITY,
+        image_path=image_path,
+        shader_path=shader_path,
+        level=level,
     )
     env.reset()
     action_space = generate_action_space(env)
@@ -85,8 +87,8 @@ def create_env(
                 yaml_file=yaml_file,
                 image_path=image_path,
                 shader_path=shader_path,
-                player_observer_type=gd.ObserverType.NONE,
-                global_observer_type=gd.ObserverType.BLOCK_2D,
+                player_observer_type=gd.ObserverType.ENTITY,
+                global_observer_type=global_observer_type,
                 level=level,
             )
 
@@ -99,19 +101,21 @@ def create_env(
             return action_space
 
         def reset(self) -> Observation:
-            if random_levels:
-                random_level = np.random.choice(level_count)
-                self._env.reset(level_id=random_level)
-            elif isinstance(level_generator, LevelGenerator):
-                level_string = level_generator.generate()
-                self._env.reset(level_string=level_string)
-            else:
-                self._env.reset()
 
             self.total_reward = 0
             self.step = 0
 
-            return self._make_observation()
+            if random_levels:
+                random_level = np.random.choice(level_count)
+                obs = self._env.reset(level_id=random_level)
+                return self._make_observation(obs)
+            elif isinstance(level_generator, LevelGenerator):
+                level_string = level_generator.generate()
+                obs = self._env.reset(level_string=level_string)
+                return self._make_observation(obs)
+            else:
+                obs = self._env.reset()
+                return self._make_observation(obs)
 
     return InstantiatedGriddlyEnv
 
