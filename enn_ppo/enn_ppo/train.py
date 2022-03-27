@@ -62,6 +62,11 @@ def train(
         Callable[[str, ObsSpace, Mapping[str, ActionSpace], torch.device], PPOAgent]
     ] = None,
 ) -> float:
+    assert cfg.rollout.num_envs * cfg.rollout.steps >= cfg.optim.bs, (
+        "Number of frames per rollout is smaller than batch size: "
+        f"{cfg.rollout.num_envs} * {cfg.rollout.steps} < {cfg.optim.bs}"
+    )
+
     run_name = f"{cfg.env.id}__{cfg.name}__{cfg.seed}__{int(time.time())}"
 
     config = asdict(cfg)
