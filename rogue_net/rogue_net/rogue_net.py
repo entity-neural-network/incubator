@@ -94,7 +94,11 @@ class RogueNet(nn.Module):
     ) -> RaggedTensor:
         with tracer.span("embedding"):
             # Ensure consistent dictionary ordering
-            entities = {name: entities[name] for name in self.obs_space.entities.keys()}
+            entities = {
+                name: entities[name]
+                for name in self.obs_space.entities.keys()
+                if name in entities
+            }
             (
                 x,
                 tbatch_index,

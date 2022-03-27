@@ -189,7 +189,6 @@ class RelposEncoding(nn.Module, RelposEncodingConfig):
             if self.radial
             else None
         )
-        __import__("ipdb").set_trace()
 
         if self.interpolate:
             indices_weights = self._interpolated_partition(
