@@ -2,6 +2,7 @@ from abc import abstractmethod
 from collections import defaultdict
 from typing import Dict, List, Mapping
 from enn_zoo.procgen_env.deserializer import ByteBuffer, ProcgenState
+from enn_zoo.procgen_env.fast_deserializer import MinimalProcgenState
 from entity_gym.environment import *
 from procgen import ProcgenGym3Env
 
@@ -108,7 +109,7 @@ class BaseEnv(Environment):
     def observe(self) -> Observation:
         states = self.env.callmethod("get_state")
         data = ByteBuffer(states[0])
-        state = ProcgenState.from_bytes(data)
+        state = MinimalProcgenState.from_bytes(data)
 
         entities = defaultdict(list)
         entity_types = self._entity_types()
@@ -132,8 +133,8 @@ class BaseEnv(Environment):
                 for name, features in entities.items()
             },
             actions={"act": CategoricalActionMask(actor_types=["Player"])},
-            done=state.game.step_data.done == 1,
-            reward=state.game.step_data.reward,
+            done=state.step_data.done == 1,
+            reward=state.step_data.reward,
         )
 
     def act(self, actions: Mapping[ActionType, Action]) -> Observation:

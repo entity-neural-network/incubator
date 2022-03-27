@@ -145,6 +145,26 @@ class ProcgenGame:
             is_waiting_for_step=data.read_int(),
         )
 
+    @classmethod
+    def just_step_data(cls, data: ByteBuffer) -> StepData:
+        # Version
+        data.offset += 4
+        # Name
+        data.read_array()
+        # Procgen opts
+        data.read(4 * 12)
+        # grid_step, level_seed_low, level_seed_high, game_type, game_n
+        data.offset += 4 * 5
+        # level_seed_rand_gen, rand_gen
+        data.offset += 4
+        data.read_array()
+        data.offset += 4
+        data.read_array()
+        step_data = StepData.from_bytes(data)
+        # action, timeout, current_level_seed, prev_level_seed, episodes_remaining, episode_done, last_reward_timer, last_reward, default_action, fixed_asset_seed, cur_time, is_waiting_for_step
+        data.offset += 4 * 12
+        return step_data
+
 
 @dataclass
 class Entity:
