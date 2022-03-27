@@ -1,6 +1,9 @@
-from typing import List
+from typing import List, TypeVar, Type
 import struct
 from dataclasses import dataclass
+
+
+T = TypeVar("T", bound="ProcgenState")
 
 
 class ByteBuffer:
@@ -302,10 +305,6 @@ class ProcgenState:
     min_visibility: float
     grid: Grid
 
-    # bigfish specific
-    fish_eaten: int
-    r_inc: float
-
     @classmethod
     def from_bytes(cls, data: ByteBuffer) -> "ProcgenState":
         return cls(
@@ -342,8 +341,6 @@ class ProcgenState:
             visibility=data.read_float(),
             min_visibility=data.read_float(),
             grid=Grid.from_bytes(data),
-            fish_eaten=data.read_int(),
-            r_inc=data.read_float(),
         )
 
 
