@@ -1,9 +1,7 @@
-from dataclasses import dataclass
-from typing import Dict, List, Mapping, Tuple
-from enn_zoo.procgen_env.deserializer import ByteBuffer, ProcgenState
+from typing import Dict, List
+from enn_zoo.procgen_env.deserializer import ByteBuffer
 from enn_zoo.procgen_env.base_env import BaseEnv
 from entity_gym.environment import *
-from procgen import ProcgenGym3Env
 
 
 BIG_FISH_FEATS = ["fish_eaten", "r_inc"]

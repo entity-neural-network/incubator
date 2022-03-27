@@ -21,11 +21,13 @@ class MinimalProcgenState:
         data.offset += 4 * 19
         # asset_rand_gen
         data.offset += 4
-        data.read_array()
+        data.read_array(elem_size=1)
         # main_width, main_height, out_of_bounds_object, unit, view_dim, x_off, y_off, visibility, min_visibility
         data.offset += 4 * 9
         # grid
         w = data.read_int()
         h = data.read_int()
+        size = data.read_int()
+        assert w * h == size == grid_size
         data.offset += 4 * w * h
         return cls(step_data, grid_size, entities)

@@ -2,6 +2,7 @@ import json
 from contextlib import ExitStack
 from dataclasses import dataclass
 from typing import Mapping, Optional
+from enn_zoo.procgen_env.boss_fight import BossFight
 
 import hyperstate
 import torch
@@ -71,8 +72,13 @@ def main(cfg: TrainConfig) -> None:
         env_cls = codecraft_env_class(objective, hidden_obs)
     elif cfg.env.id == "GymMicrorts":
         env_cls = GymMicrorts
-    elif cfg.env.id == "BigFish":
-        env_cls = BigFish
+    elif cfg.env.id.startswith("Procgen"):
+        if cfg.env.id == "Procgen:BigFish":
+            env_cls = BigFish
+        elif cfg.env.id == "Procgen:BossFight":
+            env_cls = BossFight
+        else:
+            raise NotImplementedError(f"Unknown procgen env: {cfg.env.id}")
     else:
         try:
             from enn_zoo import vizdoom_env

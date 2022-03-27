@@ -19,11 +19,11 @@ class ByteBuffer:
     def read_float(self) -> float:
         return struct.unpack("f", self.read(4))[0]  # type: ignore
 
-    def read_array(self) -> bytes:
-        return self.read(self.read_int())
+    def read_array(self, elem_size: int) -> bytes:
+        return self.read(elem_size * self.read_int())
 
     def read_str(self) -> str:
-        return self.read_array().decode("utf-8")
+        return self.read_array(elem_size=1).decode("utf-8")
 
     def read(self, n: int) -> bytes:
         self.offset += n
@@ -74,7 +74,7 @@ class RngState:
         return cls(
             is_seeded=data.read_int(),
             # Don't care about state and it's very large so truncate to 1 byte
-            state=data.read_array()[0:1],
+            state=data.read_array(elem_size=1)[0:1],
         )
 
 
@@ -152,16 +152,16 @@ class ProcgenGame:
         # Version
         data.offset += 4
         # Name
-        data.read_array()
+        data.read_array(elem_size=1)
         # Procgen opts
         data.read(4 * 12)
         # grid_step, level_seed_low, level_seed_high, game_type, game_n
         data.offset += 4 * 5
         # level_seed_rand_gen, rand_gen
         data.offset += 4
-        data.read_array()
+        data.read_array(elem_size=1)
         data.offset += 4
-        data.read_array()
+        data.read_array(elem_size=1)
         step_data = StepData.from_bytes(data)
         # action, timeout, current_level_seed, prev_level_seed, episodes_remaining, episode_done, last_reward_timer, last_reward, default_action, fixed_asset_seed, cur_time, is_waiting_for_step
         data.offset += 4 * 12
@@ -308,6 +308,8 @@ class Grid:
     def from_bytes(cls, data: ByteBuffer) -> "Grid":
         w = data.read_int()
         h = data.read_int()
+        size = data.read_int()
+        assert size == w * h
         return cls(w, h, [data.read_int() for _ in range(w * h)])
 
 
