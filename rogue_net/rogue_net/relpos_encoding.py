@@ -189,6 +189,7 @@ class RelposEncoding(nn.Module, RelposEncodingConfig):
             if self.radial
             else None
         )
+        __import__("ipdb").set_trace()
 
         if self.interpolate:
             indices_weights = self._interpolated_partition(
@@ -282,8 +283,9 @@ class RelposEncoding(nn.Module, RelposEncodingConfig):
             tpos = tpos[packpad_index]
             entity_type = entity_type[packpad_index]
         else:
-            tpos = tpos.reshape(shape.size0(), shape.size1(0), -1)
-            entity_type = entity_type.reshape(shape.size0(), shape.size1(0), 1)
+            size1 = shape.size1(0) if len(tpos) > 0 else 0
+            tpos = tpos.reshape(shape.size0(), size1, 2)
+            entity_type = entity_type.reshape(shape.size0(), size1, 1)
         # Batch x Seq(k) x Seq(q) x Pos relative positions
         return tpos.unsqueeze(1) - tpos.unsqueeze(2), entity_type
 
@@ -332,7 +334,8 @@ class RelposEncoding(nn.Module, RelposEncodingConfig):
                 packpad_index.size(0), packpad_index.size(1), 1
             )
         else:
-            return torientation.reshape(shape.size0(), shape.size1(0), 1)
+            size1 = shape.size1(0) if shape.items() > 0 else 0
+            return torientation.reshape(shape.size0(), size1, 1)
 
     def _partition(
         self,
