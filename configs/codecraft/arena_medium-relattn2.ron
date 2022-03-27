@@ -1,7 +1,7 @@
 ExperimentConfig(
     env: (
         id: "CodeCraft",
-        kwargs: "{\"objective\": \"ARENA_TINY_2V2\", \"hidden_obs\": true}",
+        kwargs: "{\"objective\": \"ARENA_MEDIUM\"}",
     ),
     rollout: (
         num_envs: 256,
@@ -17,7 +17,7 @@ ExperimentConfig(
     ppo: (
         anneal_entropy: true,
         gamma: 0.99,
-        ent_coef: 0.2,
+        ent_coef: 0.1,
         vf_coef: 3.0,
     ),
     net: (
@@ -34,11 +34,12 @@ ExperimentConfig(
             scale: 1000.0,
         ),
     ),
-    total_timesteps: 10000000,
+    total_timesteps: 25000000,
     eval: (
         interval: 1000000,
         num_envs: 256,
         steps: 360,
-        opponent: "/xprun/data/common/DeepCodeCraft/golden-models/arena_tiny_2v2/arena_tiny_2v2-e58ceea-0-25m",
+        // opponent: "/xprun/data/common/DeepCodeCraft/golden-models/arena_medium/arena_medium-5f06842-0-10m",
+        opponent: "/mnt/a/Dropbox/artifacts/xprun/common/DeepCodeCraft/golden-models/arena_medium/arena_medium-5f06842-0-10m",
     )
 )
