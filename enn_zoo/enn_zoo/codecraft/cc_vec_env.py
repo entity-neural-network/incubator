@@ -20,7 +20,7 @@ from entity_gym.environment.environment import (
     Entity,
     Observation,
 )
-from entity_gym.environment.vec_env import VecCategoricalActionMask, VecObs
+from entity_gym.environment.vec_env import Metric, VecCategoricalActionMask, VecObs
 
 from .maps import (
     map_allied_wealth,
@@ -381,6 +381,7 @@ class CodeCraftVecEnv(VecEnv):
         if isinstance(objective, str):
             objective = Objective(objective)
         if objective.vs():
+            assert num_envs % 2 == 0
             num_self_play = num_envs // 2
         else:
             num_self_play = 0
@@ -413,6 +414,7 @@ class CodeCraftVecEnv(VecEnv):
             self.obs_config = ObsConfig(
                 allies=8, drones=16, minerals=8, tiles=0, num_builds=1
             )
+            win_bonus = 2.0
         elif objective == Objective.ENHANCED:
             self.obs_config = ObsConfig(
                 allies=20,
@@ -683,10 +685,12 @@ class CodeCraftVecEnv(VecEnv):
             unit_cap_override=self.config.unit_cap,
         )
         stride = obs_config.stride()
+        metrics: Dict[str, Metric] = defaultdict(Metric)
         for i in range(num_envs):
             game = env_subset[i] if env_subset else i
             winner = obs[stride * num_envs + i * obs_config.nonobs_features()]
             outcome = 0
+            elimination_win = 0
             if self.objective.vs():
                 allied_score = obs[
                     stride * num_envs + i * obs_config.nonobs_features() + 1
@@ -716,13 +720,15 @@ class CodeCraftVecEnv(VecEnv):
                         score -= self.loss_penalty
                 if winner > 0:
                     if enemy_score == 0 or allied_score == 0:
-                        pass
+                        elimination_win = 1
                     if enemy_score + allied_score == 0:
                         outcome = 0
                     else:
                         outcome = (allied_score - enemy_score) / (
                             enemy_score + allied_score
                         )
+                    metrics["elimination_win"].push(elimination_win)
+                    metrics["outcome"].push(outcome)
                 if self.attac > 0:
                     score -= self.attac * min_enemy_ms_health
                 if self.protec > 0:
@@ -941,7 +947,7 @@ class CodeCraftVecEnv(VecEnv):
             },
             reward=np.array(rews),
             done=np.array(dones) == 1.0,
-            metrics={},
+            metrics=metrics,
         )
         return batch
 

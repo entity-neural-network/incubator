@@ -1,7 +1,7 @@
 ExperimentConfig(
     env: (
         id: "CodeCraft",
-        kwargs: "{\"objective\": \"ARENA_TINY_2V2\", \"hidden_obs\": true}",
+        kwargs: "{\"objective\": \"ARENA_TINY_2V2\"}",
     ),
     rollout: (
         num_envs: 256,
