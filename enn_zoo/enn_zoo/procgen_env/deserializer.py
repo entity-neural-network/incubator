@@ -1,6 +1,8 @@
 from typing import List, TypeVar, Type
 import struct
 from dataclasses import dataclass
+import numpy as np
+import numpy.typing as npt
 
 
 T = TypeVar("T", bound="ProcgenState")
@@ -203,6 +205,26 @@ class Entity:
     @classmethod
     def list_from_bytes(cls, data: ByteBuffer) -> List["Entity"]:
         return [cls.from_bytes(data) for _ in range(data.read_int())]
+
+    @classmethod
+    def array_from_bytes(cls, data: ByteBuffer) -> npt.NDArray[np.float32]:
+        count = data.read_int()
+        array = np.empty(shape=(count, 31), dtype=np.float32)
+        for i in range(count):
+            array[i, 0:6] = np.frombuffer(data.read(6 * 4), dtype=np.float32)
+            array[i, 6:12] = np.frombuffer(data.read(6 * 4), dtype=np.int32).astype(
+                np.float32
+            )
+            array[i, 12:15] = np.frombuffer(data.read(3 * 4), dtype=np.float32)
+            array[i, 15:21] = np.frombuffer(data.read(6 * 4), dtype=np.int32).astype(
+                np.float32
+            )
+            array[i, 21] = data.read_float()
+            array[i, 22:25] = np.frombuffer(data.read(3 * 4), dtype=np.int32).astype(
+                np.float32
+            )
+            array[i, 25:31] = np.frombuffer(data.read(6 * 4), dtype=np.float32)
+        return array
 
     @classmethod
     def from_bytes(cls, data: ByteBuffer) -> "Entity":

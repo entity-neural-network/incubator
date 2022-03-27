@@ -1,6 +1,7 @@
-from typing import List, TypeVar, Type
-import struct
+from typing import List
 from dataclasses import dataclass
+import numpy as np
+import numpy.typing as npt
 
 from enn_zoo.procgen_env.deserializer import ByteBuffer, Entity, ProcgenGame, StepData
 
@@ -9,13 +10,13 @@ from enn_zoo.procgen_env.deserializer import ByteBuffer, Entity, ProcgenGame, St
 class MinimalProcgenState:
     step_data: StepData
     grid_size: int
-    entities: List[Entity]
+    entities: npt.NDArray[np.float32]
 
     @classmethod
     def from_bytes(cls, data: ByteBuffer) -> "MinimalProcgenState":
         step_data = ProcgenGame.just_step_data(data)
         grid_size = data.read_int()
-        entities = Entity.list_from_bytes(data)
+        entities = Entity.array_from_bytes(data)
         # use_procgen_background, background_index, bg_tile_ratio, bg_pct_x, char_dim, last_move_action, move_action, special_action, mixrate, maxspeed, max_jump, action_vx, action_vy, action_vrot, center_x, center_y, random_agent_start, has_useful_vel_info, step_rand_int
         data.offset += 4 * 19
         # asset_rand_gen

@@ -5,6 +5,7 @@ from enn_zoo.procgen_env.deserializer import ByteBuffer, ProcgenState
 from enn_zoo.procgen_env.fast_deserializer import MinimalProcgenState
 from entity_gym.environment import *
 from procgen import ProcgenGym3Env
+import numpy as np
 
 
 ENTITY_FEATS = [
@@ -111,27 +112,34 @@ class BaseEnv(Environment):
         data = ByteBuffer(states[0])
         state = MinimalProcgenState.from_bytes(data)
 
-        entities = defaultdict(list)
-        entity_types = self._entity_types()
-        global_feats = self.__class__.deserialize_global_feats(data)
-        for entity in state.entities:
-            if entity.type == 0:
-                entities["Player"].append(entity.to_list() + global_feats)
-            elif entity.type in entity_types:
-                entities[entity_types[entity.type]].append(
-                    entity.to_list() + global_feats
+        global_feats = np.array(self.__class__.deserialize_global_feats(data), dtype=np.float32).reshape(
+            1, -1
+        )
+        entities = {
+            "Player": EntityObs(
+                features=np.concatenate(
+                    [state.entities[state.entities[:, 6] == 0.0], global_feats], axis=1
+                ),
+                ids=[0],
+            )
+        }
+        for type_id, name in self._entity_types().items():
+            feats = state.entities[state.entities[:, 6] == type_id]
+            if feats.shape[0] > 0:
+                feats = np.concatenate(
+                    [feats, global_feats.repeat(feats.shape[0], axis=0)],
+                    axis=1,
                 )
             else:
-                print("warning: unknown entity type", entity.type)
-                __import__("ipdb").set_trace()
+                feats = np.zeros((0, feats.shape[1] + global_feats.shape[1]), dtype=np.float32)
+            entities[name] = EntityObs(features=feats)
+        assert (
+            sum([e.features.shape[0] for e in entities.values()])  # type: ignore
+            == state.entities.shape[0]
+        )
 
         return Observation.from_entity_obs(
-            entities={
-                name: EntityObs(
-                    features=features, ids=[0] if name == "Player" else None
-                )
-                for name, features in entities.items()
-            },
+            entities=entities,
             actions={"act": CategoricalActionMask(actor_types=["Player"])},
             done=state.step_data.done == 1,
             reward=state.step_data.reward,
