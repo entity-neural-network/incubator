@@ -112,9 +112,9 @@ class BaseEnv(Environment):
         data = ByteBuffer(states[0])
         state = MinimalProcgenState.from_bytes(data)
 
-        global_feats = np.array(self.__class__.deserialize_global_feats(data), dtype=np.float32).reshape(
-            1, -1
-        )
+        global_feats = np.array(
+            self.__class__.deserialize_global_feats(data), dtype=np.float32
+        ).reshape(1, -1)
         entities = {
             "Player": EntityObs(
                 features=np.concatenate(
@@ -131,7 +131,9 @@ class BaseEnv(Environment):
                     axis=1,
                 )
             else:
-                feats = np.zeros((0, feats.shape[1] + global_feats.shape[1]), dtype=np.float32)
+                feats = np.zeros(
+                    (0, feats.shape[1] + global_feats.shape[1]), dtype=np.float32
+                )
             entities[name] = EntityObs(features=feats)
         assert (
             sum([e.features.shape[0] for e in entities.values()])  # type: ignore
@@ -150,3 +152,39 @@ class BaseEnv(Environment):
         assert isinstance(act, CategoricalAction)
         self.env.act(act.actions)
         return self.observe()
+
+
+if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--get-state", action="store_true")
+    parser.add_argument("--parse-state", action="store_true")
+    parser.add_argument("--num-envs", type=int, default=1)
+    args = parser.parse_args()
+
+    env = ProcgenGym3Env(
+        num=args.num_envs,
+        env_name="bigfish",
+        start_level=0,
+        num_levels=0,
+        distribution_mode="easy",
+    )
+
+    import time
+
+    trials = 3
+    samples = 50000 // args.num_envs
+    for trial in range(trials):
+        print(f"Trial {trial}")
+        start = time.time()
+        for i in range(samples):
+            env.act(np.zeros(args.num_envs, dtype=np.int32))
+            if args.get_state:
+                states = env.callmethod("get_state")
+                if args.parse_state:
+                    data = ByteBuffer(states[0])
+                    state = MinimalProcgenState.from_bytes(data)
+        print(
+            f"Trial {trial} took {time.time() - start:.2f} sec. Throughput: {samples * args.num_envs / (time.time() - start):.0f} samples/sec"
+        )
