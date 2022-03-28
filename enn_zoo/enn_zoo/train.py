@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Mapping, Optional
 from enn_zoo.procgen_env.boss_fight import BossFight
 from enn_zoo.procgen_env.leaper import Leaper
+from enn_zoo.procgen_env.plunder import Plunder
 from enn_zoo.procgen_env.star_pilot import StarPilot
 
 import hyperstate
@@ -83,6 +84,8 @@ def main(cfg: TrainConfig) -> None:
             env_cls = StarPilot
         elif cfg.env.id == "Procgen:Leaper":
             env_cls = Leaper
+        elif cfg.env.id == "Procgen:Plunder":
+            env_cls = Plunder
         else:
             raise NotImplementedError(f"Unknown procgen env: {cfg.env.id}")
     else:
