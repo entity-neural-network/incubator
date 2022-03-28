@@ -1,13 +1,13 @@
 ExperimentConfig(
     env: (
-        id: "BigFish",
+        id: "Procgen:BigFish",
     ),
     rollout: (
-        num_envs: 256,
-        steps: 64,
+        num_envs: 64,
+        steps: 256,
         processes: 16,
     ),
-    total_timesteps: 10000000,
+    total_timesteps: 25000000,
     net: (
         d_model: 64,
         n_layer: 2,
@@ -19,12 +19,12 @@ ExperimentConfig(
     ),
     optim: (
         bs: 8192,
-        micro_bs: 512,
+        micro_bs: 1024,
         lr: 0.01,
     ),
     ppo: (
         ent_coef: 0.1,
         anneal_entropy: true,
-        gamma: 0.99,
+        gamma: 0.999,
     ),
 )
