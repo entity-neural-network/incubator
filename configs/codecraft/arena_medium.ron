@@ -1,7 +1,7 @@
 ExperimentConfig(
     env: (
         id: "CodeCraft",
-        kwargs: "{\"objective\": \"ARENA_MEDIUM\", \"hardness\": 1.0}",
+        kwargs: "{\"objective\": \"ARENA_MEDIUM\", \"hardness\": 1.0, \"win_bonus\": 2.0, \"hidden_obs\": true}",
     ),
     rollout: (
         num_envs: 128,
@@ -19,21 +19,31 @@ ExperimentConfig(
         anneal_entropy: true,
         gamma: 0.999,
         ent_coef: 0.1,
-        vf_coef: 3.0,
+        vf_coef: 2.0,
     ),
     net: (
         d_model: 256,
         n_layer: 2,
         n_head: 2,
         relpos_encoding: (
-            extent: [8],
+            extent: [8, 2],
             position_features: ["x", "y"],
-            key_relpos_projection: true,
-            value_relpos_projection: true,
             rotation_vec_features: ["orientation_x", "orientation_y"],
             radial: true,
+            distance: true,
             interpolate: true,
+            scale: 1000.0,
         ),
+        // Alternative
+        // relpos_encoding: (
+        //     extent: [8],
+        //     position_features: ["x", "y"],
+        //     key_relpos_projection: true,
+        //     value_relpos_projection: true,
+        //     rotation_vec_features: ["orientation_x", "orientation_y"],
+        //     radial: true,
+        //     interpolate: true,
+        // ),
     ),
     total_timesteps: 25000000,
     eval: (
@@ -41,6 +51,9 @@ ExperimentConfig(
         num_envs: 128,
         steps: 1000,
         opponent: "/xprun/data/common/DeepCodeCraft/golden-models/arena_medium/arena_medium-5f06842-0-10m",
-        //opponent: "/mnt/a/Dropbox/artifacts/xprun/common/DeepCodeCraft/golden-models/arena_medium/arena_medium-5f06842-0-10m",
+        env: (
+            id: "CodeCraft",
+            kwargs: "{\"objective\": \"ARENA_MEDIUM\", \"hardness\": 1.0, \"stagger\": false, \"symmetric\": 1.0, \"fair\": false}",
+        ),
     )
 )
