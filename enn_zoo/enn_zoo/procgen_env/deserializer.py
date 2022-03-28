@@ -22,6 +22,9 @@ class ByteBuffer:
     def read_array(self, elem_size: int) -> bytes:
         return self.read(elem_size * self.read_int())
 
+    def read_float_array(self) -> npt.NDArray[np.float32]:
+        return np.frombuffer(self.read_array(elem_size=4), dtype=np.float32)
+
     def read_str(self) -> str:
         return self.read_array(elem_size=1).decode("utf-8")
 

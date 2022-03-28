@@ -3,6 +3,7 @@ from contextlib import ExitStack
 from dataclasses import dataclass
 from typing import Mapping, Optional
 from enn_zoo.procgen_env.boss_fight import BossFight
+from enn_zoo.procgen_env.leaper import Leaper
 from enn_zoo.procgen_env.star_pilot import StarPilot
 
 import hyperstate
@@ -80,6 +81,8 @@ def main(cfg: TrainConfig) -> None:
             env_cls = BossFight
         elif cfg.env.id == "Procgen:StarPilot":
             env_cls = StarPilot
+        elif cfg.env.id == "Procgen:Leaper":
+            env_cls = Leaper
         else:
             raise NotImplementedError(f"Unknown procgen env: {cfg.env.id}")
     else:
