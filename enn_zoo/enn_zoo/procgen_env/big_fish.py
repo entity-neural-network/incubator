@@ -1,8 +1,7 @@
 from typing import Dict, List
-from enn_zoo.procgen_env.deserializer import ByteBuffer
-from enn_zoo.procgen_env.base_env import BaseEnv
-from entity_gym.environment import *
 
+from enn_zoo.procgen_env.base_env import BaseEnv
+from enn_zoo.procgen_env.deserializer import ByteBuffer
 
 BIG_FISH_FEATS = ["fish_eaten", "r_inc"]
 

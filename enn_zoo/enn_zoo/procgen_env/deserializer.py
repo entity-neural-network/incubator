@@ -1,9 +1,9 @@
-from typing import List, TypeVar, Type
 import struct
 from dataclasses import dataclass
+from typing import List, TypeVar
+
 import numpy as np
 import numpy.typing as npt
-
 
 T = TypeVar("T", bound="ProcgenState")
 
@@ -437,6 +437,7 @@ def print_coinrun_grid(grid: Grid) -> None:
 
 if __name__ == "__main__":
     import random
+
     from procgen import ProcgenGym3Env
 
     env = ProcgenGym3Env(

@@ -1,7 +1,7 @@
 from typing import Dict, List
-from enn_zoo.procgen_env.deserializer import ByteBuffer
+
 from enn_zoo.procgen_env.base_env import BaseEnv
-from entity_gym.environment import *
+from enn_zoo.procgen_env.deserializer import ByteBuffer
 
 # b->write_vector_int(attack_modes);
 # b->write_int(last_fire_time);

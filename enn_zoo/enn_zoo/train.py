@@ -2,10 +2,6 @@ import json
 from contextlib import ExitStack
 from dataclasses import dataclass
 from typing import Mapping, Optional
-from enn_zoo.procgen_env.boss_fight import BossFight
-from enn_zoo.procgen_env.leaper import Leaper
-from enn_zoo.procgen_env.plunder import Plunder
-from enn_zoo.procgen_env.star_pilot import StarPilot
 
 import hyperstate
 import torch
@@ -20,6 +16,10 @@ from enn_zoo.codecraft.codecraftnet.adapter import CCNetAdapter
 from enn_zoo.griddly_env import GRIDDLY_ENVS
 from enn_zoo.microrts import GymMicrorts
 from enn_zoo.procgen_env.big_fish import BigFish
+from enn_zoo.procgen_env.boss_fight import BossFight
+from enn_zoo.procgen_env.leaper import Leaper
+from enn_zoo.procgen_env.plunder import Plunder
+from enn_zoo.procgen_env.star_pilot import StarPilot
 from entity_gym.environment import *
 from entity_gym.examples import ENV_REGISTRY
 from rogue_net.rogue_net import RogueNet, RogueNetConfig

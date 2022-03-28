@@ -1,12 +1,12 @@
 from abc import abstractmethod
-from collections import defaultdict
 from typing import Dict, List, Mapping
-from enn_zoo.procgen_env.deserializer import ByteBuffer, ProcgenState
+
+import numpy as np
+from procgen import ProcgenGym3Env
+
+from enn_zoo.procgen_env.deserializer import ByteBuffer
 from enn_zoo.procgen_env.fast_deserializer import MinimalProcgenState
 from entity_gym.environment import *
-from procgen import ProcgenGym3Env
-import numpy as np
-
 
 ENTITY_FEATS = [
     "x",
@@ -136,7 +136,7 @@ class BaseEnv(Environment):
                 )
             entities[name] = EntityObs(features=feats)
         assert (
-            sum([e.features.shape[0] for e in entities.values()])  # type: ignore
+            sum(e.features.shape[0] for e in entities.values())  # type: ignore
             == state.entities.shape[0]
         )
 

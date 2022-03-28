@@ -1,8 +1,9 @@
 from typing import Dict, List
-from enn_zoo.procgen_env.deserializer import ByteBuffer
-from enn_zoo.procgen_env.base_env import BaseEnv
-from entity_gym.environment import *
+
 import numpy as np
+
+from enn_zoo.procgen_env.base_env import BaseEnv
+from enn_zoo.procgen_env.deserializer import ByteBuffer
 
 # b->write_int(bottom_road_y);
 # b->write_vector_float(road_lane_speeds);
