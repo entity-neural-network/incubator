@@ -15,6 +15,11 @@ from enn_zoo.codecraft.cc_vec_env import CodeCraftVecEnv, codecraft_env_class
 from enn_zoo.codecraft.codecraftnet.adapter import CCNetAdapter
 from enn_zoo.griddly_env import GRIDDLY_ENVS
 from enn_zoo.microrts import GymMicrorts
+from enn_zoo.procgen_env.big_fish import BigFish
+from enn_zoo.procgen_env.boss_fight import BossFight
+from enn_zoo.procgen_env.leaper import Leaper
+from enn_zoo.procgen_env.plunder import Plunder
+from enn_zoo.procgen_env.star_pilot import StarPilot
 from entity_gym.environment import *
 from entity_gym.examples import ENV_REGISTRY
 from rogue_net.rogue_net import RogueNet, RogueNetConfig
@@ -70,6 +75,19 @@ def main(cfg: TrainConfig) -> None:
         env_cls = codecraft_env_class(objective, hidden_obs)
     elif cfg.env.id == "GymMicrorts":
         env_cls = GymMicrorts
+    elif cfg.env.id.startswith("Procgen"):
+        if cfg.env.id == "Procgen:BigFish":
+            env_cls = BigFish
+        elif cfg.env.id == "Procgen:BossFight":
+            env_cls = BossFight
+        elif cfg.env.id == "Procgen:StarPilot":
+            env_cls = StarPilot
+        elif cfg.env.id == "Procgen:Leaper":
+            env_cls = Leaper
+        elif cfg.env.id == "Procgen:Plunder":
+            env_cls = Plunder
+        else:
+            raise NotImplementedError(f"Unknown procgen env: {cfg.env.id}")
     else:
         try:
             from enn_zoo import vizdoom_env

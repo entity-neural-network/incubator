@@ -1,0 +1,31 @@
+// Baselines for BigFish, BossFight, StarPilot, Leaper, Plunder on both easy and hard distribution mode: https://wandb.ai/entity-neural-network/enn-ppo/reports/Procgen-Baselines--VmlldzoxNzUxNDcy
+ExperimentConfig(
+    env: (
+        id: "Procgen:BigFish",
+    ),
+    rollout: (
+        num_envs: 64,
+        steps: 256,
+        processes: 16,
+    ),
+    total_timesteps: 25000000,
+    net: (
+        d_model: 64,
+        n_layer: 2,
+        translation: (
+            position_features: ["x", "y"],
+            reference_entity: "Player",
+            add_dist_feature: true,
+        ),
+    ),
+    optim: (
+        bs: 8192,
+        micro_bs: 1024,
+        lr: 0.01,
+    ),
+    ppo: (
+        ent_coef: 0.1,
+        anneal_entropy: true,
+        gamma: 0.999,
+    ),
+)
