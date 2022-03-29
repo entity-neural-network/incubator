@@ -55,7 +55,7 @@ def run_eval(
         agents = agent
 
     envs: VecEnv = AddMetricsWrapper(
-        create_env(env_cfg, num_envs, processes), metric_filter
+        create_env(cfg.env or env_cfg, num_envs, processes), metric_filter
     )
 
     if cfg.capture_samples:
