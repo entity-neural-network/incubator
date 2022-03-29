@@ -1,5 +1,6 @@
 // Achieves 1.0 episodic return: https://wandb.ai/entity-neural-network/enn-ppo/reports/Xor--VmlldzoxNjI2OTEz
 ExperimentConfig(
+    version: 0,
     env: (
         id: "Xor",
     ),

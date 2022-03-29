@@ -2,6 +2,8 @@ import os
 from dataclasses import dataclass, field
 from typing import Optional
 
+import hyperstate
+
 from rogue_net.rogue_net import RogueNetConfig
 
 
@@ -126,7 +128,7 @@ class OptimizerConfig:
 
 
 @dataclass
-class TrainConfig:
+class TrainConfig(hyperstate.Versioned):
     """Experiment settings.
 
     Attributes:
@@ -172,3 +174,11 @@ class TrainConfig:
     trial: Optional[int] = None
     data_dir: str = "."
     cuda_empty_cache: bool = False
+
+    @classmethod
+    def version(clz) -> int:
+        return 0
+
+
+if __name__ == "__main__":
+    hyperstate.schema_evolution_cli(TrainConfig)

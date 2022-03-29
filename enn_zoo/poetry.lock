@@ -104,11 +104,11 @@ unicode_backport = ["unicodedata2"]
 
 [[package]]
 name = "click"
-version = "8.0.4"
+version = "8.1.0"
 description = "Composable command line interface toolkit"
 category = "main"
 optional = false
-python-versions = ">=3.6"
+python-versions = ">=3.7"
 
 [package.dependencies]
 colorama = {version = "*", markers = "platform_system == \"Windows\""}
@@ -243,7 +243,7 @@ develop = true
 [package.dependencies]
 click = "^8.0.4"
 entity_gym = {path = "../entity_gym", develop = true}
-hyperstate = "^0.2.8"
+hyperstate = "^0.2.10"
 moviepy = "^1.0.3"
 msgpack = "^1.0.3"
 msgpack-numpy = "^0.4.7"
@@ -374,7 +374,7 @@ docs = ["sphinx"]
 
 [[package]]
 name = "griddly"
-version = "1.2.31"
+version = "1.3.0"
 description = "Griddly Python Libraries"
 category = "main"
 optional = false
@@ -454,7 +454,7 @@ test = ["pytest (==5.2.1)", "pytest-benchmark (==3.2.2)", "gym-retro (==0.8.0)",
 
 [[package]]
 name = "hyperstate"
-version = "0.2.8"
+version = "0.2.10"
 description = "Library for managing hyperparameters and mutable state of machine learning training systems."
 category = "main"
 optional = false
@@ -1139,7 +1139,7 @@ telegram = ["requests"]
 
 [[package]]
 name = "types-requests"
-version = "2.27.14"
+version = "2.27.15"
 description = "Typing stubs for requests"
 category = "main"
 optional = false
@@ -1237,11 +1237,11 @@ bottle = "0.12.19"
 
 [[package]]
 name = "werkzeug"
-version = "2.0.3"
+version = "2.1.0"
 description = "The comprehensive WSGI web application library."
 category = "main"
 optional = false
-python-versions = ">=3.6"
+python-versions = ">=3.7"
 
 [package.extras]
 watchdog = ["watchdog"]
@@ -1275,7 +1275,7 @@ vizdoom = ["vizdoom"]
 [metadata]
 lock-version = "1.1"
 python-versions = ">=3.8.0,<3.10"
-content-hash = "a804dd7d79e03c93b4b4de2c04772a0194c0c7c9b8325c64b801b57493ebcb44"
+content-hash = "8339a62cd2f644baa38ca9c27c11875fb83a0e02f971623b40d23aa0f38be66d"
 
 [metadata.files]
 absl-py = [
@@ -1367,8 +1367,8 @@ charset-normalizer = [
     {file = "charset_normalizer-2.0.12-py3-none-any.whl", hash = "sha256:6881edbebdb17b39b4eaaa821b438bf6eddffb4468cf344f09f89def34a8b1df"},
 ]
 click = [
-    {file = "click-8.0.4-py3-none-any.whl", hash = "sha256:6a7a62563bbfabfda3a38f3023a1db4a35978c0abd76f6c9605ecd6554d6d9b1"},
-    {file = "click-8.0.4.tar.gz", hash = "sha256:8458d7b1287c5fb128c90e23381cf99dcde74beaf6c7ff6384ce84d6fe090adb"},
+    {file = "click-8.1.0-py3-none-any.whl", hash = "sha256:19a4baa64da924c5e0cd889aba8e947f280309f1a2ce0947a3e3a7bcb7cc72d6"},
+    {file = "click-8.1.0.tar.gz", hash = "sha256:977c213473c7665d3aa092b41ff12063227751c41d7b17165013e10069cc5cd2"},
 ]
 cliff = [
     {file = "cliff-3.10.1-py3-none-any.whl", hash = "sha256:a21da482714b9f0b0e9bafaaf2f6a8b3b14161bb47f62e10e28d2fe4ff4b1626"},
@@ -1544,15 +1544,14 @@ greenlet = [
     {file = "greenlet-1.1.2.tar.gz", hash = "sha256:e30f5ea4ae2346e62cedde8794a56858a67b878dd79f7df76a0767e356b1744a"},
 ]
 griddly = [
-    {file = "griddly-1.2.31-cp37-cp37m-macosx_10_14_x86_64.whl", hash = "sha256:7ab29267907d4527eca25c0116552d563a578f563b5343e4bca8aa4ed24c761c"},
-    {file = "griddly-1.2.31-cp37-cp37m-manylinux2014_x86_64.whl", hash = "sha256:f93442ed5178178a14844eb3f0f073b35a0a2e6dbda824842ec29c0a9a623ee7"},
-    {file = "griddly-1.2.31-cp37-cp37m-win_amd64.whl", hash = "sha256:64b312e996ebbceb727dd33df01737db163846b67dd178fbf2b5dab9e2507de7"},
-    {file = "griddly-1.2.31-cp38-cp38-macosx_10_14_x86_64.whl", hash = "sha256:36d20ff10e3ef7fab89cb4b2fb802b7fc7b911d1800554a1d7dd5e8d1e4161eb"},
-    {file = "griddly-1.2.31-cp38-cp38-manylinux2014_x86_64.whl", hash = "sha256:0431348ccf06be831ee34a5a36b004938f07cd3802fea0efa04ebeb50df17902"},
-    {file = "griddly-1.2.31-cp38-cp38-win_amd64.whl", hash = "sha256:064ce9c91a6db8d5bbcfb804b1f65990ef5a0b730cc9f16af47163e14be439b8"},
-    {file = "griddly-1.2.31-cp39-cp39-macosx_10_15_x86_64.whl", hash = "sha256:442363b1f07780b5368d97d9e015f422509e802c782fd30074728cbf5283192d"},
-    {file = "griddly-1.2.31-cp39-cp39-manylinux2014_x86_64.whl", hash = "sha256:c05e1dcd6d30b0d784554b9d9ccea98b473a3d23d9e3fcfd5771f85ac67e822e"},
-    {file = "griddly-1.2.31-cp39-cp39-win_amd64.whl", hash = "sha256:07c74fa7acae2c4465f01d62ab8efb5d1fdc5c0abcb610c2cb2b7cb57a3174c7"},
+    {file = "griddly-1.3.0-cp37-cp37m-macosx_10_14_x86_64.whl", hash = "sha256:d621b6726995b62b09dcb03c14c06cf95d0fbbdc617db0511cf5b78759e1dbf7"},
+    {file = "griddly-1.3.0-cp37-cp37m-manylinux2014_x86_64.whl", hash = "sha256:7f653f3514a3734a10ff31ad5ae86f28881a363188080f62c1691ade54c86793"},
+    {file = "griddly-1.3.0-cp38-cp38-macosx_10_14_x86_64.whl", hash = "sha256:c2542c8e114b8bdcf18c0bd0f68b4a7b40f2bc2a1962304ef52dfeb73a76cf4e"},
+    {file = "griddly-1.3.0-cp38-cp38-manylinux2014_x86_64.whl", hash = "sha256:04ae8a46064dad516f32f813d92bb4f6384e5707af6e783dca1f8871184175fe"},
+    {file = "griddly-1.3.0-cp38-cp38-win_amd64.whl", hash = "sha256:c8a8d7fce76a55f12c390245c6d85f12abb6d4b8922c558ec3857f52d4fbb537"},
+    {file = "griddly-1.3.0-cp39-cp39-macosx_10_15_x86_64.whl", hash = "sha256:29eb5f50f26d34f35ff62e0098bb531ac5993a5cff865b69065f58e98689d6fb"},
+    {file = "griddly-1.3.0-cp39-cp39-manylinux2014_x86_64.whl", hash = "sha256:c9d674f3801575587019fd2b20774f7594986d024ca067820d1d52bc9d385b35"},
+    {file = "griddly-1.3.0-cp39-cp39-win_amd64.whl", hash = "sha256:b5b06a7e925cfc29be6ec52139dbc63a1153afd584c792b8dd5a06b8a5df0693"},
 ]
 grpcio = [
     {file = "grpcio-1.45.0-cp310-cp310-linux_armv7l.whl", hash = "sha256:0d74a159df9401747e57960f0772f4371486e3281919004efa9df8a82985abee"},
@@ -1621,8 +1620,8 @@ gym3 = [
     {file = "gym3-0.3.3-py3-none-any.whl", hash = "sha256:bacc0e124f8ce5e1d8a9dceb85725123332954f13ef4e226133506597548838a"},
 ]
 hyperstate = [
-    {file = "hyperstate-0.2.8-py3-none-any.whl", hash = "sha256:60c5fedd669e5d5005d4cf0b7f83924d912c90d0f1fc8d1b591d8ae01ecb851c"},
-    {file = "hyperstate-0.2.8.tar.gz", hash = "sha256:919d35fcdf78aef268746dc33e90b2802bb954bfa98497e64fd66de68b445890"},
+    {file = "hyperstate-0.2.10-py3-none-any.whl", hash = "sha256:7410ee22b4846893cb712e789c4f69855d992359e4d3b36b0e15c6f39e0ce48d"},
+    {file = "hyperstate-0.2.10.tar.gz", hash = "sha256:2618c23365c303668ed981e8d064784f0b2e2aa3022568ff41144e655acd9358"},
 ]
 idna = [
     {file = "idna-3.3-py3-none-any.whl", hash = "sha256:84d9dd047ffa80596e0f246e2eab0b391788b0503584e8945f2368256d2735ff"},
@@ -2250,8 +2249,8 @@ tqdm = [
     {file = "tqdm-4.63.1.tar.gz", hash = "sha256:4230a49119a416c88cc47d0d2d32d5d90f1a282d5e497d49801950704e49863d"},
 ]
 types-requests = [
-    {file = "types-requests-2.27.14.tar.gz", hash = "sha256:04579ee164f7c2659be46950e3c2f8d51a081ad252ef1b01d4b12faba5c3810b"},
-    {file = "types_requests-2.27.14-py3-none-any.whl", hash = "sha256:c01838abfe3e8a83ba68346cd373afff97594c19c15c922ddee4a0e80ba7e329"},
+    {file = "types-requests-2.27.15.tar.gz", hash = "sha256:2d371183c535208d2cc8fe7473d9b49c344c7077eb70302eb708638fb86086a8"},
+    {file = "types_requests-2.27.15-py3-none-any.whl", hash = "sha256:77d09182a68e447e9e8b0ffc21abf54618b96f07689dffbb6a41cf0356542969"},
 ]
 types-urllib3 = [
     {file = "types-urllib3-1.26.11.tar.gz", hash = "sha256:24d64e441168851eb05f1d022de18ae31558f5649c8f1117e384c2e85e31315b"},
@@ -2282,8 +2281,8 @@ web-pdb = [
     {file = "web_pdb-1.5.7-py2.py3-none-any.whl", hash = "sha256:c3f785bf39b7d94afafcffc15ee99005661251cfd7d582ded0dc743c58e2ed78"},
 ]
 werkzeug = [
-    {file = "Werkzeug-2.0.3-py3-none-any.whl", hash = "sha256:1421ebfc7648a39a5c58c601b154165d05cf47a3cd0ccb70857cbdacf6c8f2b8"},
-    {file = "Werkzeug-2.0.3.tar.gz", hash = "sha256:b863f8ff057c522164b6067c9e28b041161b4be5ba4d0daceeaa50a163822d3c"},
+    {file = "Werkzeug-2.1.0-py3-none-any.whl", hash = "sha256:094ecfc981948f228b30ee09dbfe250e474823b69b9b1292658301b5894bbf08"},
+    {file = "Werkzeug-2.1.0.tar.gz", hash = "sha256:9b55466a3e99e13b1f0686a66117d39bda85a992166e0a79aedfcf3586328f7a"},
 ]
 yaspin = [
     {file = "yaspin-2.1.0-py3-none-any.whl", hash = "sha256:d574cbfaf0a349df466c91f7f81b22460ae5ebb15ecb8bf9411d6049923aee8d"},

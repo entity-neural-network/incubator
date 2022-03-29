@@ -1,4 +1,5 @@
 ExperimentConfig(
+    version: 0,
     env: (
         id: "RockPaperScissors",
     ),
