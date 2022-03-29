@@ -447,7 +447,7 @@ class CodeCraftVecEnv(VecEnv):
         #    )
         # else:
         return Rules(
-            mothership_damage_multiplier=2 ** self.config.mothership_damage_scale,
+            mothership_damage_multiplier=2**self.config.mothership_damage_scale,
             cost_modifiers={build: 1.0 for build in self.objective.builds()},
         )
 
@@ -679,7 +679,7 @@ class CodeCraftVecEnv(VecEnv):
                 start = stride * i + obs_config.endglobals()
                 x = obs[start]
                 y = obs[start + 1]
-                score = -math.sqrt(x ** 2 + y ** 2) / 1000.0
+                score = -math.sqrt(x**2 + y**2) / 1000.0
             elif self.objective == Objective.DISTANCE_TO_CRYSTAL:
                 dstart = stride * i + obs_config.endglobals()
                 xd = obs[dstart]
@@ -691,7 +691,7 @@ class CodeCraftVecEnv(VecEnv):
                     x = obs[mstart] - xd
                     y = obs[mstart + 1] - yd
                     size = obs[mstart + 2]
-                    nearness = 0.5 - math.sqrt(x ** 2 + y ** 2) / 1000.0
+                    nearness = 0.5 - math.sqrt(x**2 + y**2) / 1000.0
                     score = max(score, 0.2 * nearness * size)
             elif self.objective in [Objective.DISTANCE_TO_1000_500]:
 
