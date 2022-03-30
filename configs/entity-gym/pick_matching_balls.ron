@@ -1,5 +1,6 @@
 // Achieves > 0.995 mean episodic return: https://wandb.ai/entity-neural-network/enn-ppo/reports/PickMatchingBalls--VmlldzoxNjIxMjQ5
 ExperimentConfig(
+    version: 0,
     env: (
         id: "PickMatchingBalls",
         kwargs: "{\"max_balls\": 32, \"one_hot\": true, \"randomize\": true}",

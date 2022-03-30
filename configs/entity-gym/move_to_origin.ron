@@ -1,5 +1,6 @@
 // Achieves 0.99 mean episodic return most of the time: https://wandb.ai/entity-neural-network/enn-ppo/reports/MoveToOrigin--VmlldzoxNjI3MzA5
 ExperimentConfig(
+    version: 0,
     env: (
         id: "MoveToOrigin",
     ),

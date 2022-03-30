@@ -1,5 +1,6 @@
 // Achieves > 0.99 episodic return: https://wandb.ai/entity-neural-network/enn-ppo/reports/FloorIsLava--VmlldzoxNjM3OTU3
 ExperimentConfig(
+    version: 0,
     env: (
         id: "FloorIsLava",
     ),

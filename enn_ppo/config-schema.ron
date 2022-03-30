@@ -1,0 +1,1150 @@
+Struct(
+    name: "TrainConfig",
+    fields: {
+        "env": Field(
+            name: "env",
+            type: Struct(
+                name: "EnvConfig",
+                fields: {
+                    "kwargs": Field(
+                        name: "kwargs",
+                        type: Primitive(
+                            type: "str",
+                        ),
+                        default: "{}",
+                        has_default: true,
+                        docstring: "JSON dictionary with keyword arguments for the environment",
+                    ),
+                    "id": Field(
+                        name: "id",
+                        type: Primitive(
+                            type: "str",
+                        ),
+                        default: "MoveToOrigin",
+                        has_default: true,
+                        docstring: "the id of the environment",
+                    ),
+                },
+                version: None,
+            ),
+            default: None,
+            has_default: false,
+            docstring: None,
+        ),
+        "net": Field(
+            name: "net",
+            type: Struct(
+                name: "RogueNetConfig",
+                fields: {
+                    "embd_pdrop": Field(
+                        name: "embd_pdrop",
+                        type: Primitive(
+                            type: "float",
+                        ),
+                        default: 0.0,
+                        has_default: true,
+                        docstring: "Dropout probability for embedding layer.",
+                    ),
+                    "resid_pdrop": Field(
+                        name: "resid_pdrop",
+                        type: Primitive(
+                            type: "float",
+                        ),
+                        default: 0.0,
+                        has_default: true,
+                        docstring: "Dropout probability for residual branches.",
+                    ),
+                    "attn_pdrop": Field(
+                        name: "attn_pdrop",
+                        type: Primitive(
+                            type: "float",
+                        ),
+                        default: 0.0,
+                        has_default: true,
+                        docstring: "Dropout probability for attention.",
+                    ),
+                    "n_layer": Field(
+                        name: "n_layer",
+                        type: Primitive(
+                            type: "int",
+                        ),
+                        default: 1,
+                        has_default: true,
+                        docstring: "Number of transformer layers.",
+                    ),
+                    "n_head": Field(
+                        name: "n_head",
+                        type: Primitive(
+                            type: "int",
+                        ),
+                        default: 2,
+                        has_default: true,
+                        docstring: "Number of attention heads.",
+                    ),
+                    "d_model": Field(
+                        name: "d_model",
+                        type: Primitive(
+                            type: "int",
+                        ),
+                        default: 64,
+                        has_default: true,
+                        docstring: "Dimension of embedding.",
+                    ),
+                    "pooling": Field(
+                        name: "pooling",
+                        type: Option(
+                            type: Literal(
+                                allowed_values: [
+                                    "mean",
+                                    "max",
+                                    "meanmax",
+                                ],
+                            ),
+                        ),
+                        default: None,
+                        has_default: true,
+                        docstring: "Replace attention with \"mean\", \"max\", or \"meanmax\" pooling.",
+                    ),
+                    "relpos_encoding": Field(
+                        name: "relpos_encoding",
+                        type: Option(
+                            type: Struct(
+                                name: "RelposEncodingConfig",
+                                fields: {
+                                    "extent": Field(
+                                        name: "extent",
+                                        type: List(
+                                            inner: Primitive(
+                                                type: "int",
+                                            ),
+                                        ),
+                                        default: None,
+                                        has_default: false,
+                                        docstring: "Each integer relative position in the interval [-extent, extent] receives a positional embedding, with positions outside the interval snapped to the closest end.",
+                                    ),
+                                    "position_features": Field(
+                                        name: "position_features",
+                                        type: List(
+                                            inner: Primitive(
+                                                type: "str",
+                                            ),
+                                        ),
+                                        default: None,
+                                        has_default: false,
+                                        docstring: "Names of position features used for relative position encoding.",
+                                    ),
+                                    "scale": Field(
+                                        name: "scale",
+                                        type: Primitive(
+                                            type: "float",
+                                        ),
+                                        default: 1.0,
+                                        has_default: true,
+                                        docstring: "Relative positions are divided by the scale before being assigned an embedding.",
+                                    ),
+                                    "per_entity_values": Field(
+                                        name: "per_entity_values",
+                                        type: Primitive(
+                                            type: "bool",
+                                        ),
+                                        default: true,
+                                        has_default: true,
+                                        docstring: "Whether to use per-entity embeddings for relative positional values.",
+                                    ),
+                                    "exclude_entities": Field(
+                                        name: "exclude_entities",
+                                        type: List(
+                                            inner: Primitive(
+                                                type: "str",
+                                            ),
+                                        ),
+                                        default: [],
+                                        has_default: true,
+                                        docstring: "List of entity types to exclude from relative position encoding.",
+                                    ),
+                                    "value_relpos_projection": Field(
+                                        name: "value_relpos_projection",
+                                        type: Primitive(
+                                            type: "bool",
+                                        ),
+                                        default: false,
+                                        has_default: true,
+                                        docstring: "Adds a learnable projection from the relative position/distance to the relative positional values.",
+                                    ),
+                                    "key_relpos_projection": Field(
+                                        name: "key_relpos_projection",
+                                        type: Primitive(
+                                            type: "bool",
+                                        ),
+                                        default: false,
+                                        has_default: true,
+                                        docstring: "Adds a learnable projection from the relative position/distance to the relative positional keys.",
+                                    ),
+                                    "per_entity_projections": Field(
+                                        name: "per_entity_projections",
+                                        type: Primitive(
+                                            type: "bool",
+                                        ),
+                                        default: false,
+                                        has_default: true,
+                                        docstring: "Uses a different learned projection per entity type for the `key_relpos_projection` and `value_relpos_projection`.",
+                                    ),
+                                    "radial": Field(
+                                        name: "radial",
+                                        type: Primitive(
+                                            type: "bool",
+                                        ),
+                                        default: false,
+                                        has_default: true,
+                                        docstring: "Buckets all relative positions by their angle. The `extent` is interpreted as the number of buckets.",
+                                    ),
+                                    "distance": Field(
+                                        name: "distance",
+                                        type: Primitive(
+                                            type: "bool",
+                                        ),
+                                        default: false,
+                                        has_default: true,
+                                        docstring: "Buckets all relative positions by their distance. The `extent` is interpreted as the number of buckets.",
+                                    ),
+                                    "rotation_vec_features": Field(
+                                        name: "rotation_vec_features",
+                                        type: Option(
+                                            type: List(
+                                                inner: Primitive(
+                                                    type: "str",
+                                                ),
+                                            ),
+                                        ),
+                                        default: None,
+                                        has_default: true,
+                                        docstring: "Name of features that give a unit orientation vector for each entity by which to rotate relative positions.",
+                                    ),
+                                    "rotation_angle_feature": Field(
+                                        name: "rotation_angle_feature",
+                                        type: Option(
+                                            type: Primitive(
+                                                type: "str",
+                                            ),
+                                        ),
+                                        default: None,
+                                        has_default: true,
+                                        docstring: "Name of feature that gives an angle in radians by which to rotate relative positions.",
+                                    ),
+                                    "interpolate": Field(
+                                        name: "interpolate",
+                                        type: Primitive(
+                                            type: "bool",
+                                        ),
+                                        default: false,
+                                        has_default: true,
+                                        docstring: "Whether to interpolate between the embeddings of neighboring positions.",
+                                    ),
+                                },
+                                version: None,
+                            ),
+                        ),
+                        default: None,
+                        has_default: true,
+                        docstring: "Relative positional encoding settings.",
+                    ),
+                    "d_qk": Field(
+                        name: "d_qk",
+                        type: Primitive(
+                            type: "int",
+                        ),
+                        default: 16,
+                        has_default: true,
+                        docstring: "dimension of keys and queries in select-entity action heads",
+                    ),
+                    "translation": Field(
+                        name: "translation",
+                        type: Option(
+                            type: Struct(
+                                name: "TranslationConfig",
+                                fields: {
+                                    "reference_entity": Field(
+                                        name: "reference_entity",
+                                        type: Primitive(
+                                            type: "str",
+                                        ),
+                                        default: None,
+                                        has_default: false,
+                                        docstring: "Entity type of the entity which will be placed at the origin.",
+                                    ),
+                                    "position_features": Field(
+                                        name: "position_features",
+                                        type: List(
+                                            inner: Primitive(
+                                                type: "str",
+                                            ),
+                                        ),
+                                        default: None,
+                                        has_default: false,
+                                        docstring: "Names of position features used for translation.",
+                                    ),
+                                    "rotation_vec_features": Field(
+                                        name: "rotation_vec_features",
+                                        type: Option(
+                                            type: List(
+                                                inner: Primitive(
+                                                    type: "str",
+                                                ),
+                                            ),
+                                        ),
+                                        default: None,
+                                        has_default: true,
+                                        docstring: "Names of that gives the direction of the reference entity in radians. All entities are rotated by this value.",
+                                    ),
+                                    "rotation_angle_feature": Field(
+                                        name: "rotation_angle_feature",
+                                        type: Option(
+                                            type: Primitive(
+                                                type: "str",
+                                            ),
+                                        ),
+                                        default: None,
+                                        has_default: true,
+                                        docstring: "Name of feature that gives the direction of the reference entity in radians. All entities are rotated by this value.",
+                                    ),
+                                    "add_dist_feature": Field(
+                                        name: "add_dist_feature",
+                                        type: Primitive(
+                                            type: "bool",
+                                        ),
+                                        default: false,
+                                        has_default: true,
+                                        docstring: "Adds a feature that is the distance to the reference entity.",
+                                    ),
+                                },
+                                version: None,
+                            ),
+                        ),
+                        default: None,
+                        has_default: true,
+                        docstring: "settings for transforming all position features to be centered on one entity",
+                    ),
+                },
+                version: None,
+            ),
+            default: None,
+            has_default: false,
+            docstring: "policy network configuration",
+        ),
+        "optim": Field(
+            name: "optim",
+            type: Struct(
+                name: "OptimizerConfig",
+                fields: {
+                    "lr": Field(
+                        name: "lr",
+                        type: Primitive(
+                            type: "float",
+                        ),
+                        default: 0.00025,
+                        has_default: true,
+                        docstring: "the learning rate of the optimizer",
+                    ),
+                    "bs": Field(
+                        name: "bs",
+                        type: Primitive(
+                            type: "int",
+                        ),
+                        default: 128,
+                        has_default: true,
+                        docstring: "the batch size of the optimizer",
+                    ),
+                    "weight_decay": Field(
+                        name: "weight_decay",
+                        type: Primitive(
+                            type: "float",
+                        ),
+                        default: 0.0,
+                        has_default: true,
+                        docstring: "the weight decay of the optimizer",
+                    ),
+                    "micro_bs": Field(
+                        name: "micro_bs",
+                        type: Option(
+                            type: Primitive(
+                                type: "int",
+                            ),
+                        ),
+                        default: None,
+                        has_default: true,
+                        docstring: "if set, use gradient accumulation to split up batches into smaller microbatches",
+                    ),
+                    "anneal_lr": Field(
+                        name: "anneal_lr",
+                        type: Primitive(
+                            type: "bool",
+                        ),
+                        default: true,
+                        has_default: true,
+                        docstring: "whether to anneal the learning rate",
+                    ),
+                    "update_epochs": Field(
+                        name: "update_epochs",
+                        type: Primitive(
+                            type: "int",
+                        ),
+                        default: 3,
+                        has_default: true,
+                        docstring: "the K epochs to update the policy",
+                    ),
+                    "max_grad_norm": Field(
+                        name: "max_grad_norm",
+                        type: Primitive(
+                            type: "float",
+                        ),
+                        default: 2.0,
+                        has_default: true,
+                        docstring: "the maximum norm for the gradient clipping",
+                    ),
+                },
+                version: None,
+            ),
+            default: None,
+            has_default: false,
+            docstring: None,
+        ),
+        "ppo": Field(
+            name: "ppo",
+            type: Struct(
+                name: "PPOConfig",
+                fields: {
+                    "gae": Field(
+                        name: "gae",
+                        type: Primitive(
+                            type: "bool",
+                        ),
+                        default: true,
+                        has_default: true,
+                        docstring: "whether to use GAE for advantage computation",
+                    ),
+                    "gamma": Field(
+                        name: "gamma",
+                        type: Primitive(
+                            type: "float",
+                        ),
+                        default: 0.99,
+                        has_default: true,
+                        docstring: "the discount factor gamma",
+                    ),
+                    "gae_lambda": Field(
+                        name: "gae_lambda",
+                        type: Primitive(
+                            type: "float",
+                        ),
+                        default: 0.95,
+                        has_default: true,
+                        docstring: "the lambda for the general advantage estimation",
+                    ),
+                    "norm_adv": Field(
+                        name: "norm_adv",
+                        type: Primitive(
+                            type: "bool",
+                        ),
+                        default: true,
+                        has_default: true,
+                        docstring: "whether to normalize advantages",
+                    ),
+                    "clip_coef": Field(
+                        name: "clip_coef",
+                        type: Primitive(
+                            type: "float",
+                        ),
+                        default: 0.2,
+                        has_default: true,
+                        docstring: "the surrogate clipping coefficient",
+                    ),
+                    "clip_vloss": Field(
+                        name: "clip_vloss",
+                        type: Primitive(
+                            type: "bool",
+                        ),
+                        default: true,
+                        has_default: true,
+                        docstring: "whether or not to use a clipped loss for the value function, as per the paper",
+                    ),
+                    "ent_coef": Field(
+                        name: "ent_coef",
+                        type: Primitive(
+                            type: "float",
+                        ),
+                        default: 0.01,
+                        has_default: true,
+                        docstring: "coefficient of the entropy",
+                    ),
+                    "vf_coef": Field(
+                        name: "vf_coef",
+                        type: Primitive(
+                            type: "float",
+                        ),
+                        default: 0.5,
+                        has_default: true,
+                        docstring: "coefficient of the value function",
+                    ),
+                    "target_kl": Field(
+                        name: "target_kl",
+                        type: Option(
+                            type: Primitive(
+                                type: "float",
+                            ),
+                        ),
+                        default: None,
+                        has_default: true,
+                        docstring: "the target KL divergence threshold",
+                    ),
+                    "anneal_entropy": Field(
+                        name: "anneal_entropy",
+                        type: Primitive(
+                            type: "bool",
+                        ),
+                        default: false,
+                        has_default: true,
+                        docstring: "whether to anneal the entropy coefficient",
+                    ),
+                },
+                version: None,
+            ),
+            default: None,
+            has_default: false,
+            docstring: None,
+        ),
+        "rollout": Field(
+            name: "rollout",
+            type: Struct(
+                name: "RolloutConfig",
+                fields: {
+                    "steps": Field(
+                        name: "steps",
+                        type: Primitive(
+                            type: "int",
+                        ),
+                        default: 128,
+                        has_default: true,
+                        docstring: "the number of steps to run in each environment per policy rollout",
+                    ),
+                    "num_envs": Field(
+                        name: "num_envs",
+                        type: Primitive(
+                            type: "int",
+                        ),
+                        default: 4,
+                        has_default: true,
+                        docstring: "the number of parallel game environments",
+                    ),
+                    "processes": Field(
+                        name: "processes",
+                        type: Primitive(
+                            type: "int",
+                        ),
+                        default: 1,
+                        has_default: true,
+                        docstring: "The number of processes to use to collect env data. The envs are split as equally as possible across the processes",
+                    ),
+                },
+                version: None,
+            ),
+            default: None,
+            has_default: false,
+            docstring: None,
+        ),
+        "eval": Field(
+            name: "eval",
+            type: Option(
+                type: Struct(
+                    name: "EvalConfig",
+                    fields: {
+                        "steps": Field(
+                            name: "steps",
+                            type: Primitive(
+                                type: "int",
+                            ),
+                            default: None,
+                            has_default: false,
+                            docstring: None,
+                        ),
+                        "interval": Field(
+                            name: "interval",
+                            type: Primitive(
+                                type: "int",
+                            ),
+                            default: None,
+                            has_default: false,
+                            docstring: "number of global steps between evaluations",
+                        ),
+                        "num_envs": Field(
+                            name: "num_envs",
+                            type: Option(
+                                type: Primitive(
+                                    type: "int",
+                                ),
+                            ),
+                            default: None,
+                            has_default: true,
+                            docstring: "The number of parallel game environments to use for evaluation. If not set, use same settings as rollouts.",
+                        ),
+                        "processes": Field(
+                            name: "processes",
+                            type: Option(
+                                type: Primitive(
+                                    type: "int",
+                                ),
+                            ),
+                            default: None,
+                            has_default: true,
+                            docstring: "The number of processes used to run the environment. If not set, use same settings as rollouts.",
+                        ),
+                        "env": Field(
+                            name: "env",
+                            type: Option(
+                                type: Struct(
+                                    name: "EnvConfig",
+                                    fields: {
+                                        "kwargs": Field(
+                                            name: "kwargs",
+                                            type: Primitive(
+                                                type: "str",
+                                            ),
+                                            default: "{}",
+                                            has_default: true,
+                                            docstring: "JSON dictionary with keyword arguments for the environment",
+                                        ),
+                                        "id": Field(
+                                            name: "id",
+                                            type: Primitive(
+                                                type: "str",
+                                            ),
+                                            default: "MoveToOrigin",
+                                            has_default: true,
+                                            docstring: "the id of the environment",
+                                        ),
+                                    },
+                                    version: None,
+                                ),
+                            ),
+                            default: None,
+                            has_default: true,
+                            docstring: "Settings for the eval environment. If not set, use same settings as rollouts.",
+                        ),
+                        "capture_videos": Field(
+                            name: "capture_videos",
+                            type: Primitive(
+                                type: "bool",
+                            ),
+                            default: false,
+                            has_default: true,
+                            docstring: "if --eval-render-videos is set, videos will be recorded of the environments during evaluation",
+                        ),
+                        "capture_samples": Field(
+                            name: "capture_samples",
+                            type: Primitive(
+                                type: "str",
+                            ),
+                            default: "",
+                            has_default: true,
+                            docstring: "if set, write the samples from evals to this file",
+                        ),
+                        "capture_logits": Field(
+                            name: "capture_logits",
+                            type: Primitive(
+                                type: "bool",
+                            ),
+                            default: true,
+                            has_default: true,
+                            docstring: "if --eval-capture-samples is set, record full logits of the agent",
+                        ),
+                        "capture_samples_subsample": Field(
+                            name: "capture_samples_subsample",
+                            type: Primitive(
+                                type: "int",
+                            ),
+                            default: 1,
+                            has_default: true,
+                            docstring: "only persist every nth sample, chosen randomly",
+                        ),
+                        "run_on_first_step": Field(
+                            name: "run_on_first_step",
+                            type: Primitive(
+                                type: "bool",
+                            ),
+                            default: true,
+                            has_default: true,
+                            docstring: "whether to run eval on step 0",
+                        ),
+                        "opponent": Field(
+                            name: "opponent",
+                            type: Option(
+                                type: Primitive(
+                                    type: "str",
+                                ),
+                            ),
+                            default: None,
+                            has_default: true,
+                            docstring: "Path to opponent policy to evaluate against.",
+                        ),
+                        "opponent_only": Field(
+                            name: "opponent_only",
+                            type: Primitive(
+                                type: "bool",
+                            ),
+                            default: false,
+                            has_default: true,
+                            docstring: "Don't evaluate the policy, but instead run the opponent against itself.",
+                        ),
+                    },
+                    version: None,
+                ),
+            ),
+            default: None,
+            has_default: true,
+            docstring: None,
+        ),
+        "vf_net": Field(
+            name: "vf_net",
+            type: Option(
+                type: Struct(
+                    name: "RogueNetConfig",
+                    fields: {
+                        "embd_pdrop": Field(
+                            name: "embd_pdrop",
+                            type: Primitive(
+                                type: "float",
+                            ),
+                            default: 0.0,
+                            has_default: true,
+                            docstring: "Dropout probability for embedding layer.",
+                        ),
+                        "resid_pdrop": Field(
+                            name: "resid_pdrop",
+                            type: Primitive(
+                                type: "float",
+                            ),
+                            default: 0.0,
+                            has_default: true,
+                            docstring: "Dropout probability for residual branches.",
+                        ),
+                        "attn_pdrop": Field(
+                            name: "attn_pdrop",
+                            type: Primitive(
+                                type: "float",
+                            ),
+                            default: 0.0,
+                            has_default: true,
+                            docstring: "Dropout probability for attention.",
+                        ),
+                        "n_layer": Field(
+                            name: "n_layer",
+                            type: Primitive(
+                                type: "int",
+                            ),
+                            default: 1,
+                            has_default: true,
+                            docstring: "Number of transformer layers.",
+                        ),
+                        "n_head": Field(
+                            name: "n_head",
+                            type: Primitive(
+                                type: "int",
+                            ),
+                            default: 2,
+                            has_default: true,
+                            docstring: "Number of attention heads.",
+                        ),
+                        "d_model": Field(
+                            name: "d_model",
+                            type: Primitive(
+                                type: "int",
+                            ),
+                            default: 64,
+                            has_default: true,
+                            docstring: "Dimension of embedding.",
+                        ),
+                        "pooling": Field(
+                            name: "pooling",
+                            type: Option(
+                                type: Literal(
+                                    allowed_values: [
+                                        "mean",
+                                        "max",
+                                        "meanmax",
+                                    ],
+                                ),
+                            ),
+                            default: None,
+                            has_default: true,
+                            docstring: "Replace attention with \"mean\", \"max\", or \"meanmax\" pooling.",
+                        ),
+                        "relpos_encoding": Field(
+                            name: "relpos_encoding",
+                            type: Option(
+                                type: Struct(
+                                    name: "RelposEncodingConfig",
+                                    fields: {
+                                        "extent": Field(
+                                            name: "extent",
+                                            type: List(
+                                                inner: Primitive(
+                                                    type: "int",
+                                                ),
+                                            ),
+                                            default: None,
+                                            has_default: false,
+                                            docstring: "Each integer relative position in the interval [-extent, extent] receives a positional embedding, with positions outside the interval snapped to the closest end.",
+                                        ),
+                                        "position_features": Field(
+                                            name: "position_features",
+                                            type: List(
+                                                inner: Primitive(
+                                                    type: "str",
+                                                ),
+                                            ),
+                                            default: None,
+                                            has_default: false,
+                                            docstring: "Names of position features used for relative position encoding.",
+                                        ),
+                                        "scale": Field(
+                                            name: "scale",
+                                            type: Primitive(
+                                                type: "float",
+                                            ),
+                                            default: 1.0,
+                                            has_default: true,
+                                            docstring: "Relative positions are divided by the scale before being assigned an embedding.",
+                                        ),
+                                        "per_entity_values": Field(
+                                            name: "per_entity_values",
+                                            type: Primitive(
+                                                type: "bool",
+                                            ),
+                                            default: true,
+                                            has_default: true,
+                                            docstring: "Whether to use per-entity embeddings for relative positional values.",
+                                        ),
+                                        "exclude_entities": Field(
+                                            name: "exclude_entities",
+                                            type: List(
+                                                inner: Primitive(
+                                                    type: "str",
+                                                ),
+                                            ),
+                                            default: [],
+                                            has_default: true,
+                                            docstring: "List of entity types to exclude from relative position encoding.",
+                                        ),
+                                        "value_relpos_projection": Field(
+                                            name: "value_relpos_projection",
+                                            type: Primitive(
+                                                type: "bool",
+                                            ),
+                                            default: false,
+                                            has_default: true,
+                                            docstring: "Adds a learnable projection from the relative position/distance to the relative positional values.",
+                                        ),
+                                        "key_relpos_projection": Field(
+                                            name: "key_relpos_projection",
+                                            type: Primitive(
+                                                type: "bool",
+                                            ),
+                                            default: false,
+                                            has_default: true,
+                                            docstring: "Adds a learnable projection from the relative position/distance to the relative positional keys.",
+                                        ),
+                                        "per_entity_projections": Field(
+                                            name: "per_entity_projections",
+                                            type: Primitive(
+                                                type: "bool",
+                                            ),
+                                            default: false,
+                                            has_default: true,
+                                            docstring: "Uses a different learned projection per entity type for the `key_relpos_projection` and `value_relpos_projection`.",
+                                        ),
+                                        "radial": Field(
+                                            name: "radial",
+                                            type: Primitive(
+                                                type: "bool",
+                                            ),
+                                            default: false,
+                                            has_default: true,
+                                            docstring: "Buckets all relative positions by their angle. The `extent` is interpreted as the number of buckets.",
+                                        ),
+                                        "distance": Field(
+                                            name: "distance",
+                                            type: Primitive(
+                                                type: "bool",
+                                            ),
+                                            default: false,
+                                            has_default: true,
+                                            docstring: "Buckets all relative positions by their distance. The `extent` is interpreted as the number of buckets.",
+                                        ),
+                                        "rotation_vec_features": Field(
+                                            name: "rotation_vec_features",
+                                            type: Option(
+                                                type: List(
+                                                    inner: Primitive(
+                                                        type: "str",
+                                                    ),
+                                                ),
+                                            ),
+                                            default: None,
+                                            has_default: true,
+                                            docstring: "Name of features that give a unit orientation vector for each entity by which to rotate relative positions.",
+                                        ),
+                                        "rotation_angle_feature": Field(
+                                            name: "rotation_angle_feature",
+                                            type: Option(
+                                                type: Primitive(
+                                                    type: "str",
+                                                ),
+                                            ),
+                                            default: None,
+                                            has_default: true,
+                                            docstring: "Name of feature that gives an angle in radians by which to rotate relative positions.",
+                                        ),
+                                        "interpolate": Field(
+                                            name: "interpolate",
+                                            type: Primitive(
+                                                type: "bool",
+                                            ),
+                                            default: false,
+                                            has_default: true,
+                                            docstring: "Whether to interpolate between the embeddings of neighboring positions.",
+                                        ),
+                                    },
+                                    version: None,
+                                ),
+                            ),
+                            default: None,
+                            has_default: true,
+                            docstring: "Relative positional encoding settings.",
+                        ),
+                        "d_qk": Field(
+                            name: "d_qk",
+                            type: Primitive(
+                                type: "int",
+                            ),
+                            default: 16,
+                            has_default: true,
+                            docstring: "dimension of keys and queries in select-entity action heads",
+                        ),
+                        "translation": Field(
+                            name: "translation",
+                            type: Option(
+                                type: Struct(
+                                    name: "TranslationConfig",
+                                    fields: {
+                                        "reference_entity": Field(
+                                            name: "reference_entity",
+                                            type: Primitive(
+                                                type: "str",
+                                            ),
+                                            default: None,
+                                            has_default: false,
+                                            docstring: "Entity type of the entity which will be placed at the origin.",
+                                        ),
+                                        "position_features": Field(
+                                            name: "position_features",
+                                            type: List(
+                                                inner: Primitive(
+                                                    type: "str",
+                                                ),
+                                            ),
+                                            default: None,
+                                            has_default: false,
+                                            docstring: "Names of position features used for translation.",
+                                        ),
+                                        "rotation_vec_features": Field(
+                                            name: "rotation_vec_features",
+                                            type: Option(
+                                                type: List(
+                                                    inner: Primitive(
+                                                        type: "str",
+                                                    ),
+                                                ),
+                                            ),
+                                            default: None,
+                                            has_default: true,
+                                            docstring: "Names of that gives the direction of the reference entity in radians. All entities are rotated by this value.",
+                                        ),
+                                        "rotation_angle_feature": Field(
+                                            name: "rotation_angle_feature",
+                                            type: Option(
+                                                type: Primitive(
+                                                    type: "str",
+                                                ),
+                                            ),
+                                            default: None,
+                                            has_default: true,
+                                            docstring: "Name of feature that gives the direction of the reference entity in radians. All entities are rotated by this value.",
+                                        ),
+                                        "add_dist_feature": Field(
+                                            name: "add_dist_feature",
+                                            type: Primitive(
+                                                type: "bool",
+                                            ),
+                                            default: false,
+                                            has_default: true,
+                                            docstring: "Adds a feature that is the distance to the reference entity.",
+                                        ),
+                                    },
+                                    version: None,
+                                ),
+                            ),
+                            default: None,
+                            has_default: true,
+                            docstring: "settings for transforming all position features to be centered on one entity",
+                        ),
+                    },
+                    version: None,
+                ),
+            ),
+            default: None,
+            has_default: true,
+            docstring: "value function network configuration (if not set, policy and value function share the same network)",
+        ),
+        "name": Field(
+            name: "name",
+            type: Primitive(
+                type: "str",
+            ),
+            default: "config",
+            has_default: true,
+            docstring: "the name of the experiment",
+        ),
+        "seed": Field(
+            name: "seed",
+            type: Primitive(
+                type: "int",
+            ),
+            default: 1,
+            has_default: true,
+            docstring: "seed of the experiment",
+        ),
+        "total_timesteps": Field(
+            name: "total_timesteps",
+            type: Primitive(
+                type: "int",
+            ),
+            default: 25000,
+            has_default: true,
+            docstring: "total timesteps of the experiments",
+        ),
+        "max_train_time": Field(
+            name: "max_train_time",
+            type: Option(
+                type: Primitive(
+                    type: "int",
+                ),
+            ),
+            default: None,
+            has_default: true,
+            docstring: "train for at most this many seconds",
+        ),
+        "torch_deterministic": Field(
+            name: "torch_deterministic",
+            type: Primitive(
+                type: "bool",
+            ),
+            default: true,
+            has_default: true,
+            docstring: "if toggled, `torch.backends.cudnn.deterministic=False`",
+        ),
+        "cuda": Field(
+            name: "cuda",
+            type: Primitive(
+                type: "bool",
+            ),
+            default: true,
+            has_default: true,
+            docstring: "if toggled, cuda will be enabled by default",
+        ),
+        "track": Field(
+            name: "track",
+            type: Primitive(
+                type: "bool",
+            ),
+            default: false,
+            has_default: true,
+            docstring: "if toggled, this experiment will be tracked with Weights and Biases",
+        ),
+        "wandb_project_name": Field(
+            name: "wandb_project_name",
+            type: Primitive(
+                type: "str",
+            ),
+            default: "enn-ppo",
+            has_default: true,
+            docstring: "the wandb's project name",
+        ),
+        "wandb_entity": Field(
+            name: "wandb_entity",
+            type: Primitive(
+                type: "str",
+            ),
+            default: "entity-neural-network",
+            has_default: true,
+            docstring: "the entity (team) of wandb's project",
+        ),
+        "capture_samples": Field(
+            name: "capture_samples",
+            type: Option(
+                type: Primitive(
+                    type: "str",
+                ),
+            ),
+            default: None,
+            has_default: true,
+            docstring: "if set, write the samples to this file",
+        ),
+        "capture_logits": Field(
+            name: "capture_logits",
+            type: Primitive(
+                type: "bool",
+            ),
+            default: false,
+            has_default: true,
+            docstring: "If --capture-samples is set, record full logits of the agent",
+        ),
+        "capture_samples_subsample": Field(
+            name: "capture_samples_subsample",
+            type: Primitive(
+                type: "int",
+            ),
+            default: 1,
+            has_default: true,
+            docstring: "only persist every nth sample, chosen randomly",
+        ),
+        "trial": Field(
+            name: "trial",
+            type: Option(
+                type: Primitive(
+                    type: "int",
+                ),
+            ),
+            default: None,
+            has_default: true,
+            docstring: "trial number of experiment spawned by hyperparameter tuner",
+        ),
+        "data_dir": Field(
+            name: "data_dir",
+            type: Primitive(
+                type: "str",
+            ),
+            default: ".",
+            has_default: true,
+            docstring: "Directory to save output from training and logging",
+        ),
+        "cuda_empty_cache": Field(
+            name: "cuda_empty_cache",
+            type: Primitive(
+                type: "bool",
+            ),
+            default: false,
+            has_default: true,
+            docstring: "If toggled, empty the cuda cache after each optimizer step.",
+        ),
+    },
+    version: 0,
+)

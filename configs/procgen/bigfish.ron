@@ -1,5 +1,6 @@
 // Baselines for BigFish, BossFight, StarPilot, Leaper, Plunder on both easy and hard distribution mode: https://wandb.ai/entity-neural-network/enn-ppo/reports/Procgen-Baselines--VmlldzoxNzUxNDcy
 ExperimentConfig(
+    version: 0,
     env: (
         id: "Procgen:BigFish",
     ),

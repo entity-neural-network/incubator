@@ -1,5 +1,6 @@
 // Achieves > 0.99 episodic return: https://wandb.ai/entity-neural-network/enn-ppo/reports/MultiSnake--VmlldzoxNjM3OTYz
 ExperimentConfig(
+    version: 0,
     env: (
         id: "MultiSnake",
         kwargs: "{\"num_snakes\": 1, \"max_snake_length\": 11}",

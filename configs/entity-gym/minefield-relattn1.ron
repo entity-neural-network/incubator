@@ -1,5 +1,6 @@
 // Achieves > 0.99 episodic return: https://wandb.ai/entity-neural-network/enn-ppo/reports/Minefield-Baselines--VmlldzoxNzAyOTE2
 ExperimentConfig(
+    version: 0,
     env: (
         id: "Minefield",
         kwargs: "{\"max_mines\": 10}"
