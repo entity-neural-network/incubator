@@ -414,7 +414,6 @@ class CodeCraftVecEnv(VecEnv):
             self.obs_config = ObsConfig(
                 allies=8, drones=16, minerals=8, tiles=0, num_builds=1
             )
-            win_bonus = 2.0
         elif objective == Objective.ENHANCED:
             self.obs_config = ObsConfig(
                 allies=20,
