@@ -12,7 +12,6 @@ ExperimentConfig(
         update_epochs: 3,
         lr: 0.0005,
         bs: 1024,
-        anneal_lr: false,
     ),
     ppo: (
         anneal_entropy: true,
