@@ -94,61 +94,59 @@ class HyperParam:
 
 hyper_params = {
     "learning-rate": HyperParam(
-        path="learning-rate",
+        path="optim.lr",
         sampling_strategy=SamplingStrategy.LOGUNIFORM,
     ),
     "num-envs": HyperParam(
-        path="num-envs",
+        path="rollout.num_envs",
         sampling_strategy=SamplingStrategy.POWER_OF_TWO,
         min_value=2,
     ),
     "processes": HyperParam(
-        path="processes",
+        path="rollout.processes",
         sampling_strategy=SamplingStrategy.POWER_OF_TWO,
         constraint=lambda x: (1, x["num-envs"]),
     ),
     "d-model": HyperParam(
-        path="d-model",
+        path="net.d_model",
         sampling_strategy=SamplingStrategy.POWER_OF_TWO,
     ),
     "n-head": HyperParam(
-        path="n-head",
+        path="net.n_head",
         sampling_strategy=SamplingStrategy.POWER_OF_TWO,
         constraint=lambda x: (1, x.get("d-model")),
     ),
     "d-qk": HyperParam(
-        path="d-qk",
+        path="net.d_qk",
         sampling_strategy=SamplingStrategy.POWER_OF_TWO,
     ),
     "n-layer": HyperParam(
-        path="n-layer",
+        path="net.n_layer",
         sampling_strategy=SamplingStrategy.INTUNIFORM,
         min_value=1,
     ),
     "num-steps": HyperParam(
-        path="num-steps",
+        path="rollout.steps",
         sampling_strategy=SamplingStrategy.POWER_OF_TWO,
     ),
     "gamma": HyperParam(
-        path="gamma",
+        path="ppo.gamma",
         sampling_strategy=SamplingStrategy.OMINUS,
     ),
     "minibatch-size": HyperParam(
-        path="num-minibatches",
+        path="optim.bs",
         sampling_strategy=SamplingStrategy.POWER_OF_TWO,
-        constraint=lambda x: (16, x["num-envs"] * x["num-steps"]),
-        transform=lambda args, val: int(args["num-envs"] * args["num-steps"] // val),
     ),
     "ent-coef": HyperParam(
-        path="ent-coef",
+        path="ppo.ent_coef",
         sampling_strategy=SamplingStrategy.LOGUNIFORM,
     ),
     "vf-coef": HyperParam(
-        path="vf-coef",
+        path="ppo.vf_coef",
         sampling_strategy=SamplingStrategy.LOGUNIFORM,
     ),
     "max-grad-norm": HyperParam(
-        path="max-grad-norm",
+        path="optim.max_grad_norm",
         sampling_strategy=SamplingStrategy.LOGUNIFORM,
     ),
 }
@@ -188,14 +186,14 @@ class HyperOptimizer:
         max_microbatch_size: Optional[int] = None,
         # Only run more than 1 trial if first trial is within variance of best result
         adaptive_trials: bool = False,
-        xprun_config: str = "xprun/train.ron",
+        xprun_config: str = "configs/xprun/train.ron",
     ):
         self.xprun = xprun.Client()
         self.wandb = wandb.Api()
         self.trial = 0
         self.time = time
         self.xp_name = xp_name
-        xp = xprun.build_xpdef(
+        xp = self.xprun.build_xpdef(
             xprun_config,
             ignore_dirty=False,
             include_dirty=True,
@@ -346,9 +344,9 @@ class HyperOptimizer:
         xp.name = f"{self.xp_name}-{trial}"
         if self.extra_args is not None:
             xp.containers[0].command.extend(self.extra_args)
-        xp.containers[0].command.append(f"--total-timesteps={self.steps}")
+        xp.containers[0].command.append(f"total_timesteps={self.steps}")
         if self.time:
-            xp.containers[0].command.append(f"--max-train-time={self.time}")
+            xp.containers[0].command.append(f"max_train_time={self.time}")
         return xp
 
     def sample_xp(self, trial: optuna.trial.Trial) -> Tuple[Any, Dict[str, float]]:
@@ -357,18 +355,11 @@ class HyperOptimizer:
         for path, center, range in self.params:
             arg, value = hyper_params[path].suggest(trial, center, range, args)
             args[path] = value
-            xp.containers[0].command.append(f"--{arg}")
+            xp.containers[0].command.append(arg)
         if self.max_microbatch_size is not None:
-            if "minibatch-size" in args:
-                # minibatch-size is actually transformed value of num-minibatches
-                minibatch_size = (
-                    args["num-envs"] * args["num-steps"] // args["minibatch-size"]
-                )
-            else:
-                minibatch_size = self.max_microbatch_size
-
+            minibatch_size = args.get("minibatch-size") or self.max_microbatch_size
             xp.containers[0].command.append(
-                f"--microbatch-size={min(self.max_microbatch_size, minibatch_size)}"
+                f"optim.micro_bs={min(self.max_microbatch_size, minibatch_size)}"
             )
         self.trial += 1
         return xp, args
@@ -464,7 +455,7 @@ class Trial:
             xpid = self.issued
             _xp = deepcopy(self.xp)
             if self.max_xps > 1:
-                _xp.containers[0].command.append(f"--trial={self.trial_id}")
+                _xp.containers[0].command.append(f"trial={self.trial_id}")
                 _xp.name = f"{_xp.name}-{xpid}"
             heapq.heappush(
                 self.ctx.pending_xps,
@@ -499,7 +490,7 @@ if __name__ == "__main__":
         "--average-frac", type=float, default=0.2
     )  # Datapoints from the last average-frac% steps are used to compute final metric
     parser.add_argument("--target-metric", type=str, default="charts/episodic_return")
-    parser.add_argument("--xprun-config", type=str, default="xprun/train.ron")
+    parser.add_argument("--xprun-config", type=str, default="configs/xprun/train.ron")
     parser.add_argument("nargs", nargs="*")
     args = parser.parse_args()
 
@@ -542,17 +533,14 @@ if __name__ == "__main__":
         average_frac=args.average_frac,
     ).run(args.n_trials)
 
+
 """
-poetry run python enn_ppo/enn_ppo/hypertuna.py --track --adaptive-trials --steps=1e9 --time=1200 --n_trials=10 --xps_per_trial=15 --priority=3 --target-metric=charts/episodic_return --parallelism=6 --average-frac=0.05 --max-microbatch-size=4096 \
+poetry run python enn_ppo/enn_ppo/hypertuna.py --track --adaptive-trials --steps=1e9 --time=7200 --n_trials=10 --xps_per_trial=15 --priority=3 --target-metric=episodic_return.mean --parallelism=16 --average-frac=0.05 --max-microbatch-size=2048 \
                                                             --params \
-                                                                num-envs=128:8 \
-                                                                num-steps=32:8 \
-                                                                n-layer=2:2 \
-                                                                n-head=2:2 \
                                                                 learning-rate=0.005:100 \
                                                                 gamma=0.99:10 \
-                                                                minibatch-size=8192:8 \
+                                                                minibatch-size=8192:4 \
                                                                 ent-coef=0.05:100 \
-                                                                d-model=32:4 \
-                                                             -- --gym-id=MultiSnake --track --env-kwargs='{"num_snakes": 2, "max_snake_length": 11}' --processes=16 --max-grad-norm=10 --anneal-entropy=True --relpos-encoding='{"extent": [10, 10], "position_features": ["x", "y"]}'
+                                                                vf-coef=1.0:5 \
+                                                             -- ppo.anneal_entropy=true rollout.num_envs=256 rollout.steps=128 net.d_model=128 net.n_head=2 net.n_layer=2 env.id=MultiSnake track=true env.kwargs='{"num_snakes": 2, "max_snake_length": 11}' rollout.processes=16 optim.max_grad_norm=10 ppo.anneal_entropy=True net.relpos_encoding='(extent: [10, 10], position_features: ["x", "y"])'
 """
