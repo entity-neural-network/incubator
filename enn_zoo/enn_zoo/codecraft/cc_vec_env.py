@@ -24,10 +24,10 @@ from entity_gym.environment.vec_env import Metric, VecCategoricalActionMask, Vec
 
 from .maps import (
     map_allied_wealth,
+    map_arena_medium,
     map_arena_tiny,
     map_arena_tiny_2v2,
     map_enhanced,
-    map_arena_medium,
 )
 
 LAST_OBS = {}
