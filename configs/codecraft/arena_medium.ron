@@ -1,0 +1,59 @@
+// Achieves ~0.4 against eval opponent (old baseline: ~0.8-0.95): https://wandb.ai/entity-neural-network/enn-ppo/reports/Arena-Medium-baseline--VmlldzoxNzgwMTM1
+ExperimentConfig(
+    env: (
+        id: "CodeCraft",
+        kwargs: "{\"objective\": \"ARENA_MEDIUM\", \"hardness\": 1.0, \"win_bonus\": 2.0, \"hidden_obs\": true}",
+    ),
+    rollout: (
+        num_envs: 128,
+        steps: 64,
+    ),
+    optim: (
+        max_grad_norm: 10,
+        update_epochs: 3,
+        lr: 0.0005,
+        bs: 4096,
+        micro_bs: 1024,
+    ),
+    ppo: (
+        anneal_entropy: true,
+        gamma: 0.999,
+        ent_coef: 0.03,
+        vf_coef: 2.0,
+    ),
+    net: (
+        d_model: 256,
+        n_layer: 2,
+        n_head: 2,
+        relpos_encoding: (
+            extent: [8, 2],
+            position_features: ["x", "y"],
+            rotation_vec_features: ["orientation_x", "orientation_y"],
+            radial: true,
+            distance: true,
+            interpolate: true,
+            scale: 1000.0,
+        ),
+        // Alternative
+        // relpos_encoding: (
+        //     extent: [8],
+        //     position_features: ["x", "y"],
+        //     key_relpos_projection: true,
+        //     value_relpos_projection: true,
+        //     rotation_vec_features: ["orientation_x", "orientation_y"],
+        //     radial: true,
+        //     interpolate: true,
+        // ),
+    ),
+    total_timesteps: 25000000,
+    eval: (
+        interval: 500000,
+        num_envs: 128,
+        steps: 1000,
+        opponent: "/xprun/data/common/DeepCodeCraft/golden-models/arena_medium/arena_medium-5f06842-0-10m",
+        env: (
+            id: "CodeCraft",
+            kwargs: "{\"objective\": \"ARENA_MEDIUM\", \"hardness\": 1.0, \"stagger\": false, \"symmetric\": 1.0, \"fair\": false}",
+        ),
+    )
+)

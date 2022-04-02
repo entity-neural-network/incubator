@@ -41,8 +41,7 @@ def create_cc_env(cfg: config.EnvConfig, num_envs: int, num_processes: int) -> V
     kwargs = json.loads(cfg.kwargs)
     return CodeCraftVecEnv(
         num_envs,
-        kwargs.get("objective", "ALLIED_WEALTH"),
-        hidden_obs=kwargs.get("hidden_obs", False),
+        **kwargs,
     )
 
 
@@ -111,6 +110,9 @@ def main(cfg: TrainConfig) -> None:
             env_cls=env_cls,
             agent=agent,
             create_env=create_cc_env if cfg.env.id == "CodeCraft" else None,
+            create_opponent=load_codecraft_policy
+            if cfg.env.id == "CodeCraft"
+            else None,
         )
 
 

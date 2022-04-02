@@ -55,6 +55,18 @@ class EntityEmbedding(nn.Module):
         torch.Tensor,
         torch.Tensor,
     ]:
+        expected_order = iter(self.embeddings.keys())
+        for name in entities.keys():
+            while True:
+                try:
+                    entity = next(expected_order)
+                except StopIteration:
+                    raise ValueError(
+                        f"Fatal error: order of entities in the input does not match the order of observation space: {list(entities.keys())} != {list(self.embeddings.keys())}"
+                    )
+                if entity == name:
+                    break
+
         entity_embeds = []
         index_offsets = {}
         index_offset = 0

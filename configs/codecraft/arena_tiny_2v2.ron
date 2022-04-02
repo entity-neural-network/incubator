@@ -1,0 +1,58 @@
+// Achieves ~0.2 eval/episodic_reward.mean: https://wandb.ai/entity-neural-network/enn-ppo/reports/Arena-Tiny-2v2-baseline--VmlldzoxNzgwMTQ3
+ExperimentConfig(
+    env: (
+        id: "CodeCraft",
+        kwargs: "{\"objective\": \"ARENA_TINY_2V2\"}",
+    ),
+    rollout: (
+        num_envs: 256,
+        steps: 64,
+    ),
+    optim: (
+        max_grad_norm: 10,
+        update_epochs: 3,
+        lr: 0.005,
+        bs: 1024,
+    ),
+    ppo: (
+        anneal_entropy: true,
+        gamma: 0.99,
+        ent_coef: 0.2,
+        vf_coef: 2.0,
+    ),
+    net: (
+        d_model: 256,
+        n_layer: 2,
+        n_head: 2,
+        relpos_encoding: (
+            extent: [8],
+            position_features: ["x", "y"],
+            key_relpos_projection: true,
+            value_relpos_projection: true,
+            rotation_vec_features: ["orientation_x", "orientation_y"],
+            radial: true,
+            interpolate: true,
+        ),
+        // Alternative:
+        // relpos_encoding: (
+        //     extent: [8, 2],
+        //     position_features: ["x", "y"],
+        //     rotation_vec_features: ["orientation_x", "orientation_y"],
+        //     radial: true,
+        //     distance: true,
+        //     interpolate: true,
+        //     scale: 1000.0,
+        // ),
+    ),
+    total_timesteps: 10000000,
+    eval: (
+        interval: 1000000,
+        num_envs: 256,
+        steps: 360,
+        opponent: "/xprun/data/common/DeepCodeCraft/golden-models/arena_tiny_2v2/arena_tiny_2v2-e58ceea-0-25m",
+        env: (
+            id: "CodeCraft",
+            kwargs: "{\"objective\": \"ARENA_TINY_2V2\", \"stagger\": false}",
+        ),
+    )
+)

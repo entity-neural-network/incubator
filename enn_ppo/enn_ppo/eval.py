@@ -55,7 +55,7 @@ def run_eval(
         agents = agent
 
     envs: VecEnv = AddMetricsWrapper(
-        create_env(env_cfg, num_envs, processes), metric_filter
+        create_env(cfg.env or env_cfg, num_envs, processes), metric_filter
     )
 
     if cfg.capture_samples:
@@ -87,8 +87,11 @@ def run_eval(
         )
 
     for name, value in metrics.items():
-        writer.add_scalar(f"eval/{name}", value, global_step)
+        writer.add_scalar(f"eval/{name}.mean", value.mean, global_step)
+        writer.add_scalar(f"eval/{name}.min", value.min, global_step)
+        writer.add_scalar(f"eval/{name}.max", value.max, global_step)
+        writer.add_scalar(f"eval/{name}.count", value.count, global_step)
     print(
-        f"[eval] global_step={global_step} {'  '.join(f'{name}={value}' for name, value in metrics.items())}"
+        f"[eval] global_step={global_step} {'  '.join(f'{name}={value.mean}' for name, value in metrics.items())}"
     )
     envs.close()

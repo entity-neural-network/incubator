@@ -115,8 +115,9 @@ class RaggedAttention(nn.Module):
 
         # TODO: only compute indices once
         if padpack is None:
-            nbatch, nseq = shape.size0(), shape.size1(0)
-            x = x.reshape(nbatch, nseq, -1)
+            nbatch = shape.size0()
+            nseq = shape.size1(0) if shape.items() > 0 else 0
+            x = x.reshape(nbatch, nseq, x.size(-1))
             if visible is not None:
                 attn_mask: Optional[torch.Tensor] = (
                     visible.reshape(nbatch, nseq, 1) > visible.reshape(nbatch, 1, nseq)
@@ -188,7 +189,7 @@ class RaggedAttention(nn.Module):
         # output projection
         y = self.resid_drop(self.proj(y))
         if padpack is None:
-            return y.reshape(batch_index.size(0), -1)  # type: ignore
+            return y.reshape(batch_index.size(0), y.size(-1))  # type: ignore
         else:
             return y.reshape(y.size(0) * y.size(1), y.size(2))[torch.tensor(padpack_inverse_index, dtype=torch.long, device=device)]  # type: ignore
 

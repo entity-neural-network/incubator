@@ -65,6 +65,89 @@ def map_arena_tiny(
     }
 
 
+def map_arena_tiny_2v2(
+    randomize: bool, hardness: int, require_default_mothership: bool
+) -> Dict[str, Any]:
+    s1 = 1
+    s2 = 1
+    if randomize:
+        s1 = np.random.randint(0, 2)
+        s2 = np.random.randint(0, 2)
+    return {
+        "mapWidth": 1500,
+        "mapHeight": 1500,
+        "minerals": [],
+        "player1Drones": [
+            drone_dict(
+                np.random.randint(-450, 450),
+                np.random.randint(-450, 450),
+                missile_batteries=1 - s1,
+                shield_generators=s1,
+            ),
+            drone_dict(
+                np.random.randint(-450, 450),
+                np.random.randint(-450, 450),
+                missile_batteries=1,
+            ),
+        ],
+        "player2Drones": [
+            drone_dict(
+                np.random.randint(-450, 450),
+                np.random.randint(-450, 450),
+                missile_batteries=1 - s2,
+                shield_generators=s2,
+            ),
+            drone_dict(
+                np.random.randint(-450, 450),
+                np.random.randint(-450, 450),
+                missile_batteries=1,
+            ),
+        ],
+    }
+
+
+def map_arena_medium(
+    randomize: bool, hardness: int, require_default_mothership: bool
+) -> Dict[str, Any]:
+    if randomize:
+        hardness = np.random.randint(0, hardness + 1)
+    if hardness == 0:
+        map_width = 1500
+        map_height = 1500
+        mineral_count = 5
+    else:
+        map_width = 2250
+        map_height = 2250
+        mineral_count = 8
+
+    angle = 2 * np.pi * np.random.rand()
+    spawn_x = (map_width // 2 - 100) * np.sin(angle)
+    spawn_y = (map_height // 2 - 100) * np.cos(angle)
+
+    def mothership(x: int, y: int) -> Dict[str, int]:
+        rnd = np.random.randint(0, 3)
+        if rnd == 0:
+            return drone_dict(
+                x, y, constructors=1, storage_modules=2, long_range_missiles=1
+            )
+        elif rnd == 1:
+            return drone_dict(
+                x, y, constructors=1, storage_modules=2, shield_generators=1
+            )
+        else:
+            return drone_dict(
+                x, y, constructors=1, storage_modules=2, missile_batteries=1
+            )
+
+    return {
+        "mapWidth": map_width,
+        "mapHeight": map_height,
+        "minerals": mineral_count * [(2, 25)],
+        "player1Drones": [mothership(spawn_x, spawn_y)],
+        "player2Drones": [mothership(-spawn_x, -spawn_y)],
+    }
+
+
 def drone_dict(
     x: int,
     y: int,

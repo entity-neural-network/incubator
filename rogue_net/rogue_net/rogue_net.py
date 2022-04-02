@@ -68,6 +68,7 @@ class RogueNet(nn.Module):
 
         self.d_model = cfg.d_model
         self.action_space = action_space
+        self.obs_space = obs_space
         self.embedding = EntityEmbedding(obs_space, cfg.translation, cfg.d_model)
         self.backbone = Transformer(cfg, obs_space)
         self.action_heads = create_action_heads(action_space, cfg.d_model, cfg.d_qk)
@@ -92,6 +93,12 @@ class RogueNet(nn.Module):
         tracer: Tracer,
     ) -> RaggedTensor:
         with tracer.span("embedding"):
+            # Ensure consistent dictionary ordering
+            entities = {
+                name: entities[name]
+                for name in self.obs_space.entities.keys()
+                if name in entities
+            }
             (
                 x,
                 tbatch_index,
