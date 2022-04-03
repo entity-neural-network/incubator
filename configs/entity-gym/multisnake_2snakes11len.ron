@@ -1,3 +1,4 @@
+// Achieves > 0.98 episodic return: https://wandb.ai/entity-neural-network/enn-ppo/reports/MultiSnake-2-snakes-11-length--VmlldzoxNzgwNzEw
 ExperimentConfig(
     version: 0,
     env: (
