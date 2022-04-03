@@ -1,0 +1,38 @@
+// https://wandb.ai/entity-neural-network/enn-ppo/reports/Allied-Wealth-baselines--VmlldzoxNzgyOTk1
+ExperimentConfig(
+    version: 0,
+    env: (
+        id: "CodeCraft",
+    ),
+    rollout: (
+        num_envs: 256,
+        steps: 64,
+    ),
+    optim: (
+        max_grad_norm: 10,
+        update_epochs: 3,
+        lr: 0.00044,
+        bs: 1024,
+        anneal_lr: false,
+    ),
+    ppo: (
+        anneal_entropy: true,
+        gamma: 0.9890351625500452,
+        ent_coef: 1e-05,
+        vf_coef: 3.7,
+    ),
+    net: (
+        d_model: 256,
+        n_layer: 1,
+        n_head: 2,
+        relpos_encoding: (
+            extent: [8],
+            position_features: ["x", "y"],
+            key_relpos_projection: true,
+            value_relpos_projection: true,
+            rotation_vec_features: ["orientation_x", "orientation_y"],
+            radial: true,
+        ),
+    ),
+    total_timesteps: 2000000,
+)
