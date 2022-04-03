@@ -372,9 +372,11 @@ python-versions = ">=3.8,<3.10"
 develop = true
 
 [package.dependencies]
+cloudpickle = "^2.0.0"
 msgpack = "^1.0.3"
 msgpack-numpy = "^0.4.7"
 ragged-buffer = "^0.3.6"
+tqdm = "^4.63.1"
 
 [package.source]
 type = "directory"
