@@ -122,7 +122,7 @@ class TranslatePositions(TranslationConfig):
         if self.add_dist_feature:
             obs_space = deepcopy(obs_space)
             for entity_name in self.feature_indices.keys():
-                obs_space.entities[entity_name].features.append(
-                    "TranslatePositions.distance"
-                )
+                features = list(obs_space.entities[entity_name].features)
+                features.append("TranslatePositions.distance")
+                obs_space.entities[entity_name].features = features
         return obs_space

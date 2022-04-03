@@ -32,15 +32,6 @@ ExperimentConfig(
             rotation_vec_features: ["orientation_x", "orientation_y"],
             radial: true,
         ),
-
-        relpos_encoding: (
-            extent: [8, 2],
-            position_features: ["x_pos", "y_pos"],
-            radial: true,
-            distance: true,
-            rotation_angle_feature: "direction",
-            interpolate: true,
-        ),
     ),
     total_timesteps: 2000000,
 )
