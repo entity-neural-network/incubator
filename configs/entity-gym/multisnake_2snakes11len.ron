@@ -1,4 +1,4 @@
-// Achieves > 0.98 episodic return: https://wandb.ai/entity-neural-network/enn-ppo/reports/MultiSnake-2-snakes-11-length--VmlldzoxNzgwNzEw
+// Achieves ~0.99 episodic return: https://wandb.ai/entity-neural-network/enn-ppo/reports/MultiSnake-snakes-2-len-11--VmlldzoxODE1OTA0
 ExperimentConfig(
     version: 0,
     env: (
@@ -6,7 +6,7 @@ ExperimentConfig(
         kwargs: "{\"num_snakes\": 2, \"max_snake_length\": 11}",
     ),
     rollout: (
-        num_envs: 512,
+        num_envs: 256,
         steps: 128,
         processes: 16,
     ),
@@ -23,11 +23,11 @@ ExperimentConfig(
         bs: 32768,
         lr: 0.005,
         max_grad_norm: 10,
-        micro_bs: 8192,
+        micro_bs: 4096,
     ),
     ppo: (
-        ent_coef: 0.03,
-        gamma: 0.99,
+        ent_coef: 0.15,
+        gamma: 0.997,
         anneal_entropy: true,
     ),
 )
