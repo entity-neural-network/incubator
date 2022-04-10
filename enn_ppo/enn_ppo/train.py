@@ -10,6 +10,7 @@ from typing import Any, Callable, Dict, Mapping, Optional, Type
 import hyperstate
 import numpy as np
 import torch
+import torch.distributed as dist
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.tensorboard import SummaryWriter
@@ -28,8 +29,12 @@ from entity_gym.simple_trace import Tracer
 from rogue_net.rogue_net import RogueNet
 
 
-def _env_factory(env_cls: Type[Environment]) -> Callable[[EnvConfig, int, int], VecEnv]:
-    def _create_env(cfg: EnvConfig, num_envs: int, processes: int) -> VecEnv:
+def _env_factory(
+    env_cls: Type[Environment],
+) -> Callable[[EnvConfig, int, int, int], VecEnv]:
+    def _create_env(
+        cfg: EnvConfig, num_envs: int, processes: int, first_env_index: int
+    ) -> VecEnv:
         kwargs = json.loads(cfg.kwargs)
         if processes > 1:
             return ParallelEnvList(env_cls, kwargs, num_envs, processes)
@@ -57,7 +62,7 @@ def train(
     cfg: TrainConfig,
     env_cls: Type[Environment],
     agent: Optional[PPOAgent] = None,
-    create_env: Optional[Callable[[EnvConfig, int, int], VecEnv]] = None,
+    create_env: Optional[Callable[[EnvConfig, int, int, int], VecEnv]] = None,
     create_opponent: Optional[
         Callable[[str, ObsSpace, Mapping[str, ActionSpace], torch.device], PPOAgent]
     ] = None,
@@ -87,14 +92,29 @@ def train(
             xp_info.sanitized_name + "-" + xp_info.id,
         )
         Path(str(out_dir)).mkdir(parents=True, exist_ok=True)
+
+        init_process(xp_info)
+        rank = xp_info.replica_index
+        parallelism = xp_info.replicas()
     else:
         out_dir = None
+        rank = 0
+        parallelism = 1
+
+    assert cfg.optim.bs % parallelism == 0, (
+        "Batch size must be divisible by number of processes: "
+        f"{cfg.optim.bs} % {parallelism} != 0"
+    )
+    assert cfg.rollout.num_envs % parallelism == 0, (
+        "Number of environments must be divisible by number of processes: "
+        f"{cfg.rollout.num_envs} % {parallelism} != 0"
+    )
 
     data_path = Path(cfg.data_dir).absolute()
     data_path.mkdir(parents=True, exist_ok=True)
     data_dir = str(data_path)
 
-    if cfg.track:
+    if cfg.track and rank == 0:
         import wandb
 
         wandb.init(
@@ -106,22 +126,28 @@ def train(
             save_code=True,
             dir=data_dir,
         )
-    writer = SummaryWriter(os.path.join(data_dir, f"runs/{run_name}"))
 
-    def flatten(config: Dict[str, Any], prefix: str = "") -> Dict[str, Any]:
-        flattened = {}
-        for k, v in config.items():
-            if isinstance(v, dict):
-                flattened.update(flatten(v, k if prefix == "" else f"{prefix}.{k}"))
-            else:
-                flattened[prefix + k] = v
-        return flattened
+    if rank == 0:
+        writer = SummaryWriter(os.path.join(data_dir, f"runs/{run_name}"))
 
-    writer.add_text(
-        "hyperparameters",
-        "|param|value|\n|-|-|\n%s"
-        % ("\n".join([f"|{key}|{value}|" for key, value in flatten(config).items()])),
-    )
+        def flatten(config: Dict[str, Any], prefix: str = "") -> Dict[str, Any]:
+            flattened = {}
+            for k, v in config.items():
+                if isinstance(v, dict):
+                    flattened.update(flatten(v, k if prefix == "" else f"{prefix}.{k}"))
+                else:
+                    flattened[prefix + k] = v
+            return flattened
+
+        writer.add_text(
+            "hyperparameters",
+            "|param|value|\n|-|-|\n%s"
+            % (
+                "\n".join(
+                    [f"|{key}|{value}|" for key, value in flatten(config).items()]
+                )
+            ),
+        )
 
     random.seed(cfg.seed)
     np.random.seed(cfg.seed)
@@ -135,12 +161,17 @@ def train(
     if create_env is None:
         create_env = _env_factory(env_cls)
     envs: VecEnv = AddMetricsWrapper(
-        create_env(cfg.env, cfg.rollout.num_envs, cfg.rollout.processes)
+        create_env(
+            cfg.env,
+            cfg.rollout.num_envs // parallelism,
+            cfg.rollout.processes,
+            rank * cfg.rollout.num_envs // parallelism,
+        ),
     )
     obs_space = env_cls.obs_space()
     action_space = env_cls.action_space()
 
-    if cfg.capture_samples:
+    if cfg.capture_samples and rank == 0:
         if out_dir is None:
             sample_file = cfg.capture_samples
         else:
@@ -160,7 +191,7 @@ def train(
         weight_decay=cfg.optim.weight_decay,
         eps=1e-5,
     )
-    if cfg.track:
+    if cfg.track and rank == 0:
         wandb.watch(agent)
 
     if cfg.vf_net is not None:
@@ -215,7 +246,9 @@ def train(
                 device,
                 tracer,
                 writer,
-                rollout.global_step,
+                rollout.global_step * parallelism,
+                rank,
+                parallelism,
             )
 
     start_time = time.time()
@@ -223,7 +256,7 @@ def train(
         if (
             cfg.eval is not None
             and next_eval_step is not None
-            and rollout.global_step >= next_eval_step
+            and rollout.global_step * parallelism >= next_eval_step
         ):
             next_eval_step += cfg.eval.interval
             _run_eval()
@@ -253,31 +286,49 @@ def train(
         next_obs, next_done, metrics = rollout.run(
             cfg.rollout.steps, record_samples=True, capture_logits=cfg.capture_logits
         )
-        for name, value in metrics.items():
-            writer.add_scalar(f"{name}.mean", value.mean, rollout.global_step)
-            writer.add_scalar(f"{name}.max", value.max, rollout.global_step)
-            writer.add_scalar(f"{name}.min", value.min, rollout.global_step)
-            writer.add_scalar(f"{name}.count", value.count, rollout.global_step)
 
-        # Double log these to remain compatible with old naming scheme
-        # TODO: remove before release
-        writer.add_scalar(
-            "charts/episodic_return",
-            metrics["episodic_reward"].mean,
-            rollout.global_step,
-        )
-        writer.add_scalar(
-            "charts/episodic_length",
-            metrics["episode_length"].mean,
-            rollout.global_step,
-        )
-        writer.add_scalar(
-            "charts/episodes", metrics["episodic_reward"].count, rollout.global_step
-        )
-        writer.add_scalar("meanrew", metrics["reward"].mean, rollout.global_step)
+        global_step = rollout.global_step * parallelism
+
+        if parallelism > 1:
+            for metric in metrics.values():
+                tcount = torch.tensor(metric.count)
+                tsum = torch.tensor(metric.sum)
+                tmax = torch.tensor(metric.max)
+                tmin = torch.tensor(metric.min)
+                dist.all_reduce(tcount, op=dist.ReduceOp.SUM)
+                dist.all_reduce(tsum, op=dist.ReduceOp.SUM)
+                dist.all_reduce(tmax, op=dist.ReduceOp.MAX)
+                dist.all_reduce(tmin, op=dist.ReduceOp.MIN)
+                metric.count = int(tcount.item())
+                metric.sum = tsum.item()
+                metric.max = tmax.item()
+                metric.min = tmin.item()
+        if rank == 0:
+            for name, value in metrics.items():
+                writer.add_scalar(f"{name}.mean", value.mean, global_step)
+                writer.add_scalar(f"{name}.max", value.max, global_step)
+                writer.add_scalar(f"{name}.min", value.min, global_step)
+                writer.add_scalar(f"{name}.count", value.count, global_step)
+
+            # Double log these to remain compatible with old naming scheme
+            # TODO: remove before release
+            writer.add_scalar(
+                "charts/episodic_return",
+                metrics["episodic_reward"].mean,
+                global_step,
+            )
+            writer.add_scalar(
+                "charts/episodic_length",
+                metrics["episode_length"].mean,
+                global_step,
+            )
+            writer.add_scalar(
+                "charts/episodes", metrics["episodic_reward"].count, global_step
+            )
+            writer.add_scalar("meanrew", metrics["reward"].mean, global_step)
 
         print(
-            f"global_step={rollout.global_step} {'  '.join(f'{name}={value.mean}' for name, value in metrics.items())}"
+            f"global_step={global_step} {'  '.join(f'{name}={value.mean}' for name, value in metrics.items())}"
         )
 
         values = rollout.values
@@ -286,7 +337,6 @@ def train(
         visible = rollout.visible
         action_masks = rollout.action_masks
         logprobs = rollout.logprobs
-        global_step = rollout.global_step
 
         with torch.no_grad(), tracer.span("advantages"):
             returns, advantages = returns_and_advantages(
@@ -313,18 +363,18 @@ def train(
 
         # Optimize the policy and value network
         tracer.start("optimize")
-        frames = cfg.rollout.num_envs * cfg.rollout.steps
+        frames = cfg.rollout.num_envs * cfg.rollout.steps // parallelism
         b_inds = np.arange(frames)
         clipfracs = []
 
         for epoch in range(cfg.optim.update_epochs):
             np.random.shuffle(b_inds)
-            for start in range(0, frames, cfg.optim.bs):
-                end = start + cfg.optim.bs
+            for start in range(0, frames, cfg.optim.bs // parallelism):
+                end = start + cfg.optim.bs // parallelism
                 microbatch_size = (
                     cfg.optim.micro_bs
                     if cfg.optim.micro_bs is not None
-                    else cfg.optim.bs
+                    else cfg.optim.bs // parallelism
                 )
 
                 optimizer.zero_grad()
@@ -397,11 +447,15 @@ def train(
 
                     with tracer.span("backward"):
                         loss.backward()
+                if parallelism > 1:
+                    gradient_allreduce(agent)
                 gradnorm = nn.utils.clip_grad_norm_(
                     agent.parameters(), cfg.optim.max_grad_norm
                 )
                 optimizer.step()
                 if value_function is not None:
+                    if parallelism > 1:
+                        gradient_allreduce(value_function)
                     vf_gradnorm = nn.utils.clip_grad_norm_(
                         value_function.parameters(), cfg.optim.max_grad_norm
                     ).item()
@@ -419,41 +473,63 @@ def train(
         tracer.end("optimize")
 
         tracer.start("metrics")
+        # TODO: aggregate across all ranks
         y_pred, y_true = b_values.cpu().numpy(), b_returns.cpu().numpy()
         var_y = np.var(y_true)
-        explained_var = np.nan if var_y == 0 else 1 - np.var(y_true - y_pred) / var_y
+        explained_var = torch.tensor(
+            np.nan if var_y == 0 else 1 - np.var(y_true - y_pred) / var_y
+        )
+        clipfrac = torch.tensor(np.mean(clipfracs))
+        if parallelism > 1:
+            dist.all_reduce(v_loss, op=dist.ReduceOp.SUM)
+            dist.all_reduce(pg_loss, op=dist.ReduceOp.SUM)
+            dist.all_reduce(entropy_loss, op=dist.ReduceOp.SUM)
+            dist.all_reduce(approx_kl, op=dist.ReduceOp.SUM)
+            dist.all_reduce(clipfrac, op=dist.ReduceOp.SUM)
+            dist.all_reduce(explained_var, op=dist.ReduceOp.SUM)
+            v_loss /= parallelism
+            pg_loss /= parallelism
+            entropy_loss /= parallelism
+            approx_kl /= parallelism
+            clipfrac /= parallelism
+            explained_var /= parallelism
+        if rank == 0:
 
-        writer.add_scalar(
-            "charts/learning_rate", optimizer.param_groups[0]["lr"], global_step
-        )
-        writer.add_scalar("charts/entropy_coef", ent_coef, global_step)
-        writer.add_scalar("losses/value_loss", v_loss.item(), global_step)
-        writer.add_scalar("losses/policy_loss", pg_loss.item(), global_step)
-        writer.add_scalar("losses/entropy", entropy_loss.item(), global_step)
-        writer.add_scalar("losses/approx_kl", approx_kl.item(), global_step)
-        writer.add_scalar("losses/clipfrac", np.mean(clipfracs), global_step)
-        writer.add_scalar("losses/explained_variance", explained_var, global_step)
-        writer.add_scalar("losses/gradnorm", gradnorm, global_step)
-        writer.add_scalar("losses/vf_gradnorm", vf_gradnorm, global_step)
-        for action_name, space in action_space.items():
-            if isinstance(space, CategoricalActionSpace):
-                _actions = actions.buffers[action_name].as_array().flatten()
-                if len(_actions) > 0:
-                    for i, label in enumerate(space.choices):
-                        writer.add_scalar(
-                            f"actions/{action_name}/{label}",
-                            np.sum(_actions == i).item() / len(_actions),
-                            global_step,
-                        )
-        print("SPS:", int(global_step / (time.time() - start_time)))
-        writer.add_scalar(
-            "charts/SPS", int(global_step / (time.time() - start_time)), global_step
-        )
+            writer.add_scalar(
+                "charts/learning_rate", optimizer.param_groups[0]["lr"], global_step
+            )
+            writer.add_scalar("charts/entropy_coef", ent_coef, global_step)
+            writer.add_scalar("losses/value_loss", v_loss.item(), global_step)
+            writer.add_scalar("losses/policy_loss", pg_loss.item(), global_step)
+            writer.add_scalar("losses/entropy", entropy_loss.item(), global_step)
+            writer.add_scalar("losses/approx_kl", approx_kl.item(), global_step)
+            writer.add_scalar("losses/clipfrac", clipfrac.item(), global_step)
+            writer.add_scalar(
+                "losses/explained_variance", explained_var.item(), global_step
+            )
+            writer.add_scalar("losses/gradnorm", gradnorm, global_step)
+            writer.add_scalar("losses/vf_gradnorm", vf_gradnorm, global_step)
+            # TODO: aggregate actions across ranks
+            for action_name, space in action_space.items():
+                if isinstance(space, CategoricalActionSpace):
+                    _actions = actions.buffers[action_name].as_array().flatten()
+                    if len(_actions) > 0:
+                        for i, label in enumerate(space.choices):
+                            writer.add_scalar(
+                                f"actions/{action_name}/{label}",
+                                np.sum(_actions == i).item() / len(_actions),
+                                global_step,
+                            )
+            print("SPS:", int(global_step / (time.time() - start_time)))
+            writer.add_scalar(
+                "charts/SPS", int(global_step / (time.time() - start_time)), global_step
+            )
         tracer.end("metrics")
         tracer.end("update")
         traces = tracer.finish()
-        for callstack, timing in traces.items():
-            writer.add_scalar(f"trace/{callstack}", timing, global_step)
+        if rank == 0:
+            for callstack, timing in traces.items():
+                writer.add_scalar(f"trace/{callstack}", timing, global_step)
 
     if cfg.eval is not None:
         _run_eval()
@@ -462,6 +538,22 @@ def train(
     writer.close()
 
     return rollout.rewards.mean().item()
+
+
+def init_process(xp_info: Any, backend: str = "gloo") -> None:
+    os.environ["MASTER_ADDR"] = xp_info.address_of("main")
+    os.environ["MASTER_PORT"] = "29500"
+    dist.init_process_group(
+        backend,
+        rank=xp_info.replica_index,
+        world_size=xp_info.replicas(),
+    )
+
+
+def gradient_allreduce(model: Any) -> None:
+    for param in model.parameters():
+        if param.grad is not None:
+            dist.all_reduce(param.grad.data, op=dist.ReduceOp.SUM)
 
 
 def _train(cfg: TrainConfig) -> float:

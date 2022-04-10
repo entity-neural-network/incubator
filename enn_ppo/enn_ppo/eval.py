@@ -3,6 +3,7 @@ from typing import Callable, List, Mapping, Optional, Tuple, Type, Union
 import numpy as np
 import numpy.typing as npt
 import torch
+import torch.distributed as dist
 from torch.utils.tensorboard import SummaryWriter
 
 from enn_ppo.agent import PPOAgent
@@ -19,7 +20,7 @@ def run_eval(
     env_cfg: EnvConfig,
     rollout: RolloutConfig,
     env_cls: Type[Environment],
-    create_env: Callable[[EnvConfig, int, int], VecEnv],
+    create_env: Callable[[EnvConfig, int, int, int], VecEnv],
     create_opponent: Callable[
         [str, ObsSpace, Mapping[str, ActionSpace], torch.device], PPOAgent
     ],
@@ -28,12 +29,19 @@ def run_eval(
     tracer: Tracer,
     writer: SummaryWriter,
     global_step: int,
+    rank: int,
+    parallelism: int,
 ) -> None:
     # TODO: metrics are biased towards short episodes
     processes = cfg.processes or rollout.processes
     num_envs = cfg.num_envs or rollout.num_envs
     obs_space = env_cls.obs_space()
     action_space = env_cls.action_space()
+
+    assert num_envs % parallelism == 0, (
+        "Number of eval environments must be divisible by parallelism: "
+        f"{num_envs} % {parallelism} = {num_envs % parallelism}"
+    )
 
     metric_filter: Optional[npt.NDArray[np.bool8]] = None
     if cfg.opponent is not None:
@@ -55,7 +63,13 @@ def run_eval(
         agents = agent
 
     envs: VecEnv = AddMetricsWrapper(
-        create_env(cfg.env or env_cfg, num_envs, processes), metric_filter
+        create_env(
+            cfg.env or env_cfg,
+            num_envs // parallelism,
+            processes,
+            rank * num_envs // parallelism,
+        ),
+        metric_filter,
     )
 
     if cfg.capture_samples:
@@ -77,20 +91,35 @@ def run_eval(
         capture_logits=cfg.capture_logits,
     )
 
-    if cfg.capture_videos:
-        # save the videos
-        writer.add_video(
-            f"eval/video",
-            torch.tensor(eval_rollout.rendered).permute(1, 0, 4, 2, 3),
-            global_step,
-            fps=30,
-        )
+    if parallelism > 1:
+        for metric in metrics.values():
+            tcount = torch.tensor(metric.count)
+            tsum = torch.tensor(metric.sum)
+            tmax = torch.tensor(metric.max)
+            tmin = torch.tensor(metric.min)
+            dist.all_reduce(tcount, op=dist.ReduceOp.SUM)
+            dist.all_reduce(tsum, op=dist.ReduceOp.SUM)
+            dist.all_reduce(tmax, op=dist.ReduceOp.MAX)
+            dist.all_reduce(tmin, op=dist.ReduceOp.MIN)
+            metric.count = int(tcount.item())
+            metric.sum = tsum.item()
+            metric.max = tmax.item()
+            metric.min = tmin.item()
+    if rank == 0:
+        if cfg.capture_videos:
+            # save the videos
+            writer.add_video(
+                f"eval/video",
+                torch.tensor(eval_rollout.rendered).permute(1, 0, 4, 2, 3),
+                global_step,
+                fps=30,
+            )
 
-    for name, value in metrics.items():
-        writer.add_scalar(f"eval/{name}.mean", value.mean, global_step)
-        writer.add_scalar(f"eval/{name}.min", value.min, global_step)
-        writer.add_scalar(f"eval/{name}.max", value.max, global_step)
-        writer.add_scalar(f"eval/{name}.count", value.count, global_step)
+        for name, value in metrics.items():
+            writer.add_scalar(f"eval/{name}.mean", value.mean, global_step)
+            writer.add_scalar(f"eval/{name}.min", value.min, global_step)
+            writer.add_scalar(f"eval/{name}.max", value.max, global_step)
+            writer.add_scalar(f"eval/{name}.count", value.count, global_step)
     print(
         f"[eval] global_step={global_step} {'  '.join(f'{name}={value.mean}' for name, value in metrics.items())}"
     )

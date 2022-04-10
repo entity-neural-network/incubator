@@ -56,10 +56,10 @@ XpV0(
                 ),
 
                 // Build xprun from source
-                Repo(url: "git@github.com:cswinter/xprun.git", rev: "c248812", target_dir: "/root"),
+                Repo(url: "git@github.com:cswinter/xprun.git", rev: "d8a58d8", target_dir: "/root"),
                 Run("poetry run pip install maturin==0.12.6"),
                 Run("poetry run maturin build --cargo-extra-args=--features=python --manifest-path=/root/xprun/Cargo.toml"),
-                Run("poetry run pip install /root/xprun/target/wheels/xprun-0.1.0-cp38-cp38-manylinux_2_31_x86_64.whl"),
+                Run("poetry run pip install /root/xprun/target/wheels/xprun-0.1.4-cp38-cp38-manylinux_2_31_x86_64.whl"),
 
                 Run("poetry install"),
                 Run("poetry run pip install setuptools==59.5.0"),
