@@ -27,7 +27,7 @@ def run_eval(
     agent: PPOAgent,
     device: torch.device,
     tracer: Tracer,
-    writer: SummaryWriter,
+    writer: Optional[SummaryWriter],
     global_step: int,
     rank: int,
     parallelism: int,
@@ -105,7 +105,7 @@ def run_eval(
             metric.sum = tsum.item()
             metric.max = tmax.item()
             metric.min = tmin.item()
-    if rank == 0:
+    if writer is not None:
         if cfg.capture_videos:
             # save the videos
             writer.add_video(

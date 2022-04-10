@@ -235,21 +235,22 @@ def train(
         if cfg.eval is not None:
             assert create_env is not None
             assert agent is not None
-            run_eval(
-                cfg.eval,
-                cfg.env,
-                cfg.rollout,
-                env_cls,
-                create_env,
-                create_opponent or create_random_opponent,
-                agent,
-                device,
-                tracer,
-                writer,
-                rollout.global_step * parallelism,
-                rank,
-                parallelism,
-            )
+            with tracer.span("eval"):
+                run_eval(
+                    cfg.eval,
+                    cfg.env,
+                    cfg.rollout,
+                    env_cls,
+                    create_env,
+                    create_opponent or create_random_opponent,
+                    agent,
+                    device,
+                    tracer,
+                    writer if rank == 0 else None,
+                    rollout.global_step * parallelism,
+                    rank,
+                    parallelism,
+                )
 
     start_time = time.time()
     for update in range(1, num_updates + 1):
@@ -448,14 +449,16 @@ def train(
                     with tracer.span("backward"):
                         loss.backward()
                 if parallelism > 1:
-                    gradient_allreduce(agent)
+                    with tracer.span("allreduce"):
+                        gradient_allreduce(agent)
                 gradnorm = nn.utils.clip_grad_norm_(
                     agent.parameters(), cfg.optim.max_grad_norm
                 )
                 optimizer.step()
                 if value_function is not None:
                     if parallelism > 1:
-                        gradient_allreduce(value_function)
+                        with tracer.span("allreduce_vf"):
+                            gradient_allreduce(value_function)
                     vf_gradnorm = nn.utils.clip_grad_norm_(
                         value_function.parameters(), cfg.optim.max_grad_norm
                     ).item()
@@ -535,7 +538,8 @@ def train(
         _run_eval()
 
     envs.close()
-    writer.close()
+    if rank == 0:
+        writer.close()
 
     return rollout.rewards.mean().item()
 
