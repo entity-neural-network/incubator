@@ -10,10 +10,10 @@ from typing import Any, Callable, Dict, Mapping, Optional, Type
 import hyperstate
 import numpy as np
 import torch
+import torch.distributed as dist
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.tensorboard import SummaryWriter
-import torch.distributed as dist
 
 from enn_ppo.agent import PPOAgent
 from enn_ppo.config import *
@@ -29,8 +29,12 @@ from entity_gym.simple_trace import Tracer
 from rogue_net.rogue_net import RogueNet
 
 
-def _env_factory(env_cls: Type[Environment]) -> Callable[[EnvConfig, int, int, int], VecEnv]:
-    def _create_env(cfg: EnvConfig, num_envs: int, processes: int, first_env_index: int) -> VecEnv:
+def _env_factory(
+    env_cls: Type[Environment],
+) -> Callable[[EnvConfig, int, int, int], VecEnv]:
+    def _create_env(
+        cfg: EnvConfig, num_envs: int, processes: int, first_env_index: int
+    ) -> VecEnv:
         kwargs = json.loads(cfg.kwargs)
         if processes > 1:
             return ParallelEnvList(env_cls, kwargs, num_envs, processes)
@@ -89,7 +93,6 @@ def train(
         )
         Path(str(out_dir)).mkdir(parents=True, exist_ok=True)
 
-
         init_process(xp_info)
         rank = xp_info.replica_index
         parallelism = xp_info.replicas()
@@ -139,7 +142,11 @@ def train(
         writer.add_text(
             "hyperparameters",
             "|param|value|\n|-|-|\n%s"
-            % ("\n".join([f"|{key}|{value}|" for key, value in flatten(config).items()])),
+            % (
+                "\n".join(
+                    [f"|{key}|{value}|" for key, value in flatten(config).items()]
+                )
+            ),
         )
 
     random.seed(cfg.seed)
@@ -154,7 +161,12 @@ def train(
     if create_env is None:
         create_env = _env_factory(env_cls)
     envs: VecEnv = AddMetricsWrapper(
-        create_env(cfg.env, cfg.rollout.num_envs // parallelism, cfg.rollout.processes, rank * cfg.rollout.num_envs // parallelism),
+        create_env(
+            cfg.env,
+            cfg.rollout.num_envs // parallelism,
+            cfg.rollout.processes,
+            rank * cfg.rollout.num_envs // parallelism,
+        ),
     )
     obs_space = env_cls.obs_space()
     action_space = env_cls.action_space()
@@ -464,7 +476,9 @@ def train(
         # TODO: aggregate across all ranks
         y_pred, y_true = b_values.cpu().numpy(), b_returns.cpu().numpy()
         var_y = np.var(y_true)
-        explained_var = torch.tensor(np.nan if var_y == 0 else 1 - np.var(y_true - y_pred) / var_y)
+        explained_var = torch.tensor(
+            np.nan if var_y == 0 else 1 - np.var(y_true - y_pred) / var_y
+        )
         clipfrac = torch.tensor(np.mean(clipfracs))
         if parallelism > 1:
             dist.all_reduce(v_loss, op=dist.ReduceOp.SUM)
@@ -490,7 +504,9 @@ def train(
             writer.add_scalar("losses/entropy", entropy_loss.item(), global_step)
             writer.add_scalar("losses/approx_kl", approx_kl.item(), global_step)
             writer.add_scalar("losses/clipfrac", clipfrac.item(), global_step)
-            writer.add_scalar("losses/explained_variance", explained_var.item(), global_step)
+            writer.add_scalar(
+                "losses/explained_variance", explained_var.item(), global_step
+            )
             writer.add_scalar("losses/gradnorm", gradnorm, global_step)
             writer.add_scalar("losses/vf_gradnorm", vf_gradnorm, global_step)
             # TODO: aggregate actions across ranks
@@ -523,6 +539,7 @@ def train(
 
     return rollout.rewards.mean().item()
 
+
 def init_process(xp_info: Any, backend: str = "gloo") -> None:
     os.environ["MASTER_ADDR"] = xp_info.address_of("main")
     os.environ["MASTER_PORT"] = "29500"
@@ -532,10 +549,12 @@ def init_process(xp_info: Any, backend: str = "gloo") -> None:
         world_size=xp_info.replicas(),
     )
 
+
 def gradient_allreduce(model: Any) -> None:
     for param in model.parameters():
         if param.grad is not None:
             dist.all_reduce(param.grad.data, op=dist.ReduceOp.SUM)
+
 
 def _train(cfg: TrainConfig) -> float:
     return train(cfg, ENV_REGISTRY[cfg.env.id])

@@ -3,8 +3,8 @@ from typing import Callable, List, Mapping, Optional, Tuple, Type, Union
 import numpy as np
 import numpy.typing as npt
 import torch
-from torch.utils.tensorboard import SummaryWriter
 import torch.distributed as dist
+from torch.utils.tensorboard import SummaryWriter
 
 from enn_ppo.agent import PPOAgent
 from enn_ppo.config import EnvConfig, EvalConfig, RolloutConfig
@@ -63,7 +63,13 @@ def run_eval(
         agents = agent
 
     envs: VecEnv = AddMetricsWrapper(
-        create_env(cfg.env or env_cfg, num_envs // parallelism, processes, rank * num_envs // parallelism), metric_filter
+        create_env(
+            cfg.env or env_cfg,
+            num_envs // parallelism,
+            processes,
+            rank * num_envs // parallelism,
+        ),
+        metric_filter,
     )
 
     if cfg.capture_samples:

@@ -37,7 +37,9 @@ class TrainConfig(config.TrainConfig):
     webpdb: bool = False
 
 
-def create_cc_env(cfg: config.EnvConfig, num_envs: int, num_processes: int) -> VecEnv:
+def create_cc_env(
+    cfg: config.EnvConfig, num_envs: int, num_processes: int, first_env_index: int
+) -> VecEnv:
     kwargs = json.loads(cfg.kwargs)
     return CodeCraftVecEnv(
         num_envs,
