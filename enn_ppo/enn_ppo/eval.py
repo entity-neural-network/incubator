@@ -52,13 +52,13 @@ def run_eval(
             ] = opponent
         else:
             agents = [
-                (np.array([2 * i for i in range(num_envs // 2)]), agent),
+                (np.array([2 * i for i in range(num_envs // parallelism // 2)]), agent),
                 (
-                    np.array([2 * i + 1 for i in range(num_envs // 2)]),
+                    np.array([2 * i + 1 for i in range(num_envs // parallelism // 2)]),
                     opponent,
                 ),
             ]
-            metric_filter = np.arange(num_envs) % 2 == 0
+            metric_filter = np.arange(num_envs // parallelism) % 2 == 0
     else:
         agents = agent
 
