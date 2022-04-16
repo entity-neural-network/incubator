@@ -555,9 +555,19 @@ def init_process(xp_info: Any, backend: str = "gloo") -> None:
 
 
 def gradient_allreduce(model: Any) -> None:
+    all_grads_list = []
     for param in model.parameters():
         if param.grad is not None:
-            dist.all_reduce(param.grad.data, op=dist.ReduceOp.SUM)
+            all_grads_list.append(param.grad.view(-1))
+    all_grads = torch.cat(all_grads_list)
+    dist.all_reduce(all_grads, op=dist.ReduceOp.SUM)
+    offset = 0
+    for param in model.parameters():
+        if param.grad is not None:
+            param.grad.data.copy_(
+                all_grads[offset : offset + param.numel()].view_as(param.grad.data)
+            )
+            offset += param.numel()
 
 
 def _train(cfg: TrainConfig) -> float:
