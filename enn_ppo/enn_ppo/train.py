@@ -564,7 +564,9 @@ def gradient_allreduce(model: Any) -> None:
     offset = 0
     for param in model.parameters():
         if param.grad is not None:
-            param.grad.data.copy_(all_grads[offset:offset + param.numel()].view_as(param.grad.data))
+            param.grad.data.copy_(
+                all_grads[offset : offset + param.numel()].view_as(param.grad.data)
+            )
             offset += param.numel()
 
 
