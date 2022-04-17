@@ -132,7 +132,6 @@ def train(
     cfg = state_manager.config
     cuda = torch.cuda.is_available() and cfg.cuda
     device = torch.device("cuda" if cuda else "cpu")
-    print("RUNNING WITH DEVICE", device)
 
     assert cfg.rollout.num_envs * cfg.rollout.steps >= cfg.optim.bs, (
         "Number of frames per rollout is smaller than batch size: "
@@ -648,9 +647,7 @@ def initialize(cfg: TrainConfig, ctx: Dict[str, Any]) -> State:
         eps=1e-5,
     )
 
-    print("YOYO INIT", cfg.vf_net)
     if cfg.vf_net is not None:
-        print(":thinking:")
         value_function: Optional[SerializableRogueNet] = _create_agent(
             cfg, ctx["env_cls"]
         )
