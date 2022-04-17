@@ -142,7 +142,7 @@ def train(
 
     config = asdict(cfg)
     if os.path.exists("/xprun/info/config.ron"):
-        import xprun  # type: ignore
+        import xprun
 
         xp_info = xprun.current_xp()
         config["name"] = xp_info.xp_def.name
