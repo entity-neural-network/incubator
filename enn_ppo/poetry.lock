@@ -307,7 +307,7 @@ protobuf = ["grpcio-tools (>=1.45.0)"]
 
 [[package]]
 name = "hyperstate"
-version = "0.3.3"
+version = "0.3.7"
 description = "Library for managing hyperparameters and mutable state of machine learning training systems."
 category = "main"
 optional = false
@@ -1024,7 +1024,7 @@ testing = ["pytest (>=6)", "pytest-checkdocs (>=2.4)", "pytest-flake8", "pytest-
 [metadata]
 lock-version = "1.1"
 python-versions = ">=3.8,<3.10"
-content-hash = "d8a99cac3162abe164b0f9407b7f1923b2ca47ec322505e53fd8e967e69bcea2"
+content-hash = "4582f0f02f7467158efd63d6098afe3b004084f2cbb765784e205127f2c0dc6e"
 
 [metadata.files]
 absl-py = [
@@ -1229,8 +1229,8 @@ grpcio = [
     {file = "grpcio-1.45.0.tar.gz", hash = "sha256:ff2c8b965b0fc25cf281961aa46619c10900543effe3f806ef818231c40aaff3"},
 ]
 hyperstate = [
-    {file = "hyperstate-0.3.3-py3-none-any.whl", hash = "sha256:39c7cf95c5a8e9d238cb606fa5737e285a03240499ed66adea2866fec7b82d12"},
-    {file = "hyperstate-0.3.3.tar.gz", hash = "sha256:b01b7d1477b4d01ad7905add581fb7342f07ba62412929dcddb85ef2ff4b989c"},
+    {file = "hyperstate-0.3.7-py3-none-any.whl", hash = "sha256:40fdb97cd099a181c99e120d19bd3dccb963fe73fd74c6543c7aa3294462832b"},
+    {file = "hyperstate-0.3.7.tar.gz", hash = "sha256:982709e1298a37f90edc1a955b5123dc3ee189a8847b26bd38eb3dc872adaeb0"},
 ]
 idna = [
     {file = "idna-3.3-py3-none-any.whl", hash = "sha256:84d9dd047ffa80596e0f246e2eab0b391788b0503584e8945f2368256d2735ff"},

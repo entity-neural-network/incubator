@@ -147,7 +147,7 @@ Struct(
                                         type: Primitive(
                                             type: "bool",
                                         ),
-                                        default: true,
+                                        default: false,
                                         has_default: true,
                                         docstring: "Whether to use per-entity embeddings for relative positional values.",
                                     ),
@@ -239,6 +239,21 @@ Struct(
                                         default: false,
                                         has_default: true,
                                         docstring: "Whether to interpolate between the embeddings of neighboring positions.",
+                                    ),
+                                    "value_gate": Field(
+                                        name: "value_gate",
+                                        type: Literal(
+                                            allowed_values: [
+                                                "linear",
+                                                "relu",
+                                                "gelu",
+                                                "sigmoid",
+                                                None,
+                                            ],
+                                        ),
+                                        default: "relu",
+                                        has_default: true,
+                                        docstring: None,
                                     ),
                                 },
                                 version: None,
@@ -819,7 +834,7 @@ Struct(
                                             type: Primitive(
                                                 type: "bool",
                                             ),
-                                            default: true,
+                                            default: false,
                                             has_default: true,
                                             docstring: "Whether to use per-entity embeddings for relative positional values.",
                                         ),
@@ -911,6 +926,21 @@ Struct(
                                             default: false,
                                             has_default: true,
                                             docstring: "Whether to interpolate between the embeddings of neighboring positions.",
+                                        ),
+                                        "value_gate": Field(
+                                            name: "value_gate",
+                                            type: Literal(
+                                                allowed_values: [
+                                                    "linear",
+                                                    "relu",
+                                                    "gelu",
+                                                    "sigmoid",
+                                                    None,
+                                                ],
+                                            ),
+                                            default: "relu",
+                                            has_default: true,
+                                            docstring: None,
                                         ),
                                     },
                                     version: None,
@@ -1146,5 +1176,5 @@ Struct(
             docstring: "If toggled, empty the cuda cache after each optimizer step.",
         ),
     },
-    version: 0,
+    version: 1,
 )

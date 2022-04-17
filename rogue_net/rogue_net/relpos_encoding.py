@@ -34,7 +34,7 @@ class RelposEncodingConfig:
     extent: List[int]
     position_features: List[str]
     scale: float = 1.0
-    per_entity_values: bool = True
+    per_entity_values: bool = False
     exclude_entities: List[str] = field(default_factory=list)
     value_relpos_projection: bool = False
     key_relpos_projection: bool = False
@@ -44,7 +44,7 @@ class RelposEncodingConfig:
     rotation_vec_features: Optional[List[str]] = None
     rotation_angle_feature: Optional[str] = None
     interpolate: bool = False
-    value_gate: Literal["linear", "relu", "gelu", "sigmoid", None] = None
+    value_gate: Literal["linear", "relu", "gelu", "sigmoid", None] = "relu"
 
     def __post_init__(self) -> None:
         if self.radial and self.distance:

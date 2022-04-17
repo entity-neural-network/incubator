@@ -243,7 +243,7 @@ develop = true
 [package.dependencies]
 click = "^8.0.4"
 entity_gym = {path = "../entity_gym", develop = true}
-hyperstate = "^0.3.3"
+hyperstate = "^0.3.7"
 moviepy = "^1.0.3"
 msgpack = "^1.0.3"
 msgpack-numpy = "^0.4.7"
@@ -456,7 +456,7 @@ test = ["pytest (==5.2.1)", "pytest-benchmark (==3.2.2)", "gym-retro (==0.8.0)",
 
 [[package]]
 name = "hyperstate"
-version = "0.3.3"
+version = "0.3.7"
 description = "Library for managing hyperparameters and mutable state of machine learning training systems."
 category = "main"
 optional = false
@@ -994,7 +994,7 @@ celery = ["celery (>=3)"]
 chalice = ["chalice (>=1.16.0)"]
 django = ["django (>=1.8)"]
 falcon = ["falcon (>=1.4)"]
-flask = ["flask (>=0.11,<2.1.0)", "blinker (>=1.1)"]
+flask = ["flask (>=0.11)", "blinker (>=1.1)"]
 httpx = ["httpx (>=0.16.0)"]
 pure_eval = ["pure-eval", "executing", "asttokens"]
 pyspark = ["pyspark (>=2.4.4)"]
@@ -1265,7 +1265,7 @@ vizdoom = ["vizdoom"]
 [metadata]
 lock-version = "1.1"
 python-versions = ">=3.8.0,<3.10"
-content-hash = "a40d055ed47f89c6a6906be2ffb9cf5d4aed03ff5339ffed65efbebc6463555e"
+content-hash = "49143c506c405933e6a1b40702e52b67abeea40013d3fbf01c24afa4fe8cc52c"
 
 [metadata.files]
 absl-py = [
@@ -1610,8 +1610,8 @@ gym3 = [
     {file = "gym3-0.3.3-py3-none-any.whl", hash = "sha256:bacc0e124f8ce5e1d8a9dceb85725123332954f13ef4e226133506597548838a"},
 ]
 hyperstate = [
-    {file = "hyperstate-0.3.3-py3-none-any.whl", hash = "sha256:39c7cf95c5a8e9d238cb606fa5737e285a03240499ed66adea2866fec7b82d12"},
-    {file = "hyperstate-0.3.3.tar.gz", hash = "sha256:b01b7d1477b4d01ad7905add581fb7342f07ba62412929dcddb85ef2ff4b989c"},
+    {file = "hyperstate-0.3.7-py3-none-any.whl", hash = "sha256:40fdb97cd099a181c99e120d19bd3dccb963fe73fd74c6543c7aa3294462832b"},
+    {file = "hyperstate-0.3.7.tar.gz", hash = "sha256:982709e1298a37f90edc1a955b5123dc3ee189a8847b26bd38eb3dc872adaeb0"},
 ]
 idna = [
     {file = "idna-3.3-py3-none-any.whl", hash = "sha256:84d9dd047ffa80596e0f246e2eab0b391788b0503584e8945f2368256d2735ff"},
