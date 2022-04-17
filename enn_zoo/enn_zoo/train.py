@@ -3,13 +3,14 @@ from contextlib import ExitStack
 from dataclasses import dataclass
 from typing import Mapping, Optional
 
+from hyperstate import StateManager
 import hyperstate
 import torch
 import web_pdb
 
 import enn_ppo.config as config
 from enn_ppo.agent import PPOAgent
-from enn_ppo.train import train
+from enn_ppo.train import State, initialize, train
 from enn_zoo import griddly_env
 from enn_zoo.codecraft.cc_vec_env import CodeCraftVecEnv, codecraft_env_class
 from enn_zoo.codecraft.codecraftnet.adapter import CCNetAdapter
@@ -64,8 +65,8 @@ def load_codecraft_policy(
         return CCNetAdapter(str(device), load_from=path)
 
 
-@hyperstate.command(TrainConfig)
-def main(cfg: TrainConfig) -> None:
+@hyperstate.stateful_command(TrainConfig, State, initialize)
+def main(cfg: StateManager) -> None:
     if cfg.env.id in ENV_REGISTRY:
         env_cls = ENV_REGISTRY[cfg.env.id]
     elif cfg.env.id in GRIDDLY_ENVS:
