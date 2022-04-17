@@ -1,5 +1,6 @@
 // Achieves ~0.4 against eval opponent (old baseline: ~0.8-0.95): https://wandb.ai/entity-neural-network/enn-ppo/reports/Arena-Medium-baseline--VmlldzoxNzgwMTM1
 ExperimentConfig(
+    version: 1,
     env: (
         id: "CodeCraft",
         kwargs: "{\"objective\": \"ARENA_MEDIUM\", \"hardness\": 1.0, \"win_bonus\": 2.0, \"hidden_obs\": true}",

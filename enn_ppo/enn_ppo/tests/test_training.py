@@ -1,7 +1,24 @@
+from hyperstate import StateManager
+
 from enn_ppo.config import RolloutConfig
-from enn_ppo.train import EnvConfig, OptimizerConfig, PPOConfig, TrainConfig, _train
+from enn_ppo.train import (
+    EnvConfig,
+    OptimizerConfig,
+    PPOConfig,
+    State,
+    TrainConfig,
+    initialize,
+    train,
+)
+from entity_gym.examples import ENV_REGISTRY
 from rogue_net.relpos_encoding import RelposEncodingConfig
 from rogue_net.rogue_net import RogueNetConfig
+
+
+def _train(cfg: TrainConfig) -> float:
+    sm = StateManager(TrainConfig, State, initialize, None)
+    sm._config = cfg
+    return train(sm, ENV_REGISTRY[cfg.env.id])
 
 
 def test_multi_armed_bandit() -> None:

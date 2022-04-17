@@ -243,7 +243,7 @@ develop = true
 [package.dependencies]
 click = "^8.0.4"
 entity_gym = {path = "../entity_gym", develop = true}
-hyperstate = "^0.3.2"
+hyperstate = "^0.3.3"
 moviepy = "^1.0.3"
 msgpack = "^1.0.3"
 msgpack-numpy = "^0.4.7"
@@ -456,7 +456,7 @@ test = ["pytest (==5.2.1)", "pytest-benchmark (==3.2.2)", "gym-retro (==0.8.0)",
 
 [[package]]
 name = "hyperstate"
-version = "0.3.2"
+version = "0.3.3"
 description = "Library for managing hyperparameters and mutable state of machine learning training systems."
 category = "main"
 optional = false
@@ -1265,7 +1265,7 @@ vizdoom = ["vizdoom"]
 [metadata]
 lock-version = "1.1"
 python-versions = ">=3.8.0,<3.10"
-content-hash = "bc048a72590f1a604e0ee9d1a6b0bb90c06344d1dfb83cb093bbb06258efc948"
+content-hash = "a40d055ed47f89c6a6906be2ffb9cf5d4aed03ff5339ffed65efbebc6463555e"
 
 [metadata.files]
 absl-py = [
@@ -1610,8 +1610,8 @@ gym3 = [
     {file = "gym3-0.3.3-py3-none-any.whl", hash = "sha256:bacc0e124f8ce5e1d8a9dceb85725123332954f13ef4e226133506597548838a"},
 ]
 hyperstate = [
-    {file = "hyperstate-0.3.2-py3-none-any.whl", hash = "sha256:97b1283d616f6e340dda923da69fb16e3ac5107266ffdf5ac66f3b812b27184c"},
-    {file = "hyperstate-0.3.2.tar.gz", hash = "sha256:4d7fff43895c57f7da38fc11619fc76cf819bacfa8c8f2c4f6699cde4882343d"},
+    {file = "hyperstate-0.3.3-py3-none-any.whl", hash = "sha256:39c7cf95c5a8e9d238cb606fa5737e285a03240499ed66adea2866fec7b82d12"},
+    {file = "hyperstate-0.3.3.tar.gz", hash = "sha256:b01b7d1477b4d01ad7905add581fb7342f07ba62412929dcddb85ef2ff4b989c"},
 ]
 idna = [
     {file = "idna-3.3-py3-none-any.whl", hash = "sha256:84d9dd047ffa80596e0f246e2eab0b391788b0503584e8945f2368256d2735ff"},

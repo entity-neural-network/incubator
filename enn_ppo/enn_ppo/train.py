@@ -6,15 +6,14 @@ import time
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any, Callable, Dict, Mapping, Optional, Type
-from enn_ppo import ppo
 
 import hyperstate
-from hyperstate import StateManager
 import numpy as np
 import torch
 import torch.distributed as dist
 import torch.nn as nn
 import torch.optim as optim
+from hyperstate import StateManager
 from torch.utils.tensorboard import SummaryWriter
 
 from enn_ppo.agent import PPOAgent
@@ -124,7 +123,7 @@ def train(
 
         xp_info = xprun.current_xp()
         state_manager.checkpoint_dir = (
-            Path("/mnt/xprun")
+            Path("/xprun/data")
             / xp_info.xp_def.project
             / (xp_info.sanitized_name + "-" + xp_info.id)
             / "checkpoints"
@@ -133,8 +132,8 @@ def train(
     cfg = state_manager.config
     cuda = torch.cuda.is_available() and cfg.cuda
     device = torch.device("cuda" if cuda else "cpu")
-    state_manager.state.set_deserialize_ctx("env_cls", env_cls)
-    state_manager.state.set_deserialize_ctx("agent", agent)
+    state_manager.set_deserialize_ctx("env_cls", env_cls)
+    state_manager.set_deserialize_ctx("agent", agent)
     state = state_manager.state
     if state.step > 0:
         state.restart += 1
@@ -163,7 +162,7 @@ def train(
             config["seed"] = cfg.seed
         run_name = xp_info.xp_def.name
         out_dir: Optional[str] = os.path.join(
-            "/mnt/xprun",
+            "/xprun/data",
             xp_info.xp_def.project,
             xp_info.sanitized_name + "-" + xp_info.id,
         )
@@ -624,7 +623,7 @@ def initialize(cfg: TrainConfig, ctx: Dict[str, Any]) -> State:
     else:
         next_eval_step = None
 
-    if "agent" in ctx:
+    if ctx.get("agent") is not None:
         agent: SerializableRogueNet = ctx["agent"]
     else:
         agent = _create_agent(cfg, ctx["env_cls"])

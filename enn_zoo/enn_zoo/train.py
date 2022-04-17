@@ -3,10 +3,10 @@ from contextlib import ExitStack
 from dataclasses import dataclass
 from typing import Mapping, Optional
 
-from hyperstate import StateManager
 import hyperstate
 import torch
 import web_pdb
+from hyperstate import StateManager
 
 import enn_ppo.config as config
 from enn_ppo.agent import PPOAgent
@@ -66,7 +66,8 @@ def load_codecraft_policy(
 
 
 @hyperstate.stateful_command(TrainConfig, State, initialize)
-def main(cfg: StateManager) -> None:
+def main(state_manager: StateManager) -> None:
+    cfg = state_manager.config
     if cfg.env.id in ENV_REGISTRY:
         env_cls = ENV_REGISTRY[cfg.env.id]
     elif cfg.env.id in GRIDDLY_ENVS:
@@ -109,7 +110,7 @@ def main(cfg: StateManager) -> None:
         if cfg.webpdb:
             stack.enter_context(web_pdb.catch_post_mortem())
         train(
-            cfg=cfg,
+            state_manager=state_manager,
             env_cls=env_cls,
             agent=agent,
             create_env=create_cc_env if cfg.env.id == "CodeCraft" else None,
