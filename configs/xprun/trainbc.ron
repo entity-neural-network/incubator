@@ -69,9 +69,6 @@ XpV0(
             env_secrets: {
                 "WANDB_API_KEY": "wandb-api-key",
             },
-            volumes: {
-                "/mnt/a/Dropbox/artifacts/xprun": "/mnt/xprun",
-            },
         )
     }
 )

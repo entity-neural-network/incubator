@@ -396,7 +396,11 @@ class TransformerPolicy8HS(nn.Module, hyperstate.lazy.Serializable):
 
     @classmethod
     def deserialize(
-        clz: Type["TransformerPolicy8HS"], state_dict: Any, config: Any, state: Any
+        clz: Type["TransformerPolicy8HS"],
+        state_dict: Any,
+        config: Any,
+        state: Any,
+        ctx: Dict[str, Any],
     ) -> "TransformerPolicy8HS":
         policy = TransformerPolicy8HS(
             config.policy,

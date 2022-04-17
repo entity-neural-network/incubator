@@ -13,6 +13,7 @@ import torch
 import torch.distributed as dist
 import torch.nn as nn
 import torch.optim as optim
+from hyperstate import StateManager
 from torch.utils.tensorboard import SummaryWriter
 
 from enn_ppo.agent import PPOAgent
@@ -27,6 +28,43 @@ from entity_gym.examples import ENV_REGISTRY
 from entity_gym.serialization import SampleRecordingVecEnv
 from entity_gym.simple_trace import Tracer
 from rogue_net.rogue_net import RogueNet
+
+
+class SerializableRogueNet(RogueNet, hyperstate.Serializable[TrainConfig, "State"]):
+    def serialize(self) -> Any:
+        return self.state_dict()
+
+    @classmethod
+    def deserialize(
+        clz, state_dict: Any, config: TrainConfig, state: "State", ctx: Dict[str, Any]
+    ) -> "SerializableRogueNet":
+        env_cls: Type[Environment] = ctx["env_cls"]
+        net = SerializableRogueNet(
+            config.net,
+            env_cls.obs_space(),
+            env_cls.action_space(),
+            regression_heads={"value": 1},
+        )
+        net.load_state_dict(state_dict)
+        return net
+
+
+class SerializableAdamW(optim.AdamW, hyperstate.Serializable):
+    def serialize(self) -> Any:
+        return self.state_dict()
+
+    @classmethod
+    def deserialize(
+        clz, state_dict: Any, config: TrainConfig, state: "State", ctx: Dict[str, Any]
+    ) -> "SerializableAdamW":
+        optimizer = SerializableAdamW(
+            state.agent.parameters(),
+            lr=config.optim.lr,
+            weight_decay=config.optim.weight_decay,
+            eps=1e-5,
+        )
+        optimizer.load_state_dict(state_dict)
+        return optimizer
 
 
 def _env_factory(
@@ -58,15 +96,43 @@ def create_random_opponent(
     ).to(device)
 
 
+@dataclass
+class State(hyperstate.Lazy):
+    step: int
+    restart: int
+    next_eval_step: Optional[int]
+    agent: SerializableRogueNet
+    value_function: Optional[SerializableRogueNet]
+    optimizer: SerializableAdamW
+    vf_optimizer: Optional[SerializableAdamW]
+
+
 def train(
-    cfg: TrainConfig,
+    state_manager: StateManager[TrainConfig, State],
     env_cls: Type[Environment],
-    agent: Optional[PPOAgent] = None,
     create_env: Optional[Callable[[EnvConfig, int, int, int], VecEnv]] = None,
     create_opponent: Optional[
         Callable[[str, ObsSpace, Mapping[str, ActionSpace], torch.device], PPOAgent]
     ] = None,
+    agent: Optional[PPOAgent] = None,
 ) -> float:
+    if state_manager.checkpoint_dir is None and os.path.exists(
+        "/xprun/info/config.ron"
+    ):
+        import xprun  # type: ignore
+
+        xp_info = xprun.current_xp()
+        state_manager.checkpoint_dir = (
+            Path("/xprun/data")
+            / xp_info.xp_def.project
+            / (xp_info.sanitized_name + "-" + xp_info.id)
+            / "checkpoints"
+        )
+
+    cfg = state_manager.config
+    cuda = torch.cuda.is_available() and cfg.cuda
+    device = torch.device("cuda" if cuda else "cpu")
+
     assert cfg.rollout.num_envs * cfg.rollout.steps >= cfg.optim.bs, (
         "Number of frames per rollout is smaller than batch size: "
         f"{cfg.rollout.num_envs} * {cfg.rollout.steps} < {cfg.optim.bs}"
@@ -76,7 +142,7 @@ def train(
 
     config = asdict(cfg)
     if os.path.exists("/xprun/info/config.ron"):
-        import xprun  # type: ignore
+        import xprun
 
         xp_info = xprun.current_xp()
         config["name"] = xp_info.xp_def.name
@@ -87,7 +153,7 @@ def train(
             config["seed"] = cfg.seed
         run_name = xp_info.xp_def.name
         out_dir: Optional[str] = os.path.join(
-            "/mnt/xprun",
+            "/xprun/data",
             xp_info.xp_def.project,
             xp_info.sanitized_name + "-" + xp_info.id,
         )
@@ -154,8 +220,16 @@ def train(
     torch.manual_seed(cfg.seed)
     torch.backends.cudnn.deterministic = cfg.torch_deterministic
 
-    cuda = torch.cuda.is_available() and cfg.cuda
-    device = torch.device("cuda" if cuda else "cpu")
+    state_manager.set_deserialize_ctx("env_cls", env_cls)
+    state_manager.set_deserialize_ctx("agent", agent)
+    state = state_manager.state
+    if state.step > 0:
+        state.restart += 1
+    agent = state.agent.to(device)
+    optimizer = state.optimizer
+    value_function = state.value_function
+    vf_optimizer = state.vf_optimizer
+
     tracer = Tracer(cuda=cuda)
 
     if create_env is None:
@@ -178,40 +252,8 @@ def train(
             sample_file = os.path.join(out_dir, cfg.capture_samples)
         envs = SampleRecordingVecEnv(envs, sample_file, cfg.capture_samples_subsample)
 
-    if agent is None:
-        agent = RogueNet(
-            cfg.net,
-            obs_space,
-            action_space,
-            regression_heads={"value": 1},
-        ).to(device)
-    optimizer = optim.AdamW(
-        agent.parameters(),
-        lr=cfg.optim.lr,
-        weight_decay=cfg.optim.weight_decay,
-        eps=1e-5,
-    )
     if cfg.track and rank == 0:
         wandb.watch(agent)
-
-    if cfg.vf_net is not None:
-        value_function: Optional[RogueNet] = RogueNet(
-            cfg.vf_net,
-            obs_space,
-            action_space,
-            regression_heads={"value": 1},
-        ).to(device)
-        vf_optimizer: Optional[optim.AdamW] = optim.AdamW(
-            value_function.parameters(),  # type: ignore
-            lr=cfg.optim.lr,
-            weight_decay=cfg.optim.weight_decay,
-            eps=1e-5,
-        )
-    else:
-        value_function = None
-        vf_optimizer = None
-
-    num_updates = cfg.total_timesteps // (cfg.rollout.num_envs * cfg.rollout.steps)
 
     rollout = Rollout(
         envs,
@@ -222,14 +264,6 @@ def train(
         device=device,
         tracer=tracer,
     )
-
-    if cfg.eval is not None:
-        if cfg.eval.run_on_first_step:
-            next_eval_step: Optional[int] = 0
-        else:
-            next_eval_step = cfg.eval.interval
-    else:
-        next_eval_step = None
 
     def _run_eval() -> None:
         if cfg.eval is not None:
@@ -253,13 +287,17 @@ def train(
                 )
 
     start_time = time.time()
-    for update in range(1, num_updates + 1):
+    num_updates = cfg.total_timesteps // (cfg.rollout.num_envs * cfg.rollout.steps)
+    initial_step = state.step
+    for update in range(
+        1 + initial_step // (cfg.rollout.num_envs * cfg.rollout.steps), num_updates + 1
+    ):
         if (
             cfg.eval is not None
-            and next_eval_step is not None
-            and rollout.global_step * parallelism >= next_eval_step
+            and state.next_eval_step is not None
+            and rollout.global_step * parallelism >= state.next_eval_step
         ):
-            next_eval_step += cfg.eval.interval
+            state.next_eval_step += cfg.eval.interval
             _run_eval()
 
         tracer.start("update")
@@ -288,7 +326,7 @@ def train(
             cfg.rollout.steps, record_samples=True, capture_logits=cfg.capture_logits
         )
 
-        global_step = rollout.global_step * parallelism
+        global_step = rollout.global_step * parallelism + initial_step
 
         if parallelism > 1:
             for metric in metrics.values():
@@ -310,7 +348,6 @@ def train(
                 writer.add_scalar(f"{name}.max", value.max, global_step)
                 writer.add_scalar(f"{name}.min", value.min, global_step)
                 writer.add_scalar(f"{name}.count", value.count, global_step)
-
             # Double log these to remain compatible with old naming scheme
             # TODO: remove before release
             writer.add_scalar(
@@ -512,6 +549,7 @@ def train(
             )
             writer.add_scalar("losses/gradnorm", gradnorm, global_step)
             writer.add_scalar("losses/vf_gradnorm", vf_gradnorm, global_step)
+            writer.add_scalar("restart", state.restart, global_step)
             # TODO: aggregate actions across ranks
             for action_name, space in action_space.items():
                 if isinstance(space, CategoricalActionSpace):
@@ -523,9 +561,13 @@ def train(
                                 np.sum(_actions == i).item() / len(_actions),
                                 global_step,
                             )
-            print("SPS:", int(global_step / (time.time() - start_time)))
+            print(
+                "SPS:", int((global_step - initial_step) / (time.time() - start_time))
+            )
             writer.add_scalar(
-                "charts/SPS", int(global_step / (time.time() - start_time)), global_step
+                "charts/SPS",
+                int((global_step - initial_step) / (time.time() - start_time)),
+                global_step,
             )
         tracer.end("metrics")
         tracer.end("update")
@@ -533,6 +575,10 @@ def train(
         if rank == 0:
             for callstack, timing in traces.items():
                 writer.add_scalar(f"trace/{callstack}", timing, global_step)
+
+        state.step = global_step
+        with tracer.span("checkpoint"):
+            state_manager.step()
 
     if cfg.eval is not None:
         _run_eval()
@@ -570,13 +616,64 @@ def gradient_allreduce(model: Any) -> None:
             offset += param.numel()
 
 
-def _train(cfg: TrainConfig) -> float:
-    return train(cfg, ENV_REGISTRY[cfg.env.id])
+def _create_agent(cfg: TrainConfig, env_cls: Type[Environment]) -> SerializableRogueNet:
+    return SerializableRogueNet(
+        cfg.net,
+        env_cls.obs_space(),
+        env_cls.action_space(),
+        regression_heads={"value": 1},
+    )
 
 
-@hyperstate.command(TrainConfig)
-def _main(cfg: TrainConfig) -> None:
-    _train(cfg)
+def initialize(cfg: TrainConfig, ctx: Dict[str, Any]) -> State:
+    if cfg.eval is not None:
+        if cfg.eval.run_on_first_step:
+            next_eval_step: Optional[int] = 0
+        else:
+            next_eval_step = cfg.eval.interval
+    else:
+        next_eval_step = None
+
+    if ctx.get("agent") is not None:
+        agent: SerializableRogueNet = ctx["agent"]
+    else:
+        agent = _create_agent(cfg, ctx["env_cls"])
+    optimizer = SerializableAdamW(
+        agent.parameters(),
+        lr=cfg.optim.lr,
+        weight_decay=cfg.optim.weight_decay,
+        eps=1e-5,
+    )
+
+    if cfg.vf_net is not None:
+        value_function: Optional[SerializableRogueNet] = _create_agent(
+            cfg, ctx["env_cls"]
+        )
+        vf_optimizer: Optional[SerializableAdamW] = SerializableAdamW(
+            value_function.parameters(),  # type: ignore
+            lr=cfg.optim.lr,
+            weight_decay=cfg.optim.weight_decay,
+            eps=1e-5,
+        )
+    else:
+        value_function = None
+        vf_optimizer = None
+
+    return State(
+        step=0,
+        restart=0,
+        next_eval_step=next_eval_step,
+        agent=agent,
+        value_function=value_function,
+        optimizer=optimizer,
+        vf_optimizer=vf_optimizer,
+    )
+
+
+@hyperstate.stateful_command(TrainConfig, State, initialize)
+def _main(state_manager: StateManager) -> None:
+    env_cls = ENV_REGISTRY[state_manager.config.env.id]
+    train(state_manager, env_cls)
 
 
 if __name__ == "__main__":

@@ -1,4 +1,4 @@
-from typing import Dict, Mapping, Optional, Tuple
+from typing import Any, Dict, Mapping, Optional, Tuple
 
 import numpy as np
 import numpy.typing as npt
@@ -20,7 +20,13 @@ class CCNetAdapter(nn.Module):
     def __init__(self, device: str, load_from: Optional[str] = None) -> None:
         super().__init__()
         if load_from is not None:
-            self.network = Trainer(load_from).state.policy.to(device)
+            self.network = StateManager(
+                Config,
+                State,
+                initial_state,
+                init_path=load_from,
+                ignore_extra_fields=True,
+            ).state.policy.to(device)
         else:
             self.network = TransformerPolicy8HS(
                 PolicyConfig(
@@ -195,7 +201,7 @@ from dataclasses import dataclass
 from typing import Optional
 
 import hyperstate
-from hyperstate import HyperState
+from hyperstate import StateManager
 
 from enn_zoo.codecraft.codecraftnet.codecraftnet import TransformerPolicy8HS
 from enn_zoo.codecraft.codecraftnet.config import Config
@@ -209,12 +215,5 @@ class State(hyperstate.Lazy):
     policy: TransformerPolicy8HS
 
 
-class Trainer(HyperState[Config, State]):
-    def __init__(
-        self,
-        initial_config: str,
-    ):
-        super().__init__(Config, State, initial_config, ignore_extra_fields=True)
-
-    def initial_state(self) -> State:
-        raise NotImplementedError()
+def initial_state(config: Config, ctx: Dict[str, Any]) -> State:
+    raise NotImplementedError()
