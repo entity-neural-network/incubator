@@ -61,9 +61,9 @@ class Rollout:
         """
         if record_samples:
             if self.rewards.shape != (steps, len(self.envs)):
-                self.rewards = torch.zeros((steps, len(self.envs))).to(self.device)
-                self.dones = torch.zeros((steps, len(self.envs))).to(self.device)
-                self.values = torch.zeros((steps, len(self.envs))).to(self.device)
+                self.rewards = torch.zeros((steps, len(self.envs)), device=self.device)
+                self.dones = torch.zeros((steps, len(self.envs)), device=self.device)
+                self.values = torch.zeros((steps, len(self.envs)), device=self.device)
             self.entities.clear()
             self.visible.clear()
             self.action_masks.clear()
@@ -81,7 +81,7 @@ class Rollout:
 
         if self.next_obs is None or self.next_done is None:
             next_obs = self.envs.reset(self.obs_space)
-            next_done = torch.zeros(len(self.envs)).to(self.device)
+            next_done = torch.zeros(len(self.envs), device=self.device)
         else:
             next_obs = self.next_obs
             next_done = self.next_done
