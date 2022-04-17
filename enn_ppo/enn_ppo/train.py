@@ -132,15 +132,6 @@ def train(
     cfg = state_manager.config
     cuda = torch.cuda.is_available() and cfg.cuda
     device = torch.device("cuda" if cuda else "cpu")
-    state_manager.set_deserialize_ctx("env_cls", env_cls)
-    state_manager.set_deserialize_ctx("agent", agent)
-    state = state_manager.state
-    if state.step > 0:
-        state.restart += 1
-    agent = state.agent.to(device)
-    optimizer = state.optimizer
-    value_function = state.value_function
-    vf_optimizer = state.vf_optimizer
 
     assert cfg.rollout.num_envs * cfg.rollout.steps >= cfg.optim.bs, (
         "Number of frames per rollout is smaller than batch size: "
@@ -228,6 +219,16 @@ def train(
     np.random.seed(cfg.seed)
     torch.manual_seed(cfg.seed)
     torch.backends.cudnn.deterministic = cfg.torch_deterministic
+
+    state_manager.set_deserialize_ctx("env_cls", env_cls)
+    state_manager.set_deserialize_ctx("agent", agent)
+    state = state_manager.state
+    if state.step > 0:
+        state.restart += 1
+    agent = state.agent.to(device)
+    optimizer = state.optimizer
+    value_function = state.value_function
+    vf_optimizer = state.vf_optimizer
 
     tracer = Tracer(cuda=cuda)
 
