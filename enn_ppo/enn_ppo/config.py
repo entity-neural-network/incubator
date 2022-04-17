@@ -3,7 +3,7 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 
 import hyperstate
-from hyperstate.schema.rewrite_rule import RewriteRule, ChangeDefault
+from hyperstate.schema.rewrite_rule import ChangeDefault, RewriteRule
 
 from rogue_net.rogue_net import RogueNetConfig
 
