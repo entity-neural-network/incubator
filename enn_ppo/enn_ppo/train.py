@@ -180,20 +180,70 @@ def train(
     data_path.mkdir(parents=True, exist_ok=True)
     data_dir = str(data_path)
 
-    if cfg.track and rank == 0:
-        import wandb
+    random.seed(cfg.seed)
+    np.random.seed(cfg.seed)
+    torch.manual_seed(cfg.seed)
+    torch.backends.cudnn.deterministic = cfg.torch_deterministic
 
-        wandb.init(
-            project=cfg.wandb_project_name,
-            entity=cfg.wandb_entity,
-            sync_tensorboard=True,
-            config=config,
-            name=run_name,
-            save_code=True,
-            dir=data_dir,
-        )
+    if create_env is None:
+        create_env = _env_factory(env_cls)
+    envs: VecEnv = AddMetricsWrapper(
+        create_env(
+            cfg.env,
+            cfg.rollout.num_envs // parallelism,
+            cfg.rollout.processes,
+            rank * cfg.rollout.num_envs // parallelism,
+        ),
+    )
+    obs_space = env_cls.obs_space()
+    action_space = env_cls.action_space()
+
+    state_manager.set_deserialize_ctx("env_cls", env_cls)
+    state_manager.set_deserialize_ctx("agent", agent)
+    state = state_manager.state
+    if state.step > 0:
+        state.restart += 1
+    agent = state.agent.to(device)
+    optimizer = state.optimizer
+    value_function = state.value_function
+    if value_function is not None:
+        value_function = value_function.to(device)
+    vf_optimizer = state.vf_optimizer
+
+    tracer = Tracer(cuda=cuda)
+
+    if cfg.capture_samples and rank == 0:
+        if out_dir is None:
+            sample_file = cfg.capture_samples
+        else:
+            sample_file = os.path.join(out_dir, cfg.capture_samples)
+        envs = SampleRecordingVecEnv(envs, sample_file, cfg.capture_samples_subsample)
+
+    rollout = Rollout(
+        envs,
+        obs_space=obs_space,
+        action_space=action_space,
+        agent=agent,
+        value_function=value_function,
+        device=device,
+        tracer=tracer,
+    )
 
     if rank == 0:
+        if cfg.track:
+            import wandb
+
+            wandb.init(
+                project=cfg.wandb_project_name,
+                entity=cfg.wandb_entity,
+                sync_tensorboard=True,
+                config=config,
+                name=run_name,
+                save_code=True,
+                dir=data_dir,
+            )
+            wandb.watch(agent)
+
         writer = SummaryWriter(os.path.join(data_dir, f"runs/{run_name}"))
 
         def flatten(config: Dict[str, Any], prefix: str = "") -> Dict[str, Any]:
@@ -214,56 +264,6 @@ def train(
                 )
             ),
         )
-
-    random.seed(cfg.seed)
-    np.random.seed(cfg.seed)
-    torch.manual_seed(cfg.seed)
-    torch.backends.cudnn.deterministic = cfg.torch_deterministic
-
-    state_manager.set_deserialize_ctx("env_cls", env_cls)
-    state_manager.set_deserialize_ctx("agent", agent)
-    state = state_manager.state
-    if state.step > 0:
-        state.restart += 1
-    agent = state.agent.to(device)
-    optimizer = state.optimizer
-    value_function = state.value_function
-    vf_optimizer = state.vf_optimizer
-
-    tracer = Tracer(cuda=cuda)
-
-    if create_env is None:
-        create_env = _env_factory(env_cls)
-    envs: VecEnv = AddMetricsWrapper(
-        create_env(
-            cfg.env,
-            cfg.rollout.num_envs // parallelism,
-            cfg.rollout.processes,
-            rank * cfg.rollout.num_envs // parallelism,
-        ),
-    )
-    obs_space = env_cls.obs_space()
-    action_space = env_cls.action_space()
-
-    if cfg.capture_samples and rank == 0:
-        if out_dir is None:
-            sample_file = cfg.capture_samples
-        else:
-            sample_file = os.path.join(out_dir, cfg.capture_samples)
-        envs = SampleRecordingVecEnv(envs, sample_file, cfg.capture_samples_subsample)
-
-    if cfg.track and rank == 0:
-        wandb.watch(agent)
-
-    rollout = Rollout(
-        envs,
-        obs_space=obs_space,
-        action_space=action_space,
-        agent=agent,
-        value_function=value_function,
-        device=device,
-        tracer=tracer,
-    )
 
     def _run_eval() -> None:
         if cfg.eval is not None:

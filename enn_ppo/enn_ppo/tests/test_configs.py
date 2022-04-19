@@ -26,4 +26,5 @@ def test_configs() -> None:
     for subdir in ["entity-gym", "procgen"]:
         config_dir = Path(__file__).parent.parent.parent.parent / "configs" / subdir
         for config_file in listdir(config_dir):
+            print(config_file)
             hyperstate.load(TrainConfig, config_dir / config_file)

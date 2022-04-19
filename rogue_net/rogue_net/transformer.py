@@ -87,7 +87,9 @@ class RaggedAttention(nn.Module):
     explicit implementation here to show that there is nothing too scary here.
     """
 
-    def __init__(self, config: TransformerConfig) -> None:
+    def __init__(
+        self, config: TransformerConfig, relpos_encoding: Optional[RelposEncoding]
+    ) -> None:
         super().__init__()
         assert config.d_model % config.n_head == 0
         # key, query, value projections for all heads
@@ -100,13 +102,13 @@ class RaggedAttention(nn.Module):
         # output projection
         self.proj = nn.Linear(config.d_model, config.d_model)
         self.n_head = config.n_head
+        self.relpos_encoding = relpos_encoding
 
     def forward(
         self,
         x: torch.Tensor,
         batch_index: torch.Tensor,
         shape: RaggedBufferI64,
-        relkeysvals: Optional[Tuple[torch.Tensor, torch.Tensor, torch.Tensor]] = None,
         visible: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
         # For more details on the implementation, see: https://github.com/entity-neural-network/incubator/pull/119
@@ -161,14 +163,8 @@ class RaggedAttention(nn.Module):
         att = (q @ k.transpose(-2, -1)) * (1.0 / math.sqrt(k.size(-1)))
 
         # Relative positional encoding (keys)
-        if relkeysvals is not None:
-            relkeys = relkeysvals[0]  #       (B, T, T, hs)
-            # Broadcast and sum over last dimension (dot product of queries with relative keys)
-            # TODO: check
-            relatt = torch.einsum("bhsd,bstd->bhst", q, relkeys) * (
-                1.0 / math.sqrt(k.size(-1))
-            )  # (B, nh, T, T)
-            att += relatt
+        if self.relpos_encoding is not None:
+            att += self.relpos_encoding.relattn_logits(q)
 
         if attn_mask is not None:
             att = att.masked_fill(attn_mask, -1e9)
@@ -177,10 +173,8 @@ class RaggedAttention(nn.Module):
         y = att @ v  # (B, nh, T, T) x (B, nh, T, hs) -> (B, nh, T, hs)
 
         # Relative positional encoding (values)
-        if relkeysvals is not None:
-            relvals = relkeysvals[1]  #       (B, T_query, T_target, hs)
-            rely = torch.einsum("bhst,bstd->bhsd", att, relvals)  # (B, nh, T, T)
-            y += rely
+        if self.relpos_encoding is not None:
+            y += self.relpos_encoding.relpos_values(att, x)
 
         y = (
             y.transpose(1, 2).contiguous().view(B, T, C)
@@ -195,14 +189,16 @@ class RaggedAttention(nn.Module):
 
 
 class Block(nn.Module):
-    def __init__(self, config: TransformerConfig) -> None:
+    def __init__(
+        self, config: TransformerConfig, relpos_encoding: Optional[RelposEncoding]
+    ) -> None:
         super().__init__()
         self.ln1 = nn.LayerNorm(config.d_model)
         self.ln2 = nn.LayerNorm(config.d_model)
         if config.pooling is not None:
             self.attn: Union[Pool, RaggedAttention] = Pool(config)
         else:
-            self.attn = RaggedAttention(config)
+            self.attn = RaggedAttention(config, relpos_encoding)
         self.mlp = nn.Sequential(
             nn.Linear(config.d_model, 4 * config.d_model),
             nn.GELU(),
@@ -215,10 +211,9 @@ class Block(nn.Module):
         x: torch.Tensor,
         batch_index: torch.Tensor,
         shape: RaggedBufferI64,
-        relkeysvals: Optional[Tuple[torch.Tensor, torch.Tensor, torch.Tensor]] = None,
         visible: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
-        x = x + self.attn(self.ln1(x), batch_index, shape, relkeysvals, visible)
+        x = x + self.attn(self.ln1(x), batch_index, shape, visible)
         x = x + self.mlp(self.ln2(x))
         return x
 
@@ -227,16 +222,19 @@ class Transformer(nn.Module):
     def __init__(self, config: TransformerConfig, obs_space: ObsSpace) -> None:
         super().__init__()
 
-        self.drop = nn.Dropout(config.embd_pdrop)
-        self.blocks = nn.Sequential(*[Block(config) for _ in range(config.n_layer)])
         if config.relpos_encoding is not None:
             self.relpos_encoding: Optional[RelposEncoding] = RelposEncoding(
                 config.relpos_encoding,
                 obs_space,
+                dmodel=config.d_model,
                 dhead=config.d_model // config.n_head,
             )
         else:
             self.relpos_encoding = None
+        self.drop = nn.Dropout(config.embd_pdrop)
+        self.blocks = nn.Sequential(
+            *[Block(config, self.relpos_encoding) for _ in range(config.n_layer)]
+        )
 
         self.apply(self._init_weights)
 
@@ -283,9 +281,10 @@ class Transformer(nn.Module):
                 shape,
                 entity_type,
             )
+            self.relpos_encoding.cached_rkvs = relkeysvals
         else:
             relkeysvals = None
 
         for block in self.blocks:
-            x = block(x, batch_index, shape, relkeysvals, visible)
+            x = block(x, batch_index, shape, visible)
         return x

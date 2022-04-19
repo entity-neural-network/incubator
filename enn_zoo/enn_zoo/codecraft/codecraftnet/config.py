@@ -473,7 +473,9 @@ class Config(Versioned):
             ],
             2: [
                 ChangeDefault(
-                    field=("task", "mothership_damage_scale"), new_default=0.0
+                    field=("task", "mothership_damage_scale"),
+                    old_default=4.0,
+                    new_default=0.0,
                 ),
             ],
             3: [

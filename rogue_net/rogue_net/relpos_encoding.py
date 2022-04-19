@@ -1,9 +1,10 @@
 import math
 from dataclasses import dataclass, field
-from typing import List, Mapping, Optional, Tuple
+from typing import List, Literal, Mapping, Optional, Tuple
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from ragged_buffer import RaggedBufferI64
 
 from entity_gym.environment import ObsSpace
@@ -33,7 +34,7 @@ class RelposEncodingConfig:
     extent: List[int]
     position_features: List[str]
     scale: float = 1.0
-    per_entity_values: bool = True
+    per_entity_values: bool = False
     exclude_entities: List[str] = field(default_factory=list)
     value_relpos_projection: bool = False
     key_relpos_projection: bool = False
@@ -43,6 +44,7 @@ class RelposEncodingConfig:
     rotation_vec_features: Optional[List[str]] = None
     rotation_angle_feature: Optional[str] = None
     interpolate: bool = False
+    value_gate: Literal["linear", "relu", "gelu", "sigmoid", None] = "relu"
 
     def __post_init__(self) -> None:
         if self.radial and self.distance:
@@ -72,7 +74,7 @@ class RelposEncodingConfig:
 
 class RelposEncoding(nn.Module, RelposEncodingConfig):
     def __init__(
-        self, config: RelposEncodingConfig, obs_space: ObsSpace, dhead: int
+        self, config: RelposEncodingConfig, obs_space: ObsSpace, dmodel: int, dhead: int
     ) -> None:
         nn.Module.__init__(self)
         RelposEncodingConfig.__init__(self, **config.__dict__)
@@ -167,6 +169,36 @@ class RelposEncoding(nn.Module, RelposEncodingConfig):
                 self.kproj = nn.Linear(3, dhead)
         if self.key_relpos_projection or self.value_relpos_projection:
             self.relpos_norm = InputNorm(3)
+        if self.value_gate is not None:
+            self.value_gate_proj = nn.Linear(dmodel, dhead)
+        self.cached_rkvs: Optional[Tuple[torch.Tensor, torch.Tensor]] = None
+
+    def relattn_logits(self, queries: torch.Tensor) -> torch.Tensor:
+        assert self.cached_rkvs is not None
+        relkeys = self.cached_rkvs[0]  #       (B, T, T, dhead)
+        # Broadcast and sum over last dimension (dot product of queries with relative keys)
+        relattn: torch.Tensor = torch.einsum("bhsd,bstd->bhst", queries, relkeys) * (
+            1.0 / math.sqrt(relkeys.size(-1))
+        )  # (B, nh, T, T)
+        return relattn
+
+    def relpos_values(self, att: torch.Tensor, x: torch.Tensor) -> torch.Tensor:
+        assert self.cached_rkvs is not None
+        relvals = self.cached_rkvs[1]  #       (B, T_query, T_target, dhead)
+        if self.value_gate is not None:
+            vgate = self.value_gate_proj(x)  # (B, T_target, dhead)
+            if self.value_gate == "relu":
+                vgate = F.relu(vgate)
+            elif self.value_gate == "gelu":
+                vgate = F.gelu(vgate)
+            elif self.value_gate == "sigmoid":
+                vgate = torch.sigmoid(vgate)
+
+            relvals = torch.einsum("bqtd,btd->bqtd", relvals, vgate)
+        rely: torch.Tensor = torch.einsum(
+            "bhst,bstd->bhsd", att, relvals
+        )  # (B, nh, T, T)
+        return rely
 
     def keys_values(
         self,
@@ -285,8 +317,8 @@ class RelposEncoding(nn.Module, RelposEncodingConfig):
             size1 = shape.size1(0) if len(tpos) > 0 else 0
             tpos = tpos.reshape(shape.size0(), size1, 2)
             entity_type = entity_type.reshape(shape.size0(), size1, 1)
-        # Batch x Seq(k) x Seq(q) x Pos relative positions
-        return tpos.unsqueeze(1) - tpos.unsqueeze(2), entity_type
+        # Batch x Seq(q) x Seq(k) x Pos relative positions
+        return tpos.unsqueeze(2) - tpos.unsqueeze(1), entity_type
 
     def _orientations(
         self,
@@ -338,7 +370,7 @@ class RelposEncoding(nn.Module, RelposEncodingConfig):
 
     def _partition(
         self,
-        relative_positions: torch.Tensor,  # Batch x Seq(k) x Seq(q) x Pos relative positions
+        relative_positions: torch.Tensor,  # Batch x Seq(q) x Seq(k) x Pos relative positions
         torientation: Optional[torch.Tensor],
     ) -> torch.Tensor:
         """
@@ -355,7 +387,7 @@ class RelposEncoding(nn.Module, RelposEncodingConfig):
 
     def _interpolated_partition(
         self,
-        relative_positions: torch.Tensor,  # Batch x Seq(k) x Seq(q) x Pos relative positions
+        relative_positions: torch.Tensor,  # Batch x Seq(q) x Seq(k) x Pos relative positions
         torientation: Optional[torch.Tensor],
     ) -> List[Tuple[torch.Tensor, torch.Tensor]]:
         """

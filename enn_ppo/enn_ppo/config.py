@@ -1,8 +1,9 @@
 import os
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Dict, List, Optional
 
 import hyperstate
+from hyperstate.schema.rewrite_rule import ChangeDefault, RewriteRule
 
 from rogue_net.rogue_net import RogueNetConfig
 
@@ -177,7 +178,24 @@ class TrainConfig(hyperstate.Versioned):
 
     @classmethod
     def version(clz) -> int:
-        return 0
+        return 1
+
+    @classmethod
+    def upgrade_rules(clz) -> Dict[int, List[RewriteRule]]:
+        return {
+            0: [
+                ChangeDefault(
+                    field=("net", "relpos_encoding", "per_entity_values"),
+                    old_default=True,
+                    new_default=False,
+                ),
+                ChangeDefault(
+                    field=("vf_net", "relpos_encoding", "per_entity_values"),
+                    old_default=True,
+                    new_default=False,
+                ),
+            ],
+        }
 
 
 if __name__ == "__main__":
