@@ -158,12 +158,10 @@ class DoomEntityEnvironment(Environment):
                 self._action_space[action] = CategoricalActionSpace(["off", "on"])
             self._action_mask[action] = CategoricalActionMask(actor_ids=[0], mask=None)
 
-    def obs_space(self) -> ObsSpace:  # type: ignore
+    def obs_space(self) -> ObsSpace:
         return self._observation_space
 
-    def action_space(  # type: ignore
-        self,
-    ) -> Dict[str, ActionSpace]:
+    def action_space(self) -> Dict[str, ActionSpace]:
         return self._action_space
 
     def _build_state(self, state: Any, reward: float, terminal: bool) -> Observation:

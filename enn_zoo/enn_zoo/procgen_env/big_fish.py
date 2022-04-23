@@ -10,14 +10,11 @@ class BigFish(BaseEnv):
     def __init__(self, distribution_mode: str = "hard") -> None:
         super().__init__("bigfish", distribution_mode)
 
-    @classmethod
-    def _global_feats(cls) -> List[str]:
+    def _global_feats(self) -> List[str]:
         return BIG_FISH_FEATS
 
-    @classmethod
-    def deserialize_global_feats(cls, data: ByteBuffer) -> List[float]:
+    def deserialize_global_feats(self, data: ByteBuffer) -> List[float]:
         return [float(data.read_int()), data.read_float()]
 
-    @classmethod
-    def _entity_types(cls) -> Dict[int, str]:
+    def _entity_types(self) -> Dict[int, str]:
         return {2: "Fish"}

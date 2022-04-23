@@ -24,20 +24,8 @@ def create_vizdoom_env(
     Copied from the Griddly code.
     """
 
-    env = DoomEntityEnvironment(config_file_path)
-    observation_space = env._observation_space
-    action_space = env._action_space
-
     class InstantiatedDoomEntityEnvironment(DoomEntityEnvironment):
         def __init__(self, frame_skip: int = 4):
             super().__init__(config_file_path, frame_skip)
-
-        @classmethod
-        def obs_space(cls) -> ObsSpace:
-            return observation_space
-
-        @classmethod
-        def action_space(cls) -> Dict[str, ActionSpace]:
-            return action_space
 
     return InstantiatedDoomEntityEnvironment

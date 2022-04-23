@@ -60,12 +60,10 @@ class BossFight(BaseEnv):
     def __init__(self, distribution_mode: str = "hard") -> None:
         super().__init__("bossfight", distribution_mode)
 
-    @classmethod
-    def _global_feats(cls) -> List[str]:
+    def _global_feats(self) -> List[str]:
         return BOSS_FIGHT_FEATS
 
-    @classmethod
-    def deserialize_global_feats(cls, data: ByteBuffer) -> List[float]:
+    def deserialize_global_feats(self, data: ByteBuffer) -> List[float]:
         # Skip attack modes
         data.read_array(elem_size=4)
         feats = [
@@ -96,8 +94,7 @@ class BossFight(BaseEnv):
         # assert len(data.data) == data.offset
         return feats
 
-    @classmethod
-    def _entity_types(cls) -> Dict[int, str]:
+    def _entity_types(self) -> Dict[int, str]:
         return {
             1: "PlayerBullet",
             2: "Boss",
