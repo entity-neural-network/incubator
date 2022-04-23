@@ -1,10 +1,9 @@
 import math
 import time
-from abc import abstractmethod
 from collections import defaultdict
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Callable, Dict, List, Mapping, Optional, Tuple, Type, Union
+from typing import Any, Callable, Dict, List, Mapping, Optional, Tuple, Union
 
 import numpy as np
 import numpy.typing as npt
@@ -12,13 +11,11 @@ from ragged_buffer import RaggedBufferBool, RaggedBufferF32, RaggedBufferI64
 
 from enn_zoo.codecraft import rest_client
 from enn_zoo.codecraft.rest_client import ObsConfig, Rules
-from entity_gym.environment import Environment, ObsSpace, VecEnv
+from entity_gym.environment import ObsSpace, VecEnv
 from entity_gym.environment.environment import (
-    Action,
     ActionSpace,
     CategoricalActionSpace,
     Entity,
-    Observation,
 )
 from entity_gym.environment.vec_env import Metric, VecCategoricalActionMask, VecObs
 

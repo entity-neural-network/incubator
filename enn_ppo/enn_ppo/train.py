@@ -30,7 +30,6 @@ from entity_gym.serialization import SampleRecordingVecEnv
 from entity_gym.simple_trace import Tracer
 from rogue_net.rogue_net import RogueNet
 
-
 EnvFactory = Callable[[EnvConfig, int, int, int], VecEnv]
 
 

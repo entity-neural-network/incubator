@@ -1,7 +1,7 @@
 import copy
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Dict, List, Mapping, Optional, Type, Union, overload
+from typing import Any, Dict, List, Mapping, Optional, Union, overload
 
 import numpy as np
 import numpy.typing as npt
@@ -12,7 +12,6 @@ from entity_gym.environment.environment import (
     ActionType,
     CategoricalActionSpace,
     EntityType,
-    Environment,
     Observation,
     ObsSpace,
     SelectEntityActionSpace,

@@ -1,15 +1,10 @@
-from typing import Any, Dict, Mapping, Optional, Type
+from typing import Any, Dict, Mapping, Optional
 
 import numpy as np
 import numpy.typing as npt
 from ragged_buffer import RaggedBufferI64
 
-from entity_gym.environment.environment import (
-    ActionSpace,
-    ActionType,
-    Environment,
-    ObsSpace,
-)
+from entity_gym.environment.environment import ActionSpace, ActionType, ObsSpace
 from entity_gym.environment.vec_env import Metric, VecEnv, VecObs
 
 

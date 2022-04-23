@@ -1,4 +1,4 @@
-from typing import Callable, List, Mapping, Optional, Tuple, Type, Union
+from typing import Callable, List, Mapping, Optional, Tuple, Union
 
 import numpy as np
 import numpy.typing as npt

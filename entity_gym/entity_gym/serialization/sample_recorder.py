@@ -1,12 +1,12 @@
 from dataclasses import dataclass
-from typing import Any, Dict, List, Mapping, Optional, Type
-from entity_gym.environment.environment import ActionType
+from typing import Any, Dict, List, Mapping, Optional
 
 import msgpack_numpy
 import numpy as np
 from ragged_buffer import RaggedBufferF32, RaggedBufferI64
 
-from entity_gym.environment import ActionSpace, Environment, ObsSpace, VecEnv, VecObs
+from entity_gym.environment import ActionSpace, ObsSpace, VecEnv, VecObs
+from entity_gym.environment.environment import ActionType
 from entity_gym.serialization.msgpack_ragged import (
     ragged_buffer_decode,
     ragged_buffer_encode,

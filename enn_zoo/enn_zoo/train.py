@@ -2,7 +2,6 @@ import json
 from contextlib import ExitStack
 from dataclasses import dataclass
 from typing import Callable, Mapping, Optional, Type, Union
-from enn_zoo.codecraft import cc_vec_env
 
 import hyperstate
 import torch

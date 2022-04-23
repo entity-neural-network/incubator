@@ -1,8 +1,7 @@
 import os
-from typing import Dict, Type
+from typing import Type
 
 from enn_zoo.vizdoom_env.vizdoom_environment import DoomEntityEnvironment
-from entity_gym.environment import ActionSpace, ObsSpace
 
 init_path = os.path.dirname(os.path.realpath(__file__))
 VIZDOOM_ENVS = {
