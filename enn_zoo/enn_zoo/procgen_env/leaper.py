@@ -32,12 +32,10 @@ class Leaper(BaseEnv):
     def __init__(self, distribution_mode: str = "hard") -> None:
         super().__init__("leaper", distribution_mode)
 
-    @classmethod
-    def _global_feats(cls) -> List[str]:
+    def _global_feats(self) -> List[str]:
         return LEAPER_FEATS
 
-    @classmethod
-    def deserialize_global_feats(cls, data: ByteBuffer) -> List[float]:
+    def deserialize_global_feats(self, data: ByteBuffer) -> List[float]:
         bottom_road_y = float(data.read_int())
         road_lane_speeds = data.read_float_array()
         bottom_water_y = float(data.read_int())
@@ -65,8 +63,7 @@ class Leaper(BaseEnv):
             goal_y,
         ]
 
-    @classmethod
-    def _entity_types(cls) -> Dict[int, str]:
+    def _entity_types(self) -> Dict[int, str]:
         # const int LOG = 1;
         # const int ROAD = 2;
         # const int WATER = 3;

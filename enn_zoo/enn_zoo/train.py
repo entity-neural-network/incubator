@@ -1,7 +1,7 @@
 import json
 from contextlib import ExitStack
 from dataclasses import dataclass
-from typing import Mapping, Optional
+from typing import Callable, Mapping, Optional, Type, Union
 
 import hyperstate
 import torch
@@ -12,7 +12,7 @@ import enn_ppo.config as config
 from enn_ppo.agent import PPOAgent
 from enn_ppo.train import State, initialize, train
 from enn_zoo import griddly_env
-from enn_zoo.codecraft.cc_vec_env import CodeCraftVecEnv, codecraft_env_class
+from enn_zoo.codecraft.cc_vec_env import CodeCraftVecEnv
 from enn_zoo.codecraft.codecraftnet.adapter import CCNetAdapter
 from enn_zoo.griddly_env import GRIDDLY_ENVS
 from enn_zoo.microrts import GymMicrorts
@@ -69,26 +69,26 @@ def load_codecraft_policy(
 def main(state_manager: StateManager) -> None:
     cfg = state_manager.config
     if cfg.env.id in ENV_REGISTRY:
-        env_cls = ENV_REGISTRY[cfg.env.id]
+        env: Union[
+            Type[Environment], Callable[[config.EnvConfig, int, int, int], VecEnv]
+        ] = ENV_REGISTRY[cfg.env.id]
     elif cfg.env.id in GRIDDLY_ENVS:
-        env_cls = griddly_env.create_env(**GRIDDLY_ENVS[cfg.env.id])
+        env = griddly_env.create_env(**GRIDDLY_ENVS[cfg.env.id])
     elif cfg.env.id == "CodeCraft":
-        objective = json.loads(cfg.env.kwargs).get("objective", "ALLIED_WEALTH")
-        hidden_obs = json.loads(cfg.env.kwargs).get("hidden_obs", False)
-        env_cls = codecraft_env_class(objective, hidden_obs)
+        env = create_cc_env
     elif cfg.env.id == "GymMicrorts":
-        env_cls = GymMicrorts
+        env = GymMicrorts
     elif cfg.env.id.startswith("Procgen"):
         if cfg.env.id == "Procgen:BigFish":
-            env_cls = BigFish
+            env = BigFish
         elif cfg.env.id == "Procgen:BossFight":
-            env_cls = BossFight
+            env = BossFight
         elif cfg.env.id == "Procgen:StarPilot":
-            env_cls = StarPilot
+            env = StarPilot
         elif cfg.env.id == "Procgen:Leaper":
-            env_cls = Leaper
+            env = Leaper
         elif cfg.env.id == "Procgen:Plunder":
-            env_cls = Plunder
+            env = Plunder
         else:
             raise NotImplementedError(f"Unknown procgen env: {cfg.env.id}")
     else:
@@ -96,7 +96,7 @@ def main(state_manager: StateManager) -> None:
             from enn_zoo import vizdoom_env
             from enn_zoo.vizdoom_env import VIZDOOM_ENVS
 
-            env_cls = vizdoom_env.create_vizdoom_env(VIZDOOM_ENVS[cfg.env.id])
+            env = vizdoom_env.create_vizdoom_env(VIZDOOM_ENVS[cfg.env.id])
         except ImportError:
             raise KeyError(
                 f"Unknown gym_id: {cfg.env.id}\nAvailable environments: {list(ENV_REGISTRY.keys()) + list(GRIDDLY_ENVS.keys()) + ['CodeCraft']}"
@@ -111,9 +111,8 @@ def main(state_manager: StateManager) -> None:
             stack.enter_context(web_pdb.catch_post_mortem())
         train(
             state_manager=state_manager,
-            env_cls=env_cls,
+            env=env,
             agent=agent,
-            create_env=create_cc_env if cfg.env.id == "CodeCraft" else None,
             create_opponent=load_codecraft_policy
             if cfg.env.id == "CodeCraft"
             else None,

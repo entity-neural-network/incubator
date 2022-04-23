@@ -52,12 +52,10 @@ class Plunder(BaseEnv):
     def __init__(self, distribution_mode: str = "hard") -> None:
         super().__init__("plunder", distribution_mode)
 
-    @classmethod
-    def _global_feats(cls) -> List[str]:
+    def _global_feats(self) -> List[str]:
         return PLUNDER_FEATS
 
-    @classmethod
-    def deserialize_global_feats(cls, data: ByteBuffer) -> List[float]:
+    def deserialize_global_feats(self, data: ByteBuffer) -> List[float]:
         last_fire_time = float(data.read_int())
         lane_directions = data.read_int_array()
         target_bools = data.read_int_array()
@@ -91,8 +89,7 @@ class Plunder(BaseEnv):
             min_agent_x,
         ]
 
-    @classmethod
-    def _entity_types(cls) -> Dict[int, str]:
+    def _entity_types(self) -> Dict[int, str]:
         return {
             1: "PlayerBullet",
             2: "TargetLegend",

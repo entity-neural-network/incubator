@@ -1,4 +1,4 @@
-from typing import Callable, List, Mapping, Optional, Tuple, Type, Union
+from typing import Callable, List, Mapping, Optional, Tuple, Union
 
 import numpy as np
 import numpy.typing as npt
@@ -19,7 +19,6 @@ def run_eval(
     cfg: EvalConfig,
     env_cfg: EnvConfig,
     rollout: RolloutConfig,
-    env_cls: Type[Environment],
     create_env: Callable[[EnvConfig, int, int, int], VecEnv],
     create_opponent: Callable[
         [str, ObsSpace, Mapping[str, ActionSpace], torch.device], PPOAgent
@@ -35,8 +34,18 @@ def run_eval(
     # TODO: metrics are biased towards short episodes
     processes = cfg.processes or rollout.processes
     num_envs = cfg.num_envs or rollout.num_envs
-    obs_space = env_cls.obs_space()
-    action_space = env_cls.action_space()
+
+    envs: VecEnv = AddMetricsWrapper(
+        create_env(
+            cfg.env or env_cfg,
+            num_envs // parallelism,
+            processes,
+            rank * num_envs // parallelism,
+        ),
+        metric_filter,
+    )
+    obs_space = envs.obs_space()
+    action_space = envs.action_space()
 
     assert num_envs % parallelism == 0, (
         "Number of eval environments must be divisible by parallelism: "
@@ -61,16 +70,6 @@ def run_eval(
             metric_filter = np.arange(num_envs // parallelism) % 2 == 0
     else:
         agents = agent
-
-    envs: VecEnv = AddMetricsWrapper(
-        create_env(
-            cfg.env or env_cfg,
-            num_envs // parallelism,
-            processes,
-            rank * num_envs // parallelism,
-        ),
-        metric_filter,
-    )
 
     if cfg.capture_samples:
         envs = SampleRecordingVecEnv(

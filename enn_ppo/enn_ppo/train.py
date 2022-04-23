@@ -1,11 +1,12 @@
 # adapted from https://github.com/vwxyzjn/cleanrl
+import inspect
 import json
 import os
 import random
 import time
 from dataclasses import asdict
 from pathlib import Path
-from typing import Any, Callable, Dict, Mapping, Optional, Type
+from typing import Any, Callable, Dict, Mapping, Optional, Type, Union
 
 import hyperstate
 import numpy as np
@@ -29,6 +30,8 @@ from entity_gym.serialization import SampleRecordingVecEnv
 from entity_gym.simple_trace import Tracer
 from rogue_net.rogue_net import RogueNet
 
+EnvFactory = Callable[[EnvConfig, int, int, int], VecEnv]
+
 
 class SerializableRogueNet(RogueNet, hyperstate.Serializable[TrainConfig, "State"]):
     def serialize(self) -> Any:
@@ -38,11 +41,12 @@ class SerializableRogueNet(RogueNet, hyperstate.Serializable[TrainConfig, "State
     def deserialize(
         clz, state_dict: Any, config: TrainConfig, state: "State", ctx: Dict[str, Any]
     ) -> "SerializableRogueNet":
-        env_cls: Type[Environment] = ctx["env_cls"]
+        obs_space: ObsSpace = ctx["obs_space"]
+        action_space: Dict[ActionType, ActionSpace] = ctx["action_space"]
         net = SerializableRogueNet(
             config.net,
-            env_cls.obs_space(),
-            env_cls.action_space(),
+            obs_space,
+            action_space,
             regression_heads={"value": 1},
         )
         net.load_state_dict(state_dict)
@@ -109,8 +113,7 @@ class State(hyperstate.Lazy):
 
 def train(
     state_manager: StateManager[TrainConfig, State],
-    env_cls: Type[Environment],
-    create_env: Optional[Callable[[EnvConfig, int, int, int], VecEnv]] = None,
+    env: Union[Type[Environment], EnvFactory],
     create_opponent: Optional[
         Callable[[str, ObsSpace, Mapping[str, ActionSpace], torch.device], PPOAgent]
     ] = None,
@@ -185,8 +188,10 @@ def train(
     torch.manual_seed(cfg.seed)
     torch.backends.cudnn.deterministic = cfg.torch_deterministic
 
-    if create_env is None:
-        create_env = _env_factory(env_cls)
+    if inspect.isclass(env) and issubclass(env, Environment):  # type: ignore
+        create_env: EnvFactory = _env_factory(env)  # type: ignore
+    else:
+        create_env = env  # type: ignore
     envs: VecEnv = AddMetricsWrapper(
         create_env(
             cfg.env,
@@ -195,10 +200,11 @@ def train(
             rank * cfg.rollout.num_envs // parallelism,
         ),
     )
-    obs_space = env_cls.obs_space()
-    action_space = env_cls.action_space()
+    obs_space = envs.obs_space()
+    action_space = envs.action_space()
 
-    state_manager.set_deserialize_ctx("env_cls", env_cls)
+    state_manager.set_deserialize_ctx("obs_space", obs_space)
+    state_manager.set_deserialize_ctx("action_space", action_space)
     state_manager.set_deserialize_ctx("agent", agent)
     state = state_manager.state
     if state.step > 0:
@@ -274,7 +280,6 @@ def train(
                     cfg.eval,
                     cfg.env,
                     cfg.rollout,
-                    env_cls,
                     create_env,
                     create_opponent or create_random_opponent,
                     agent,
@@ -616,11 +621,13 @@ def gradient_allreduce(model: Any) -> None:
             offset += param.numel()
 
 
-def _create_agent(cfg: TrainConfig, env_cls: Type[Environment]) -> SerializableRogueNet:
+def _create_agent(
+    cfg: TrainConfig, obs_space: ObsSpace, action_space: Dict[ActionType, ActionSpace]
+) -> SerializableRogueNet:
     return SerializableRogueNet(
         cfg.net,
-        env_cls.obs_space(),
-        env_cls.action_space(),
+        obs_space,
+        action_space,
         regression_heads={"value": 1},
     )
 
@@ -637,7 +644,7 @@ def initialize(cfg: TrainConfig, ctx: Dict[str, Any]) -> State:
     if ctx.get("agent") is not None:
         agent: SerializableRogueNet = ctx["agent"]
     else:
-        agent = _create_agent(cfg, ctx["env_cls"])
+        agent = _create_agent(cfg, ctx["obs_space"], ctx["action_space"])
     optimizer = SerializableAdamW(
         agent.parameters(),
         lr=cfg.optim.lr,
@@ -647,7 +654,7 @@ def initialize(cfg: TrainConfig, ctx: Dict[str, Any]) -> State:
 
     if cfg.vf_net is not None:
         value_function: Optional[SerializableRogueNet] = _create_agent(
-            cfg, ctx["env_cls"]
+            cfg, ctx["obs_space"], ctx["action_space"]
         )
         vf_optimizer: Optional[SerializableAdamW] = SerializableAdamW(
             value_function.parameters(),  # type: ignore

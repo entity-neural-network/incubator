@@ -53,35 +53,30 @@ class BaseEnv(Environment):
             distribution_mode=distribution_mode,
         )
 
-    @classmethod
     @abstractmethod
-    def _global_feats(cls) -> List[str]:
+    def _global_feats(self) -> List[str]:
         pass
 
-    @classmethod
     @abstractmethod
-    def deserialize_global_feats(cls, data: ByteBuffer) -> List[float]:
+    def deserialize_global_feats(self, data: ByteBuffer) -> List[float]:
         pass
 
-    @classmethod
     @abstractmethod
-    def _entity_types(cls) -> Dict[int, str]:
+    def _entity_types(self) -> Dict[int, str]:
         pass
 
-    @classmethod
-    def obs_space(cls) -> ObsSpace:
+    def obs_space(self) -> ObsSpace:
         return ObsSpace(
             {
-                "Player": Entity(features=ENTITY_FEATS + cls._global_feats()),
+                "Player": Entity(features=ENTITY_FEATS + self._global_feats()),
                 **{
-                    entity_type: Entity(features=ENTITY_FEATS + cls._global_feats())
-                    for entity_type in cls._entity_types().values()
+                    entity_type: Entity(features=ENTITY_FEATS + self._global_feats())
+                    for entity_type in self._entity_types().values()
                 },
             }
         )
 
-    @classmethod
-    def action_space(cls) -> Dict[ActionType, ActionSpace]:
+    def action_space(self) -> Dict[ActionType, ActionSpace]:
         return {
             "act": CategoricalActionSpace(
                 [
@@ -113,7 +108,7 @@ class BaseEnv(Environment):
         state = MinimalProcgenState.from_bytes(data)
 
         global_feats = np.array(
-            self.__class__.deserialize_global_feats(data), dtype=np.float32
+            self.deserialize_global_feats(data), dtype=np.float32
         ).reshape(1, -1)
         entities = {
             "Player": EntityObs(

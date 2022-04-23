@@ -123,8 +123,7 @@ class GymMicrorts(Environment):
         # get the unit type table
         self.utt = json.loads(str(self.client.sendUTT()))
 
-    @classmethod
-    def obs_space(cls) -> ObsSpace:
+    def obs_space(self) -> ObsSpace:
         return ObsSpace(
             {
                 "Resource": Entity(["x", "y"]),
@@ -137,8 +136,7 @@ class GymMicrorts(Environment):
             }
         )
 
-    @classmethod
-    def action_space(cls) -> Dict[str, ActionSpace]:
+    def action_space(self) -> Dict[str, ActionSpace]:
         return {
             "unit_action": CategoricalActionSpace(
                 choices=[

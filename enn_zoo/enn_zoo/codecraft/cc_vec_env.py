@@ -1,10 +1,9 @@
 import math
 import time
-from abc import abstractmethod
 from collections import defaultdict
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Callable, Dict, List, Mapping, Optional, Tuple, Type, Union
+from typing import Any, Callable, Dict, List, Mapping, Optional, Tuple, Union
 
 import numpy as np
 import numpy.typing as npt
@@ -12,13 +11,11 @@ from ragged_buffer import RaggedBufferBool, RaggedBufferF32, RaggedBufferI64
 
 from enn_zoo.codecraft import rest_client
 from enn_zoo.codecraft.rest_client import ObsConfig, Rules
-from entity_gym.environment import Environment, ObsSpace, VecEnv
+from entity_gym.environment import ObsSpace, VecEnv
 from entity_gym.environment.environment import (
-    Action,
     ActionSpace,
     CategoricalActionSpace,
     Entity,
-    Observation,
 )
 from entity_gym.environment.vec_env import Metric, VecCategoricalActionMask, VecObs
 
@@ -30,7 +27,7 @@ from .maps import (
     map_enhanced,
 )
 
-LAST_OBS = {}
+LAST_OBS: Any = {}
 VERIFY = False
 
 DRONE_FEATS = [
@@ -197,127 +194,6 @@ class Objective(Enum):
             ]
         else:
             return []
-
-
-def codecraft_env_class(
-    objective: Union[Objective, str], hidden_obs: bool
-) -> Type[Environment]:
-    if isinstance(objective, str):
-        objective = Objective(objective)
-
-    extra_build_actions = [
-        "build_"
-        + "".join(
-            [
-                f"{count}{letter}"
-                for count, letter in zip(build, ["s", "m", "c", "e", "p", "l"])
-                if count > 0
-            ]
-        )
-        for build in objective.extra_builds()
-    ]
-    extra_drone_features = [
-        "constructing_"
-        + "".join(
-            [
-                f"{count}{letter}"
-                for count, letter in zip(build, ["s", "m", "c", "e", "p", "l"])
-                if count > 0
-            ]
-        )
-        for build in objective.extra_builds()
-    ]
-    extra_global_features = [
-        "cost_multiplier_"
-        + "".join(
-            [
-                f"{count}{letter}"
-                for count, letter in zip(build, ["s", "m", "c", "e", "p", "l"])
-                if count > 0
-            ]
-        )
-        for build in objective.extra_builds()
-    ]
-    if objective == Objective.ARENA_MEDIUM or objective == objective.ARENA_TINY_2V2:
-        drone_features = list(MIN_DRONE_FEATS) + extra_drone_features
-        global_features = list(MIN_GLOBAL_FEATS)
-        mineral_features = ["x", "y", "size"]
-    else:
-        drone_features = list(DRONE_FEATS) + extra_drone_features
-        global_features = list(GLOBAL_FEATS)
-        mineral_features = ["x", "y", "size", "claimed"]
-    global_features[-1:-1] = extra_global_features
-
-    class CodeCraftEnv(Environment):
-        @classmethod
-        def obs_space(cls) -> ObsSpace:
-            return ObsSpace(
-                entities={
-                    "ally": Entity(drone_features + global_features),
-                    "enemy": Entity(drone_features),
-                    "all_enemy": Entity(drone_features),
-                    "mineral": Entity(mineral_features),
-                    "tile": Entity(
-                        [
-                            "x",
-                            "y",
-                            "last_visited_time",
-                            "visited",
-                        ]
-                    ),
-                }
-            )
-
-        @classmethod
-        def action_space(cls) -> Dict[str, ActionSpace]:
-            return {
-                # 0-5: turn/movement (4 is no turn, no movement)
-                # 6: build [0,1,0,0,0] drone (if minerals > 5)
-                # 7: deposit resources
-                "act": CategoricalActionSpace(
-                    [
-                        "move_left",
-                        "move_forward",
-                        "move_right",
-                        "turn_left",
-                        "halt",
-                        "turn_right",
-                        "build_1m",
-                        "deposit_resources",
-                        # feat_lock_build_action
-                        # "unlock_build_action",
-                        # "lock_build_action",
-                    ]
-                    + extra_build_actions
-                )
-            }
-
-        def reset(self) -> Observation:
-            raise NotImplementedError
-
-        def act(self, action: Mapping[str, Action]) -> Observation:
-            raise NotImplementedError
-
-        def close(self) -> None:
-            pass
-
-        def env_cls(self) -> Type["Environment"]:
-            return self.__class__
-
-        @classmethod
-        @abstractmethod
-        def objective(cls) -> Objective:
-            pass
-
-        @classmethod
-        @abstractmethod
-        def extra_build_actions(cls) -> List[str]:
-            pass
-
-        def hidden_obs(self) -> bool:
-            return hidden_obs
-
-    return CodeCraftEnv
 
 
 @dataclass
@@ -1003,8 +879,98 @@ class CodeCraftVecEnv(VecEnv):
     def __len__(self) -> int:
         return self.num_envs
 
-    def env_cls(self) -> Type[Environment]:
-        return codecraft_env_class(self.objective, self.hidden_obs)
+    def _features(self) -> Tuple[List[str], List[str], List[str]]:
+        objective = self.objective
+        if isinstance(objective, str):
+            objective = Objective(objective)
+
+        extra_drone_features = [
+            "constructing_"
+            + "".join(
+                [
+                    f"{count}{letter}"
+                    for count, letter in zip(build, ["s", "m", "c", "e", "p", "l"])
+                    if count > 0
+                ]
+            )
+            for build in objective.extra_builds()
+        ]
+        extra_global_features = [
+            "cost_multiplier_"
+            + "".join(
+                [
+                    f"{count}{letter}"
+                    for count, letter in zip(build, ["s", "m", "c", "e", "p", "l"])
+                    if count > 0
+                ]
+            )
+            for build in objective.extra_builds()
+        ]
+        if objective == Objective.ARENA_MEDIUM or objective == objective.ARENA_TINY_2V2:
+            drone_features = list(MIN_DRONE_FEATS) + extra_drone_features
+            global_features = list(MIN_GLOBAL_FEATS)
+            mineral_features = ["x", "y", "size"]
+        else:
+            drone_features = list(DRONE_FEATS) + extra_drone_features
+            global_features = list(GLOBAL_FEATS)
+            mineral_features = ["x", "y", "size", "claimed"]
+        global_features[-1:-1] = extra_global_features
+        return global_features, drone_features, mineral_features
+
+    def _extra_build_actions(self) -> List[str]:
+        return [
+            "build_"
+            + "".join(
+                [
+                    f"{count}{letter}"
+                    for count, letter in zip(build, ["s", "m", "c", "e", "p", "l"])
+                    if count > 0
+                ]
+            )
+            for build in self.objective.extra_builds()
+        ]
+
+    def obs_space(self) -> ObsSpace:
+        global_features, drone_features, mineral_features = self._features()
+        return ObsSpace(
+            entities={
+                "ally": Entity(drone_features + global_features),
+                "enemy": Entity(drone_features),
+                "all_enemy": Entity(drone_features),
+                "mineral": Entity(mineral_features),
+                "tile": Entity(
+                    [
+                        "x",
+                        "y",
+                        "last_visited_time",
+                        "visited",
+                    ]
+                ),
+            }
+        )
+
+    def action_space(self) -> Dict[str, ActionSpace]:
+        return {
+            # 0-5: turn/movement (4 is no turn, no movement)
+            # 6: build [0,1,0,0,0] drone (if minerals > 5)
+            # 7: deposit resources
+            "act": CategoricalActionSpace(
+                [
+                    "move_left",
+                    "move_forward",
+                    "move_right",
+                    "turn_left",
+                    "halt",
+                    "turn_right",
+                    "build_1m",
+                    "deposit_resources",
+                    # feat_lock_build_action
+                    # "unlock_build_action",
+                    # "lock_build_action",
+                ]
+                + self._extra_build_actions()
+            )
+        }
 
 
 def dist(x1: float, y1: float, x2: float, y2: float) -> float:
