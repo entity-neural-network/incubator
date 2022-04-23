@@ -782,7 +782,7 @@ class ItemBlock(nn.Module):
         return x
 
 
-ARANGE_CACHED = None
+ARANGE_CACHED: Optional[torch.Tensor] = None
 ARANGE_MAX = 0
 
 

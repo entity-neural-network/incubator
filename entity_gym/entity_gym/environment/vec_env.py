@@ -210,9 +210,16 @@ class VecEnv(ABC):
     """
 
     @abstractmethod
-    def env_cls(self) -> Type[Environment]:
+    def obs_space(self) -> ObsSpace:
         """
-        Returns the class of the underlying environment.
+        Returns a dictionary mapping the name of observable entities to their type.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def action_space(self) -> Dict[ActionType, ActionSpace]:
+        """
+        Returns a dictionary mapping the name of actions to their action space.
         """
         raise NotImplementedError
 

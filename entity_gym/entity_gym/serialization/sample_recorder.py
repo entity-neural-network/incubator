@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from typing import Any, Dict, List, Mapping, Optional, Type
+from entity_gym.environment.environment import ActionType
 
 import msgpack_numpy
 import numpy as np
@@ -97,8 +98,8 @@ class SampleRecordingVecEnv(VecEnv):
         self.subsample = subsample
         self.sample_recorder = SampleRecorder(
             out_path,
-            inner.env_cls().action_space(),
-            inner.env_cls().obs_space(),
+            inner.action_space(),
+            inner.obs_space(),
             subsample,
         )
         self.last_obs: Optional[VecObs] = None
@@ -180,8 +181,11 @@ class SampleRecordingVecEnv(VecEnv):
     def render(self, **kwargs: Any) -> np.ndarray:
         return self.inner.render(**kwargs)
 
-    def env_cls(cls) -> Type[Environment]:
-        return super().env_cls()
+    def action_space(self) -> Dict[ActionType, ActionSpace]:
+        return self.inner.action_space()
+
+    def obs_space(self) -> ObsSpace:
+        return self.inner.obs_space()
 
     def __len__(self) -> int:
         return len(self.inner)
