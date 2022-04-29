@@ -25,7 +25,7 @@ Environment:
         - inv_energy
         - health
     Sprite2D:
-      TileSize: 24
+      TileSize: 10
       RotateAvatarImage: false
   Termination:
     End:
