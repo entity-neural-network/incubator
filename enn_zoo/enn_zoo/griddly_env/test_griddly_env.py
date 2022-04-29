@@ -2,6 +2,7 @@ import os
 from typing import List, Optional
 
 import numpy as np
+from griddly import gd
 
 from enn_zoo.griddly_env import create_env
 from entity_gym.environment import (
@@ -15,6 +16,7 @@ init_path = os.path.dirname(os.path.realpath(__file__))
 
 def test_griddly_wrapper() -> None:
     env_class = create_env(
+        global_observer_type=gd.ObserverType.BLOCK_2D,
         yaml_file=os.path.join(init_path, "env_descriptions/test/test.yaml")
     )
 
@@ -39,17 +41,13 @@ def test_griddly_wrapper() -> None:
 
     # Check the action space is being created correctly for the test environment
     action_space = env_class.action_space()
-    assert isinstance(action_space["move_one"], CategoricalActionSpace)
-    assert action_space["move_one"].choices == [
+    assert isinstance(action_space["flat"], CategoricalActionSpace)
+    assert action_space["flat"].choices == [
         "NOP",
         "Left",
         "Up",
         "Right",
         "Down",
-    ]
-    assert isinstance(action_space["move_two"], CategoricalActionSpace)
-    assert action_space["move_two"].choices == [
-        "NOP",
         "Do a little dance",
         "Make a little love",
         "Get down tonight",
@@ -73,14 +71,11 @@ def test_griddly_wrapper() -> None:
     )
 
     # Check the masks in the observation
-    assert isinstance(observation.actions["move_one"], CategoricalActionMask)
+    assert isinstance(observation.actions["flat"], CategoricalActionMask)
     assert np.all(
-        observation.actions["move_one"].mask
-        == np.array([[1, 1, 1, 1, 0]])  # can do everything but move down
+        observation.actions["flat"].mask
+        == np.array([[1, 1, 1, 1, 0, 1, 1, 1]])  # can do everything but move down
     )
-    assert isinstance(observation.actions["move_two"], CategoricalActionMask)
-    assert np.all(observation.actions["move_two"].mask == np.array([[1, 1, 1, 1]]))
-
 
 def test_single_agent() -> None:
     """
@@ -88,6 +83,7 @@ def test_single_agent() -> None:
     correctly between griddly and enn wrappers
     """
     env_cls = create_env(
+        global_observer_type=gd.ObserverType.BLOCK_2D,
         yaml_file=os.path.join(init_path, "env_descriptions/test/test_actions.yaml")
     )
     env = env_cls()
@@ -101,9 +97,9 @@ def test_single_agent() -> None:
     assert env.entity_locations[entity1_id] == [2, 1]
 
     move_down_action = CategoricalAction(
-        actions=np.array([[4]], dtype=int), actors=[entity1_id]
+        actions=np.array([4], dtype=int), actors=[entity1_id]
     )
-    observation_1 = env.act({"move_entity_one": move_down_action})
+    observation_1 = env.act({"flat": move_down_action})
 
     # The entity has moved down
     assert len(observation_1.ids["entity_1"]) == 1
@@ -118,9 +114,9 @@ def test_single_agent() -> None:
     )
 
     remove_down_action = CategoricalAction(
-        actions=np.array([[4]], dtype=int), actors=[entity1_id]
+        actions=np.array([8], dtype=int), actors=[entity1_id]
     )
-    observation_2 = env.act({"remove_entity_two": remove_down_action})
+    observation_2 = env.act({"flat": remove_down_action})
 
     assert len(observation_2.ids["entity_1"]) == 1
 
@@ -138,6 +134,7 @@ def test_single_agent_multi_entity() -> None:
     """
 
     env_cls = create_env(
+        global_observer_type=gd.ObserverType.BLOCK_2D,
         yaml_file=os.path.join(
             init_path, "env_descriptions/test/test_multi_entities_actions.yaml"
         )

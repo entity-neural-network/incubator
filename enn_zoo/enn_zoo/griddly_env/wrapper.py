@@ -43,38 +43,12 @@ class GriddlyEnv(Environment):
     def action_space(cls) -> Dict[str, ActionSpace]:
         pass
 
+    @abstractmethod
     def _to_griddly_action(self, action: Mapping[str, Action]) -> np.ndarray:
-
-        if len(self._env.action_space_parts) > 2:
-            entity_actions = []
-            for action_name, a in action.items():
-                action_type = self._env.action_names.index(action_name)
-                for entity_id, action_id in a.items():
-                    entity_location = self.entity_locations[entity_id]
-                    entity_actions.append(
-                        np.array(
-                            [
-                                entity_location[0],
-                                entity_location[1],
-                                action_type,
-                                action_id,
-                            ]
-                        )
-                    )
-
-            return np.stack(entity_actions)
-        else:
-
-            for action_name, a in action.items():
-                action_type = self._env.action_names.index(action_name)
-                assert isinstance(a, CategoricalAction)
-                # TODO: this only works if we have a single entity, otherwise we have to map the entityID to an x,y coordinate
-                action_id = a.actions[0]
-
-            return np.array([action_type, action_id])
+        pass
 
     def _make_observation(
-        self, obs: Dict[str, Any], reward: int = 0, done: bool = False
+            self, obs: Dict[str, Any], reward: int = 0, done: bool = False
     ) -> Observation:
         entities = obs["Entities"]
         entity_ids = obs["Ids"]
@@ -87,12 +61,30 @@ class GriddlyEnv(Environment):
             name: np.array(obs, dtype=np.float32) for name, obs in entities.items()
         }
 
-        action_masks = {}
-        for action_name, actor_mask in actor_masks.items():
-            action_masks[action_name] = CategoricalActionMask(
-                actor_ids=actor_ids[action_name],
-                mask=np.array(actor_mask).astype(np.bool_),
+        flat_actor_ids = []
+        flat_actor_masks = []
+
+        flat_action_accumulate = {}
+
+        for action_name in self._env.action_names:
+            if action_name not in actor_ids or action_name not in actor_masks:
+                continue
+            for action_id, actor_mask in zip(actor_ids[action_name], actor_masks[action_name]):
+                if action_id not in flat_action_accumulate:
+                    flat_action_accumulate[action_id] = [1]
+
+                flat_action_accumulate[action_id].extend(actor_mask[1:])
+
+        for actor_id, actor_mask in flat_action_accumulate.items():
+            flat_actor_ids.append(actor_id)
+            flat_actor_masks.append(actor_mask)
+
+        action_masks = {
+            "flat": CategoricalActionMask(
+                actor_ids=flat_actor_ids,
+                mask=np.array(flat_actor_masks).astype(np.bool_),
             )
+        }
 
         return Observation(
             features=entities,
