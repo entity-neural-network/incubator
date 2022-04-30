@@ -25,6 +25,7 @@ from enn_ppo.ppo import ppo_loss, value_loss
 from enn_ppo.rollout import Rollout
 from entity_gym.environment import *
 from entity_gym.environment.add_metrics_wrapper import AddMetricsWrapper
+from entity_gym.environment.validator import ValidatingEnv
 from entity_gym.examples import ENV_REGISTRY
 from entity_gym.serialization import SampleRecordingVecEnv
 from entity_gym.simple_trace import Tracer
@@ -78,10 +79,14 @@ def _env_factory(
         cfg: EnvConfig, num_envs: int, processes: int, first_env_index: int
     ) -> VecEnv:
         kwargs = json.loads(cfg.kwargs)
-        if processes > 1:
-            return ParallelEnvList(env_cls, kwargs, num_envs, processes)
+        if cfg.validate:
+            create_env = lambda: ValidatingEnv(env_cls(**kwargs))  # type: ignore
         else:
-            return EnvList(env_cls, kwargs, num_envs)
+            create_env = lambda: env_cls(**kwargs)  # type: ignore
+        if processes > 1:
+            return ParallelEnvList(create_env, num_envs, processes)
+        else:
+            return EnvList(create_env, num_envs)
 
     return _create_env
 

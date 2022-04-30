@@ -15,10 +15,12 @@ class EnvConfig:
     Attributes:
         kwargs: JSON dictionary with keyword arguments for the environment
         id: the id of the environment
+        validate: Perform runtime checks to ensure that the environment correctly implements the interface
     """
 
     kwargs: str = "{}"
     id: str = "MoveToOrigin"
+    validate: bool = True
 
 
 @dataclass
