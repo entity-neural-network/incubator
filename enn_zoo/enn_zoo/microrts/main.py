@@ -1,7 +1,3 @@
-from typing import Dict
-
-import numpy as np
-
 from enn_zoo.microrts import GymMicrorts
 from entity_gym.cli_runner import CliRunner
 
