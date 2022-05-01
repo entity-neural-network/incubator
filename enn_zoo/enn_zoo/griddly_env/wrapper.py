@@ -110,8 +110,8 @@ class GriddlyEnv(Environment):
 
         return self._make_observation(obs)
 
-    def act(self, action: Mapping[str, Action]) -> Observation:
-        g_action = self._to_griddly_action(action)
+    def act(self, actions: Mapping[str, Action]) -> Observation:
+        g_action = self._to_griddly_action(actions)
         obs, reward, done, info = self._env.step(g_action)
 
         self.total_reward += reward
