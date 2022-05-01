@@ -231,8 +231,8 @@ class DoomEntityEnvironment(Environment):
                 doom_action[i] = button_action
         return doom_action
 
-    def act(self, action: Mapping[str, Action]) -> Observation:
-        doom_action = self._enn_action_to_doom(action)
+    def act(self, actions: Mapping[str, Action]) -> Observation:
+        doom_action = self._enn_action_to_doom(actions)
         reward = self._doomgame.make_action(doom_action, self._frame_skip)
         terminal = self._doomgame.is_episode_finished()
         if terminal:

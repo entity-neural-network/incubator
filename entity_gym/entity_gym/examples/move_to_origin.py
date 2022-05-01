@@ -68,7 +68,7 @@ class MoveToOrigin(Environment):
         self.step = 0
         return self.observe()
 
-    def act(self, action: Mapping[str, Action]) -> Observation:
+    def act(self, actions: Mapping[str, Action]) -> Observation:
         self.step += 1
 
         for action_name, a in action.items():
