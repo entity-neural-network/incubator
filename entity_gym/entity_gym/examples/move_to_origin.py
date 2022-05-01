@@ -71,7 +71,7 @@ class MoveToOrigin(Environment):
     def act(self, actions: Mapping[str, Action]) -> Observation:
         self.step += 1
 
-        for action_name, a in action.items():
+        for action_name, a in actions.items():
             assert isinstance(a, CategoricalAction), f"{a} is not a CategoricalAction"
             if action_name == "horizontal_thruster":
                 for choice_id in a.actions:
