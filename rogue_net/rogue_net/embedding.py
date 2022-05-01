@@ -55,22 +55,19 @@ class EntityEmbedding(nn.Module):
         torch.Tensor,
         torch.Tensor,
     ]:
-        expected_order = iter(self.embeddings.keys())
-        for name in entities.keys():
-            while True:
-                try:
-                    entity = next(expected_order)
-                except StopIteration:
-                    raise ValueError(
-                        f"Fatal error: order of entities in the input does not match the order of observation space: {list(entities.keys())} != {list(self.embeddings.keys())}"
-                    )
-                if entity == name:
-                    break
-
         entity_embeds = []
         index_offsets = {}
         index_offset = 0
         entity_type = []
+
+        if "__global__" in entities:
+            globals = entities["__global__"]
+            entities = {
+                label: ragged_buffer.cat([feats, globals], dim=2)
+                if label != "__global__"
+                else feats
+                for label, feats in entities.items()
+            }
 
         if self.feature_transforms:
             entities = {name: feats.clone() for name, feats in entities.items()}
@@ -94,14 +91,19 @@ class EntityEmbedding(nn.Module):
 
         x = torch.cat(entity_embeds)
         with tracer.span("ragged_metadata"):
-            lengths = sum(entity.size1() for entity in entities.values())
+            real_entities = {name: entities[name] for name in self.embeddings.keys()}
+            lengths = sum(entity.size1() for entity in real_entities.values())
             batch_index = np.concatenate(
-                [entity.indices(0).as_array().flatten() for entity in entities.values()]
+                [
+                    entity.indices(0).as_array().flatten()
+                    for entity in real_entities.values()
+                ]
             )
             index_map = ragged_buffer.cat(
                 [
                     entity.flat_indices() + index_offsets[name]
-                    for name, entity in entities.items()
+                    for name, entity in real_entities.items()
+                    if name in self.embeddings
                 ],
                 dim=1,
             )

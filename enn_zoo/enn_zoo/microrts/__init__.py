@@ -125,7 +125,7 @@ class GymMicrorts(Environment):
 
     def obs_space(self) -> ObsSpace:
         return ObsSpace(
-            {
+            entities={
                 "Resource": Entity(["x", "y"]),
                 "Base": Entity(["x", "y"]),
                 "Barracks": Entity(["x", "y"]),
@@ -211,7 +211,7 @@ class GymMicrorts(Environment):
         base_action_actor_masks = np.array(response.observation[11], dtype=np.bool8)
         barrack_action_actor_ids = np.array(response.observation[12])
         barrack_action_actor_masks = np.array(response.observation[13], dtype=np.bool8)
-        return Observation.from_entity_obs(
+        return Observation(
             entities=self.generate_entities(response),
             actions={
                 "unit_action": CategoricalActionMask(
@@ -282,7 +282,7 @@ class GymMicrorts(Environment):
             )
         self.returns += response.reward
 
-        return Observation.from_entity_obs(
+        return Observation(
             entities=self.generate_entities(response),
             actions={
                 "unit_action": CategoricalActionMask(

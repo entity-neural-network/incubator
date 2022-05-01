@@ -23,13 +23,11 @@ init_path = os.path.dirname(os.path.realpath(__file__))
 def generate_obs_space(env: Any) -> ObsSpace:
     # Each entity contains x, y, z positions, plus the values of all variables
     global_variables = env.game.get_global_variable_names()
-
-    # Global entity for global variables and global actions (these dont really exist in Griddly)
-    space = {"__global__": Entity(global_variables)}
-    for name, features in env.observation_space.features.items():
-        space[name] = Entity(features)
-
-    return ObsSpace(space)
+    space = {
+        name: Entity(features)
+        for name, features in env.observation_space.features.items()
+    }
+    return ObsSpace(global_features=global_variables, entities=space)
 
 
 def generate_action_space(env: Any) -> Dict[str, ActionSpace]:

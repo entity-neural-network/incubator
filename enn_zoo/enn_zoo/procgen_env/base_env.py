@@ -67,7 +67,7 @@ class BaseEnv(Environment):
 
     def obs_space(self) -> ObsSpace:
         return ObsSpace(
-            {
+            entities={
                 "Player": Entity(features=ENTITY_FEATS + self._global_feats()),
                 **{
                     entity_type: Entity(features=ENTITY_FEATS + self._global_feats())
@@ -135,7 +135,7 @@ class BaseEnv(Environment):
             == state.entities.shape[0]
         )
 
-        return Observation.from_entity_obs(
+        return Observation(
             entities=entities,
             actions={"act": CategoricalActionMask(actor_types=["Player"])},
             done=state.step_data.done == 1,
