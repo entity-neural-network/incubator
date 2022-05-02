@@ -20,8 +20,8 @@ def test_griddly_wrapper() -> None:
 
     # Check the observation space is being created correctly from the test environment
     observation_space = env_class.obs_space()
-    assert len(observation_space.entities) == 3
-    assert observation_space.entities["__global__"].features == [
+    assert len(observation_space.entities) == 2
+    assert observation_space.global_features == [
         "_steps",
         "test_global_variable",
     ]

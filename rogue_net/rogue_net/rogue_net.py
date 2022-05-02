@@ -1,3 +1,4 @@
+import dataclasses
 from dataclasses import dataclass
 from typing import Dict, Mapping, Optional, Tuple, Type, TypeVar
 
@@ -16,6 +17,8 @@ from ragged_buffer import (
 from entity_gym.environment import ActionSpace, ObsSpace, VecActionMask
 from entity_gym.environment.environment import (
     CategoricalActionSpace,
+    Entity,
+    GlobalCategoricalActionSpace,
     SelectEntityActionSpace,
 )
 from entity_gym.simple_trace import Tracer
@@ -66,6 +69,18 @@ class RogueNet(nn.Module):
     ):
         super().__init__()
 
+        global_features = obs_space.global_features
+        obs_space = dataclasses.replace(obs_space, global_features=[])
+        if len(global_features) > 0:
+            obs_space.entities = {
+                label: Entity(entity.features + global_features)
+                for label, entity in obs_space.entities.items()
+            }
+        if any(
+            isinstance(a, GlobalCategoricalActionSpace) for a in action_space.values()
+        ):
+            obs_space.entities["__global__"] = Entity(features=global_features)
+
         self.d_model = cfg.d_model
         self.action_space = action_space
         self.obs_space = obs_space
@@ -96,7 +111,7 @@ class RogueNet(nn.Module):
             # Ensure consistent dictionary ordering
             entities = {
                 name: entities[name]
-                for name in self.obs_space.entities.keys()
+                for name in list(self.obs_space.entities.keys()) + ["__global__"]
                 if name in entities
             }
             (
@@ -252,8 +267,12 @@ def create_action_heads(
 ) -> nn.ModuleDict:
     action_heads: Dict[str, nn.Module] = {}
     for name, space in action_space.items():
-        if isinstance(space, CategoricalActionSpace):
+        if isinstance(space, CategoricalActionSpace) or isinstance(
+            space, GlobalCategoricalActionSpace
+        ):
             action_heads[name] = CategoricalActionHead(d_model, len(space.choices))
         elif isinstance(space, SelectEntityActionSpace):
             action_heads[name] = PaddedSelectEntityActionHead(d_model, d_qk)
+        else:
+            raise ValueError(f"Unknown action space {space}")
     return nn.ModuleDict(action_heads)
