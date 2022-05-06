@@ -177,7 +177,7 @@ Choose move (0/up 1/down 2/left 3/right)
 
 Now, we are going to place additional entities in the environment.
 - _Treasure_ can be collected by the player and increases the player's score by 1.0. Once all treasures are collected, the game is won.
-- Moving onto a _trap_ immedately ends the game.
+- Moving onto a _trap_ immediately ends the game.
 
 ```python
 import random
