@@ -70,22 +70,23 @@ class RogueNet(nn.Module):
         super().__init__()
 
         global_features = obs_space.global_features
-        obs_space = dataclasses.replace(obs_space, global_features=[])
+        _obs_space = dataclasses.replace(obs_space, global_features=[])
         if len(global_features) > 0:
-            obs_space.entities = {
+            _obs_space.entities = {
                 label: Entity(entity.features + global_features)
-                for label, entity in obs_space.entities.items()
+                for label, entity in _obs_space.entities.items()
             }
         if any(
             isinstance(a, GlobalCategoricalActionSpace) for a in action_space.values()
         ):
-            obs_space.entities["__global__"] = Entity(features=global_features)
+            _obs_space.entities["__global__"] = Entity(features=global_features)
 
         self.d_model = cfg.d_model
         self.action_space = action_space
         self.obs_space = obs_space
-        self.embedding = EntityEmbedding(obs_space, cfg.translation, cfg.d_model)
-        self.backbone = Transformer(cfg, obs_space)
+        self._obs_space = _obs_space
+        self.embedding = EntityEmbedding(_obs_space, cfg.translation, cfg.d_model)
+        self.backbone = Transformer(cfg, _obs_space)
         self.action_heads = create_action_heads(action_space, cfg.d_model, cfg.d_qk)
         self.auxiliary_heads = (
             nn.ModuleDict(
