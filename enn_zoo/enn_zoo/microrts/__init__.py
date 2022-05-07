@@ -139,7 +139,7 @@ class GymMicrorts(Environment):
     def action_space(self) -> Dict[str, ActionSpace]:
         return {
             "unit_action": CategoricalActionSpace(
-                choices=[
+                [
                     "move_up",
                     "move_right",
                     "move_down",
@@ -166,7 +166,7 @@ class GymMicrorts(Environment):
                 ],  # the attack trange is a 7x7 relative grid
             ),
             "base_action": CategoricalActionSpace(
-                choices=[
+                [
                     "produce_worker_up",
                     "produce_worker_right",
                     "produce_worker_down",
@@ -174,7 +174,7 @@ class GymMicrorts(Environment):
                 ],
             ),
             "barrack_action": CategoricalActionSpace(
-                choices=[
+                [
                     "produce_light_up",
                     "produce_light_right",
                     "produce_light_down",
@@ -244,17 +244,17 @@ class GymMicrorts(Environment):
             actions["unit_action"], CategoricalAction
         ):
             unit_action_actors = actions["unit_action"].actors
-            unit_actions = actions["unit_action"].actions
+            unit_actions = actions["unit_action"].indices
         if "base_action" in actions and isinstance(
             actions["base_action"], CategoricalAction
         ):
             base_action_actors = actions["base_action"].actors
-            base_actions = actions["base_action"].actions
+            base_actions = actions["base_action"].indices
         if "barrack_action" in actions and isinstance(
             actions["barrack_action"], CategoricalAction
         ):
             barrack_action_actors = actions["barrack_action"].actors
-            barrack_actions = actions["barrack_action"].actions
+            barrack_actions = actions["barrack_action"].indices
 
         response = self.client.gameStep(
             unit_action_actors,

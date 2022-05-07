@@ -271,7 +271,7 @@ def create_action_heads(
         if isinstance(space, CategoricalActionSpace) or isinstance(
             space, GlobalCategoricalActionSpace
         ):
-            action_heads[name] = CategoricalActionHead(d_model, len(space.choices))
+            action_heads[name] = CategoricalActionHead(d_model, len(space))
         elif isinstance(space, SelectEntityActionSpace):
             action_heads[name] = PaddedSelectEntityActionHead(d_model, d_qk)
         else:
