@@ -76,7 +76,7 @@ class BaseEnv(Environment):
             }
         )
 
-    def action_space(self) -> Dict[ActionType, ActionSpace]:
+    def action_space(self) -> Dict[ActionName, ActionSpace]:
         return {
             "act": CategoricalActionSpace(
                 [
@@ -142,7 +142,7 @@ class BaseEnv(Environment):
             reward=state.step_data.reward,
         )
 
-    def act(self, actions: Mapping[ActionType, Action]) -> Observation:
+    def act(self, actions: Mapping[ActionName, Action]) -> Observation:
         act = actions["act"]
         assert isinstance(act, CategoricalAction)
         self.env.act(act.actions)

@@ -640,7 +640,7 @@ def gradient_allreduce(model: Any) -> None:
 
 
 def _create_agent(
-    cfg: TrainConfig, obs_space: ObsSpace, action_space: Dict[ActionType, ActionSpace]
+    cfg: TrainConfig, obs_space: ObsSpace, action_space: Dict[ActionName, ActionSpace]
 ) -> SerializableRogueNet:
     return SerializableRogueNet(
         cfg.net,

@@ -8,7 +8,7 @@ from ragged_buffer import RaggedBufferBool, RaggedBufferF32, RaggedBufferI64
 import entity_gym.agent
 from entity_gym.environment import Action, Observation, VecActionMask
 from entity_gym.environment.env_list import action_index_to_actions
-from entity_gym.environment.environment import ActionType
+from entity_gym.environment.environment import ActionName
 from entity_gym.environment.vec_env import batch_obs
 from entity_gym.simple_trace import Tracer
 from rogue_net.rogue_net import RogueNet
@@ -52,7 +52,7 @@ class RogueNetAgent(entity_gym.agent.Agent):
     def __init__(self, agent: RogueNet):
         self.agent = agent
 
-    def act(self, obs: Observation) -> Tuple[Dict[ActionType, Action], float]:
+    def act(self, obs: Observation) -> Tuple[Dict[ActionName, Action], float]:
         vec_obs = batch_obs([obs], self.agent.obs_space, self.agent.action_space)
         with torch.no_grad():
             act_indices, _, _, _, aux, logits = self.agent.get_action_and_auxiliary(
