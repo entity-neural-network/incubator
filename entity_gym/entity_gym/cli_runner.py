@@ -1,9 +1,9 @@
 from typing import Dict, Optional
 
 import click
-from entity_gym.agent import Agent
 import numpy as np
 
+from entity_gym.agent import Agent
 from entity_gym.environment import (
     Action,
     CategoricalAction,

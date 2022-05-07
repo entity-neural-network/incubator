@@ -69,8 +69,8 @@ TODO: link to hyperparameter reference + tuning guide
 ## Relative positional encoding
 
 ENN-PPO supports a technique called [relative positional encoding](TODO-LINK).
-The details of how this works is somewhat complicated, but the main thing to remember is that using relative positional encoding can greatly improve performance in environments where entites have some kind of spatial relationship.
-We can enable relative positional encoding by adding two more hyperparameters:
+The details of how this works is somewhat complicated, but the main thing to remember is that using relative positional encoding can greatly improve performance in environments where entities have some kind of spatial relationship.
+We can enable relative positional encoding by setting two more hyperparameters:
 
 ```bash
 python train.py total_timesteps=100000 rollout.steps=32 rollout.num_envs=64 rollout.processes=4 optim.bs=512 optim.lr=0.005 net.relpos_encoding.extent='[5,5]' net.relpos_encoding.position_features='["x_pos","y_pos"]'
@@ -78,7 +78,7 @@ python train.py total_timesteps=100000 rollout.steps=32 rollout.num_envs=64 roll
 
 With this configuration, you should be able to reach a reward of more than 4.5.
 
-If you want to learn more about relative positional encoding, see the ["How to use relative positional encoding"](TODO-LINK) guide on how to choose the settings for relative positional encoding.
+If you want to learn more about relative positional encoding, see the ["How to use relative positional encoding"](TODO-LINK) guide, which explains how to choose good settings for relative positional encoding.
 
 ## Config files
 

@@ -1,21 +1,17 @@
 from typing import Dict, Iterator, Mapping, Optional, Protocol, Tuple
-from entity_gym.environment.env_list import action_index_to_actions
-from entity_gym.environment.environment import (
-    ActionType,
-    CategoricalAction,
-    CategoricalActionSpace,
-)
-from entity_gym.environment.vec_env import batch_obs
 
 import numpy as np
 import numpy.typing as npt
-from rogue_net.rogue_net import RogueNet
 import torch
 from ragged_buffer import RaggedBufferBool, RaggedBufferF32, RaggedBufferI64
 
 import entity_gym.agent
-from entity_gym.environment import VecActionMask, Observation, Action
+from entity_gym.environment import Action, Observation, VecActionMask
+from entity_gym.environment.env_list import action_index_to_actions
+from entity_gym.environment.environment import ActionType
+from entity_gym.environment.vec_env import batch_obs
 from entity_gym.simple_trace import Tracer
+from rogue_net.rogue_net import RogueNet
 
 
 class PPOAgent(Protocol):

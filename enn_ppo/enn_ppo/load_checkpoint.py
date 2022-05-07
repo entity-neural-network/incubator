@@ -1,6 +1,7 @@
 from hyperstate import StateManager
-from .train import State, initialize
+
 from .config import TrainConfig
+from .train import State, initialize
 
 
 def load_checkpoint(path: str) -> StateManager[TrainConfig, State]:
