@@ -6,7 +6,7 @@ import numpy as np
 import ragged_buffer
 from ragged_buffer import RaggedBufferF32
 
-from entity_gym.environment import ObsSpace
+from entity_gym.env import ObsSpace
 
 
 @dataclass

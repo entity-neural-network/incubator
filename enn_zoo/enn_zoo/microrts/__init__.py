@@ -13,7 +13,7 @@ from jpype.imports import registerDomain
 from jpype.types import JArray
 from PIL import Image
 
-from entity_gym.environment import (
+from entity_gym.env import (
     Action,
     ActionSpace,
     CategoricalAction,
@@ -24,7 +24,7 @@ from entity_gym.environment import (
     Observation,
     ObsSpace,
 )
-from entity_gym.environment.environment import Features
+from entity_gym.env.environment import Features
 
 
 class GymMicrorts(Environment):

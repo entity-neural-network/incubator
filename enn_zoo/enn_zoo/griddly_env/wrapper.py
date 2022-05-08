@@ -4,7 +4,7 @@ from typing import Any, Dict, Mapping
 import numpy as np
 import numpy.typing as npt
 
-from entity_gym.environment import (
+from entity_gym.env import (
     Action,
     ActionSpace,
     CategoricalActionMask,
@@ -12,7 +12,7 @@ from entity_gym.environment import (
     Observation,
     ObsSpace,
 )
-from entity_gym.environment.environment import CategoricalAction
+from entity_gym.env.environment import CategoricalAction
 
 
 class GriddlyEnv(Environment):

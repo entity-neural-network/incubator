@@ -2,7 +2,7 @@ import random
 from typing import Dict, Mapping, Tuple
 
 from entity_gym.cli_runner import CliRunner
-from entity_gym.environment import *
+from entity_gym.env import *
 
 
 class TreasureHunt(Environment):

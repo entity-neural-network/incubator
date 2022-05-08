@@ -2,7 +2,7 @@ import numpy as np
 import torch
 from ragged_buffer import RaggedBufferI64
 
-from entity_gym.environment import VecCategoricalActionMask
+from entity_gym.env import VecCategoricalActionMask
 from rogue_net.categorical_action_head import CategoricalActionHead
 from rogue_net.ragged_tensor import RaggedTensor
 

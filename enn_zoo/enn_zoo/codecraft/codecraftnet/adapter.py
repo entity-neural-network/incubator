@@ -12,7 +12,7 @@ from enn_zoo.codecraft.codecraftnet.codecraftnet import (
     PolicyConfig,
     TransformerPolicy8HS,
 )
-from entity_gym.environment.vec_env import VecActionMask
+from entity_gym.env.vec_env import VecActionMask
 from entity_gym.simple_trace import Tracer
 
 

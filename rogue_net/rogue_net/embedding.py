@@ -6,7 +6,7 @@ import torch
 from ragged_buffer import RaggedBufferF32, RaggedBufferI64
 from torch import nn
 
-from entity_gym.environment import ObsSpace
+from entity_gym.env import ObsSpace
 from entity_gym.simple_trace import Tracer
 from rogue_net.input_norm import InputNorm
 from rogue_net.translate_positions import TranslatePositions, TranslationConfig

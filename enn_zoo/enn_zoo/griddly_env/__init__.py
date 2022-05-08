@@ -9,7 +9,7 @@ from enn_zoo.griddly_env.level_generators.clusters_generator import (
 )
 from enn_zoo.griddly_env.level_generators.level_generator import LevelGenerator
 from enn_zoo.griddly_env.wrapper import GriddlyEnv
-from entity_gym.environment import (
+from entity_gym.env import (
     ActionSpace,
     CategoricalActionSpace,
     Entity,

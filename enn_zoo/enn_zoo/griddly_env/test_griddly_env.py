@@ -4,7 +4,7 @@ from typing import List, Optional
 import numpy as np
 
 from enn_zoo.griddly_env import create_env
-from entity_gym.environment import (
+from entity_gym.env import (
     CategoricalAction,
     CategoricalActionMask,
     CategoricalActionSpace,

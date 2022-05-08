@@ -9,8 +9,8 @@ from torch.utils.tensorboard import SummaryWriter
 from enn_ppo.agent import PPOAgent
 from enn_ppo.config import EnvConfig, EvalConfig, RolloutConfig
 from enn_ppo.rollout import Rollout
-from entity_gym.environment import *
-from entity_gym.environment.add_metrics_wrapper import AddMetricsWrapper
+from entity_gym.env import *
+from entity_gym.env.add_metrics_wrapper import AddMetricsWrapper
 from entity_gym.serialization import SampleRecordingVecEnv
 from entity_gym.simple_trace import Tracer
 

@@ -6,10 +6,10 @@ import torch
 from ragged_buffer import RaggedBufferBool, RaggedBufferF32, RaggedBufferI64
 
 import entity_gym.agent
-from entity_gym.environment import Action, Observation, VecActionMask
-from entity_gym.environment.env_list import action_index_to_actions
-from entity_gym.environment.environment import ActionName
-from entity_gym.environment.vec_env import batch_obs
+from entity_gym.env import Action, Observation, VecActionMask
+from entity_gym.env.env_list import action_index_to_actions
+from entity_gym.env.environment import ActionName
+from entity_gym.env.vec_env import batch_obs
 from entity_gym.simple_trace import Tracer
 from rogue_net.rogue_net import RogueNet
 

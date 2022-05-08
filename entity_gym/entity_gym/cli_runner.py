@@ -4,7 +4,7 @@ import click
 import numpy as np
 
 from entity_gym.agent import Agent
-from entity_gym.environment import (
+from entity_gym.env import (
     Action,
     CategoricalAction,
     CategoricalActionSpace,
@@ -15,12 +15,12 @@ from entity_gym.environment import (
     SelectEntityActionMask,
     SelectEntityActionSpace,
 )
-from entity_gym.environment.environment import (
+from entity_gym.env.environment import (
     GlobalCategoricalAction,
     GlobalCategoricalActionMask,
     GlobalCategoricalActionSpace,
 )
-from entity_gym.environment.validator import ValidatingEnv
+from entity_gym.env.validator import ValidatingEnv
 
 
 class CliRunner:
@@ -266,3 +266,5 @@ def print_obs(
             )
             print(f"{entity_index} {rendered}{id}")
             entity_index += 1
+
+__all__ = ["CliRunner"]

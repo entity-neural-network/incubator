@@ -2,7 +2,7 @@ from typing import Dict, Mapping
 
 import numpy as np
 
-from entity_gym.environment.environment import (
+from entity_gym.env.environment import (
     Action,
     ActionName,
     ActionSpace,
