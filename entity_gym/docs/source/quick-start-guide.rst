@@ -179,9 +179,14 @@ It is now possible to move the player:
 Adding "Trap" and "Treasure" entities
 =====================================
 
-Now, we are going to place additional entities in the environment.
-- _Treasure_ can be collected by the player and increases the player's score by 1.0. Once all treasures are collected, the game is won.
-- Moving onto a _trap_ immediately ends the game.
+Now, we are going to place additional entities in the environment:
+
+* *Treasure* can be collected by the player and increases the player's score by 1.0. Once all treasures are collected, the game is won.
+* Moving onto a *trap* immediately ends the game.
+
+We define the new entity types by specifying the ``ObsSpace.entities`` dictionary in the ``obs_space`` method.
+Similarly, ``_observe`` now returns a ``features`` dictionary with an entry specifying the current positions of both entities.
+The logic that defines how the entites are spawned and affect the game is added to ``reset`` and ``act``.
 
 .. code-block:: python
 
@@ -189,14 +194,6 @@ Now, we are going to place additional entities in the environment.
     from typing import Mapping, Tuple, Dict
 
     class TreasureHunt(Environment):
-        def _random_empty_pos(self) -> Tuple[int, int]:
-            # Generate a random position on the grid that is not occupied by a trap, treasure, or player.
-            while True:
-                x = random.randint(-5, 5)
-                y = random.randint(-5, 5)
-                if (x, y) not in (self.traps + self.treasure + [(self.x_pos, self.y_pos)]):
-                    return x, y
-
         def reset(self) -> Observation:
             self.x_pos = 0
             self.y_pos = 0
@@ -253,6 +250,15 @@ Now, we are going to place additional entities in the environment.
                 actions={"move": GlobalCategoricalActionMask()},
             )
 
+        def _random_empty_pos(self) -> Tuple[int, int]:
+            # Generate a random position on the grid that is not occupied by a trap, treasure, or player.
+            while True:
+                x = random.randint(-5, 5)
+                y = random.randint(-5, 5)
+                if (x, y) not in (self.traps + self.treasure + [(self.x_pos, self.y_pos)]):
+                    return x, y
+
+
 If you run the environment again, you will now see and be able to interact with all the entities:
 
 .. code-block:: text
@@ -279,3 +285,7 @@ If you run the environment again, you will now see and be able to interact with 
     8 Treasure(x_pos=-1, y_pos=-5)
     9 Treasure(x_pos=5, y_pos=3)
     Choose move (0/up 1/down 2/left 3/right)
+
+This concludes the tutorial.
+If you want to learn how to train a neural network to play the game we just implemented,
+check out the (enn-ppo tutorial)[https://github.com/entity-neural-network/incubator/blob/main/enn_ppo/tutorial.md#tutorial].
