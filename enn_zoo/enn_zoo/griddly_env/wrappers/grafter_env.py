@@ -1,9 +1,8 @@
-from typing import Any, Dict, Type
 import functools
+from typing import Any, Dict, Type
+
 from enn_zoo.griddly_env.wrappers.griddly_env import GriddlyEnv
-from entity_gym.environment import (
-    Observation,
-)
+from entity_gym.environment import Observation
 
 
 def grafter_env(**kwargs: Any) -> Type[GriddlyEnv]:

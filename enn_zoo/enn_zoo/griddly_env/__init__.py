@@ -1,6 +1,6 @@
 import functools
 import os
-from typing import Any, Dict, Type, Optional, Callable
+from typing import Any, Callable, Dict, Optional, Type
 
 from griddly import gd
 
@@ -8,7 +8,6 @@ from enn_zoo.griddly_env.level_generators.clusters_generator import (
     ClustersLevelGenerator,
 )
 from enn_zoo.griddly_env.level_generators.crafter_generator import CrafterLevelGenerator
-from enn_zoo.griddly_env.level_generators.level_generator import LevelGenerator
 from enn_zoo.griddly_env.wrappers.grafter_env import grafter_env
 from enn_zoo.griddly_env.wrappers.griddly_env import GriddlyEnv
 

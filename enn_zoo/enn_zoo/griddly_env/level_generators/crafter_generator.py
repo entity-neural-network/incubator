@@ -1,8 +1,7 @@
 import functools
-from typing import List, Tuple, Sequence, Any, Dict, Union, Set
+from typing import Any, Dict, List, Set, Tuple, Union
 
 import numpy as np
-import numpy.typing as npt
 import opensimplex
 
 from enn_zoo.griddly_env.level_generators.level_generator import LevelGenerator

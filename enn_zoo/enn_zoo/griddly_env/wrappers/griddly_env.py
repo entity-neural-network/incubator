@@ -1,21 +1,19 @@
-from abc import abstractmethod
-from typing import Any, Dict, Mapping, Optional, Tuple, List
-from enn_zoo.griddly_env.level_generators.level_generator import LevelGenerator
-
-from griddly import GymWrapper
+from typing import Any, Dict, List, Mapping, Optional, Tuple
 
 import numpy as np
 import numpy.typing as npt
+from griddly import GymWrapper
 
+from enn_zoo.griddly_env.level_generators.level_generator import LevelGenerator
 from entity_gym.environment import (
     Action,
     ActionSpace,
     CategoricalActionMask,
     CategoricalActionSpace,
+    Entity,
     Environment,
     Observation,
     ObsSpace,
-    Entity,
 )
 from entity_gym.environment.environment import CategoricalAction
 

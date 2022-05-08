@@ -1,9 +1,12 @@
+from dataclasses import dataclass
 from typing import Any, Dict, Mapping, Optional, Tuple
 
+import hyperstate
 import numpy as np
 import numpy.typing as npt
 import torch
 import torch.nn as nn
+from hyperstate import StateManager
 from ragged_buffer import RaggedBufferBool, RaggedBufferF32, RaggedBufferI64
 
 from enn_zoo.codecraft.cc_vec_env import LAST_OBS, VERIFY
@@ -12,6 +15,7 @@ from enn_zoo.codecraft.codecraftnet.codecraftnet import (
     PolicyConfig,
     TransformerPolicy8HS,
 )
+from enn_zoo.codecraft.codecraftnet.config import Config
 from entity_gym.environment.vec_env import VecActionMask
 from entity_gym.simple_trace import Tracer
 
@@ -195,16 +199,6 @@ class CCNetAdapter(nn.Module):
         return self.get_action_and_auxiliary(
             entities, visible, action_masks={}, tracer=tracer
         )[4][head_name]
-
-
-from dataclasses import dataclass
-from typing import Optional
-
-import hyperstate
-from hyperstate import StateManager
-
-from enn_zoo.codecraft.codecraftnet.codecraftnet import TransformerPolicy8HS
-from enn_zoo.codecraft.codecraftnet.config import Config
 
 
 @dataclass
