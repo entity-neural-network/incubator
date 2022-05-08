@@ -39,7 +39,7 @@ Create a new file ``treasure_hunt.py`` with the following contents:
             return Observation.empty()
 
         # `act` performs the chosen actions and returns the new observation.
-        def act(self, actions: Mapping[ActionType, Action]) -> Observation:
+        def act(self, actions: Mapping[ActionName, Action]) -> Observation:
             return Observation.empty()
 
 
@@ -88,7 +88,7 @@ Let's add some logic to keep track of the player's position and expose it in obs
                 global_features=[self.x_pos, self.y_pos], done=False, reward=0
             )
 
-        def act(self, actions: Mapping[ActionType, Action]) -> Observation:
+        def act(self, actions: Mapping[ActionName, Action]) -> Observation:
             return self._observe()
 
         def action_space(self) -> Dict[str, ActionSpace]:
@@ -126,7 +126,7 @@ Change the `action_space` and `act` methods to the following:
                 )
             }
 
-        def act(self, actions: Mapping[ActionType, Action]) -> Observation:
+        def act(self, actions: Mapping[ActionName, Action]) -> Observation:
             # Adjust the player's position according to the chosen action.
             action = actions["move"]
             assert isinstance(action, GlobalCategoricalAction)
@@ -219,7 +219,7 @@ Now, we are going to place additional entities in the environment.
                 }
             )
 
-        def act(self, actions: Mapping[ActionType, Action]) -> Observation:
+        def act(self, actions: Mapping[ActionName, Action]) -> Observation:
             action = actions["move"]
             assert isinstance(action, GlobalCategoricalAction)
             if action.choice == "up" and self.y_pos < 10:

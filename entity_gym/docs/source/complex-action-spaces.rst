@@ -53,7 +53,7 @@ The action space has a single categorical action with five possible choices, whi
             })
         
         @classmethod
-        def action_space(cls) -> Dict[ActionType, ActionSpace]:
+        def action_space(cls) -> Dict[ActionName, ActionSpace]:
             return {
                 "Move": CategoricalActionSpace(
                     ["Up", "Down", "Left", "Right", "Defuse Mines"],
@@ -116,7 +116,7 @@ Finally, we implement the `act` method that takes an action and returns the next
 
 .. code-block:: python
 
-    def act(self, actions: Mapping[ActionType, Action]) -> Observation:
+    def act(self, actions: Mapping[ActionName, Action]) -> Observation:
         move = actions["Move"]
         assert isinstance(move, CategoricalAction)
         for (_, i), action in zip(move.actors, move.actions):
@@ -262,7 +262,7 @@ Instead, we will use a `SelectEntityAction </entity_gym/entity_gym.env.html#enti
                 reward=1.0 if len(self.mines) == 0 else 0,
             )
         
-        def act(self, actions: Mapping[ActionType, Action]) -> Observation:
+        def act(self, actions: Mapping[ActionName, Action]) -> Observation:
             fire = actions["Fire Orbital Cannon"]
             assert isinstance(fire, SelectEntityAction)
             remove_robot = None
