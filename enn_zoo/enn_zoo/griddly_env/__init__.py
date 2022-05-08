@@ -20,9 +20,7 @@ from entity_gym.environment import (
     Action,
 )
 
-from enn_zoo.griddly_env.wrappers.grafter_env import (
-    grafter_env
-)
+from enn_zoo.griddly_env.wrappers.grafter_env import grafter_env
 
 init_path = os.path.dirname(os.path.realpath(__file__))
 
@@ -44,8 +42,11 @@ def create_env(env_wrapper: Type[GriddlyEnv] = None, **kwargs: Any) -> Type[Grid
             if env_wrapper is not None:
                 return env_wrapper(**default_args)
             else:
+
                 class InstantiatedGriddlyEnv(GriddlyEnv):
-                    __init__ = functools.partialmethod(GriddlyEnv.__init__, **default_args)
+                    __init__ = functools.partialmethod(
+                        GriddlyEnv.__init__, **default_args
+                    )
 
                 return InstantiatedGriddlyEnv
 

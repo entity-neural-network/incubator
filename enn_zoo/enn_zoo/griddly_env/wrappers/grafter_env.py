@@ -15,10 +15,10 @@ def grafter_env(**kwargs) -> Type[GriddlyEnv]:
             return observation
 
         def make_observation(
-                self,
-                obs: Dict[str, Any],
-                reward: int = 0,
-                done: bool = False,
+            self,
+            obs: Dict[str, Any],
+            reward: int = 0,
+            done: bool = False,
         ) -> Observation:
             observation = super().make_observation(obs, reward, done)
             return self._add_grafter_metrics(observation)
