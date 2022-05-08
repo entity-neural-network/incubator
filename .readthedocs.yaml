@@ -21,9 +21,6 @@ build:
 sphinx:
    configuration: entity_gym/docs/conf.py
 
-sphinx:
-  fail_on_warning: true
-
 python:
   # Install our python package before building the docs
   install:
