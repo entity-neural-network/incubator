@@ -111,7 +111,10 @@ Implementing a "move" action
 ============================
 
 Now that the player has a position, we can add an action that moves the player.
-Change the `action_space` and `act` methods to the following:
+We change the ``action_space`` method to define ``"move"`` as global categorical action with 4 choices.
+We implement the logic for the action in the ``act`` method.
+Finally, we include a ``GlobalCategoricalActionMask`` for the ``"move"`` action in the ``Observation`` returned by ``_observe``.
+If we wanted the ``"move"`` action to be unavailable on some timestep, we could omit the mask from the corresponding observation.
 
 .. code-block:: python
 
