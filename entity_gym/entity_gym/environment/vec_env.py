@@ -8,10 +8,11 @@ import numpy.typing as npt
 from ragged_buffer import RaggedBufferBool, RaggedBufferF32, RaggedBufferI64
 
 from entity_gym.environment.environment import (
+    ActionName,
     ActionSpace,
-    ActionType,
     CategoricalActionSpace,
-    EntityType,
+    EntityName,
+    GlobalCategoricalActionSpace,
     Observation,
     ObsSpace,
     SelectEntityActionSpace,
@@ -146,10 +147,10 @@ class VecObs:
     A batch of observations from a vectorized environment.
     """
 
-    features: Dict[EntityType, RaggedBufferF32]
+    features: Dict[EntityName, RaggedBufferF32]
     # Optional mask to hide specific entities from the policy but not the value function
-    visible: Dict[EntityType, RaggedBufferBool]
-    action_masks: Dict[ActionType, VecActionMask]
+    visible: Dict[EntityName, RaggedBufferBool]
+    action_masks: Dict[ActionName, VecActionMask]
     reward: npt.NDArray[np.float32]
     done: npt.NDArray[np.bool_]
     metrics: Dict[str, Metric]
@@ -216,7 +217,7 @@ class VecEnv(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def action_space(self) -> Dict[ActionType, ActionSpace]:
+    def action_space(self) -> Dict[ActionName, ActionSpace]:
         """
         Returns a dictionary mapping the name of actions to their action space.
         """
@@ -231,7 +232,7 @@ class VecEnv(ABC):
 
     @abstractmethod
     def act(
-        self, actions: Mapping[ActionType, RaggedBufferI64], obs_filter: ObsSpace
+        self, actions: Mapping[ActionName, RaggedBufferI64], obs_filter: ObsSpace
     ) -> VecObs:
         """
         Performs the given actions on the underlying environments and returns the resulting observations.
@@ -257,30 +258,42 @@ def batch_obs(
     """
     Converts a list of observations into a batch of observations.
     """
-    features: Dict[EntityType, RaggedBufferF32] = {}
-    visible: Dict[EntityType, RaggedBufferBool] = {}
-    action_masks: Dict[ActionType, VecActionMask] = {}
+    features: Dict[EntityName, RaggedBufferF32] = {}
+    visible: Dict[EntityName, RaggedBufferBool] = {}
+    action_masks: Dict[ActionName, VecActionMask] = {}
     reward = []
     done = []
     metrics = {}
 
     # Initialize the entire batch with all entities and actions
     for entity_name, entity in obs_space.entities.items():
-        feature_size = len(entity.features)
-        features[entity_name] = RaggedBufferF32(feature_size)
-
+        nfeat = len(entity.features)
+        features[entity_name] = RaggedBufferF32(nfeat)
+    global_entity = len(obs_space.global_features) > 0
     for action_name, space in action_space.items():
         if isinstance(space, CategoricalActionSpace):
             action_masks[action_name] = VecCategoricalActionMask(
                 RaggedBufferI64(1),
                 None,
             )
+        elif isinstance(space, GlobalCategoricalActionSpace):
+            action_masks[action_name] = VecCategoricalActionMask(
+                RaggedBufferI64(1),
+                None,
+            )
+            global_entity = True
         elif isinstance(space, SelectEntityActionSpace):
             action_masks[action_name] = VecSelectEntityActionMask(
                 RaggedBufferI64(1), RaggedBufferI64(1)
             )
+        else:
+            raise NotImplementedError(f"Action space {space} not supported")
+    if global_entity:
+        nfeat = len(obs_space.global_features)
+        features["__global__"] = RaggedBufferF32(nfeat)
 
     for i, o in enumerate(obs):
+        # Merge entity features
         for entity_type, entity in obs_space.entities.items():
             if entity_type not in features:
                 features[entity_type] = RaggedBufferF32.from_flattened(
@@ -298,7 +311,15 @@ def batch_obs(
                 features[entity_type].push(
                     np.zeros((0, len(entity.features)), dtype=np.float32)
                 )
+        if global_entity:
+            gfeats = o.global_features
+            if not isinstance(gfeats, np.ndarray):
+                gfeats = np.array(gfeats, dtype=np.float32)
+            features["__global__"].push(
+                gfeats.reshape(1, len(obs_space.global_features))
+            )
 
+        # Merge visibilities
         for etype, vis in o.visible.items():
             if etype not in visible:
                 lengths = []
@@ -315,6 +336,7 @@ def batch_obs(
                 vis = np.array(vis, dtype=np.bool_)
             visible[etype].push(vis.reshape(-1, 1))
 
+        # Merge action masks
         for atype, space in action_space.items():
             if atype not in o.actions:
                 if atype in action_masks:
@@ -324,17 +346,23 @@ def batch_obs(
                         vec_action.actors.push(np.zeros((0, 1), dtype=np.int64))
                         if vec_action.mask is not None:
                             vec_action.mask.push(
-                                np.zeros((0, len(space.choices)), dtype=np.bool_)
+                                np.zeros((0, len(space.index_to_label)), dtype=np.bool_)
                             )
                     elif isinstance(space, SelectEntityActionSpace):
                         vec_action = action_masks[atype]
                         assert isinstance(vec_action, VecSelectEntityActionMask)
                         vec_action.actors.push(np.zeros((0, 1), dtype=np.int64))
                         vec_action.actees.push(np.zeros((0, 1), dtype=np.int64))
+                    else:
+                        raise ValueError(
+                            f"Unsupported action space type: {type(space)}"
+                        )
                 continue
             action = o.actions[atype]
             if atype not in action_masks:
-                if isinstance(space, CategoricalActionSpace):
+                if isinstance(space, CategoricalActionSpace) or isinstance(
+                    space, GlobalCategoricalActionSpace
+                ):
                     action_masks[atype] = VecCategoricalActionMask(
                         empty_ragged_i64(1, i), None
                     )
@@ -342,7 +370,11 @@ def batch_obs(
                     action_masks[atype] = VecSelectEntityActionMask(
                         empty_ragged_i64(1, i), empty_ragged_i64(1, i)
                     )
-            if isinstance(space, CategoricalActionSpace):
+                else:
+                    raise ValueError(f"Unknown action space type: {space}")
+            if isinstance(space, CategoricalActionSpace) or isinstance(
+                space, GlobalCategoricalActionSpace
+            ):
                 vec_action = action_masks[atype]
                 assert isinstance(vec_action, VecCategoricalActionMask)
                 actor_indices = o._actor_indices(atype, obs_space)
@@ -350,7 +382,7 @@ def batch_obs(
                 if action.mask is not None:
                     if vec_action.mask is None:
                         vec_action.mask = RaggedBufferBool.from_flattened(
-                            np.ones((0, len(space.choices)), dtype=np.bool_),
+                            np.ones((0, len(space.index_to_label)), dtype=np.bool_),
                             np.zeros(i, dtype=np.int64),
                         )
                     amask = action.mask
@@ -360,7 +392,8 @@ def batch_obs(
                 elif vec_action.mask is not None:
                     vec_action.mask.push(
                         np.ones(
-                            (len(actor_indices), len(space.choices)), dtype=np.bool_
+                            (len(actor_indices), len(space.index_to_label)),
+                            dtype=np.bool_,
                         )
                     )
             elif isinstance(space, SelectEntityActionSpace):

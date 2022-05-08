@@ -125,7 +125,7 @@ class GymMicrorts(Environment):
 
     def obs_space(self) -> ObsSpace:
         return ObsSpace(
-            {
+            entities={
                 "Resource": Entity(["x", "y"]),
                 "Base": Entity(["x", "y"]),
                 "Barracks": Entity(["x", "y"]),
@@ -139,7 +139,7 @@ class GymMicrorts(Environment):
     def action_space(self) -> Dict[str, ActionSpace]:
         return {
             "unit_action": CategoricalActionSpace(
-                choices=[
+                [
                     "move_up",
                     "move_right",
                     "move_down",
@@ -166,7 +166,7 @@ class GymMicrorts(Environment):
                 ],  # the attack trange is a 7x7 relative grid
             ),
             "base_action": CategoricalActionSpace(
-                choices=[
+                [
                     "produce_worker_up",
                     "produce_worker_right",
                     "produce_worker_down",
@@ -174,7 +174,7 @@ class GymMicrorts(Environment):
                 ],
             ),
             "barrack_action": CategoricalActionSpace(
-                choices=[
+                [
                     "produce_light_up",
                     "produce_light_right",
                     "produce_light_down",
@@ -211,7 +211,7 @@ class GymMicrorts(Environment):
         base_action_actor_masks = np.array(response.observation[11], dtype=np.bool8)
         barrack_action_actor_ids = np.array(response.observation[12])
         barrack_action_actor_masks = np.array(response.observation[13], dtype=np.bool8)
-        return Observation.from_entity_obs(
+        return Observation(
             entities=self.generate_entities(response),
             actions={
                 "unit_action": CategoricalActionMask(
@@ -231,7 +231,7 @@ class GymMicrorts(Environment):
             done=response.done[0],
         )
 
-    def act(self, action: Mapping[str, Action]) -> Observation:
+    def act(self, actions: Mapping[str, Action]) -> Observation:
         self.step += 1
 
         unit_action_actors: Sequence[Any] = []
@@ -240,21 +240,21 @@ class GymMicrorts(Environment):
         base_actions: npt.NDArray[np.int64] = np.empty(0, dtype=np.int64)
         barrack_action_actors: Sequence[Any] = []
         barrack_actions: npt.NDArray[np.int64] = np.empty(0, dtype=np.int64)
-        if "unit_action" in action and isinstance(
-            action["unit_action"], CategoricalAction
+        if "unit_action" in actions and isinstance(
+            actions["unit_action"], CategoricalAction
         ):
-            unit_action_actors = action["unit_action"].actors
-            unit_actions = action["unit_action"].actions
-        if "base_action" in action and isinstance(
-            action["base_action"], CategoricalAction
+            unit_action_actors = actions["unit_action"].actors
+            unit_actions = actions["unit_action"].indices
+        if "base_action" in actions and isinstance(
+            actions["base_action"], CategoricalAction
         ):
-            base_action_actors = action["base_action"].actors
-            base_actions = action["base_action"].actions
-        if "barrack_action" in action and isinstance(
-            action["barrack_action"], CategoricalAction
+            base_action_actors = actions["base_action"].actors
+            base_actions = actions["base_action"].indices
+        if "barrack_action" in actions and isinstance(
+            actions["barrack_action"], CategoricalAction
         ):
-            barrack_action_actors = action["barrack_action"].actors
-            barrack_actions = action["barrack_action"].actions
+            barrack_action_actors = actions["barrack_action"].actors
+            barrack_actions = actions["barrack_action"].indices
 
         response = self.client.gameStep(
             unit_action_actors,
@@ -282,7 +282,7 @@ class GymMicrorts(Environment):
             )
         self.returns += response.reward
 
-        return Observation.from_entity_obs(
+        return Observation(
             entities=self.generate_entities(response),
             actions={
                 "unit_action": CategoricalActionMask(

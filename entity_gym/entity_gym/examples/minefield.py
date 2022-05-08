@@ -97,7 +97,7 @@ class Minefield(Environment):
         for action_name, a in action.items():
             assert isinstance(a, CategoricalAction)
             if action_name == "move":
-                move = a.actions[0]
+                move = a.indices[0]
                 if move == 0:
                     self.vehicle.direction -= np.pi / 8
                 elif move == 1:
@@ -118,9 +118,9 @@ class Minefield(Environment):
 
         return self.observe(obs_filter)
 
-    def act(self, action: Mapping[str, Action]) -> Observation:
+    def act(self, actions: Mapping[str, Action]) -> Observation:
         return self.act_filter(
-            action,
+            actions,
             self.obs_space(),
         )
 

@@ -67,7 +67,7 @@ class BaseEnv(Environment):
 
     def obs_space(self) -> ObsSpace:
         return ObsSpace(
-            {
+            entities={
                 "Player": Entity(features=ENTITY_FEATS + self._global_feats()),
                 **{
                     entity_type: Entity(features=ENTITY_FEATS + self._global_feats())
@@ -76,7 +76,7 @@ class BaseEnv(Environment):
             }
         )
 
-    def action_space(self) -> Dict[ActionType, ActionSpace]:
+    def action_space(self) -> Dict[ActionName, ActionSpace]:
         return {
             "act": CategoricalActionSpace(
                 [
@@ -135,17 +135,17 @@ class BaseEnv(Environment):
             == state.entities.shape[0]
         )
 
-        return Observation.from_entity_obs(
+        return Observation(
             entities=entities,
             actions={"act": CategoricalActionMask(actor_types=["Player"])},
             done=state.step_data.done == 1,
             reward=state.step_data.reward,
         )
 
-    def act(self, actions: Mapping[ActionType, Action]) -> Observation:
+    def act(self, actions: Mapping[ActionName, Action]) -> Observation:
         act = actions["act"]
         assert isinstance(act, CategoricalAction)
-        self.env.act(act.actions)
+        self.env.act(act.indices)
         return self.observe()
 
 

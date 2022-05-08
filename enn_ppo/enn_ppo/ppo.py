@@ -4,14 +4,14 @@ import torch
 from ragged_buffer import RaggedBufferF32
 
 from enn_ppo.config import PPOConfig
-from entity_gym.environment.environment import ActionType
+from entity_gym.environment.environment import ActionName
 from entity_gym.simple_trace import Tracer
 
 
 def ppo_loss(
     cfg: PPOConfig,
-    newlogprob: Mapping[ActionType, torch.Tensor],
-    oldlogprob: Mapping[ActionType, RaggedBufferF32],
+    newlogprob: Mapping[ActionName, torch.Tensor],
+    oldlogprob: Mapping[ActionName, RaggedBufferF32],
     advantages: torch.Tensor,
     device: torch.device,
     tracer: Tracer,

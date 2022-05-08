@@ -1,11 +1,11 @@
-// Achieves 1.0 episodic return: https://wandb.ai/entity-neural-network/enn-ppo/reports/Xor--VmlldzoxNjI2OTEz
+// Achieves 1.0 episodic return most of the time: https://wandb.ai/entity-neural-network/enn-ppo/reports/Xor--VmlldzoxOTI5NTQ0
 ExperimentConfig(
     version: 0,
     env: (
         id: "Xor",
     ),
     rollout: (
-        num_envs: 512,
+        num_envs: 2048,
         steps: 1,
         processes: 16,
     ),
@@ -15,9 +15,10 @@ ExperimentConfig(
         d_model: 16
     ),
     optim: (
-        bs: 128,
+        bs: 2048,
+        lr: 0.003,
     ),
     ppo: (
-        ent_coef: 0.1
+        ent_coef: 0.3,
     ),
 )

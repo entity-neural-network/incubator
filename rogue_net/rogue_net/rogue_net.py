@@ -1,3 +1,4 @@
+import dataclasses
 from dataclasses import dataclass
 from typing import Dict, Mapping, Optional, Tuple, Type, TypeVar
 
@@ -16,6 +17,8 @@ from ragged_buffer import (
 from entity_gym.environment import ActionSpace, ObsSpace, VecActionMask
 from entity_gym.environment.environment import (
     CategoricalActionSpace,
+    Entity,
+    GlobalCategoricalActionSpace,
     SelectEntityActionSpace,
 )
 from entity_gym.simple_trace import Tracer
@@ -66,11 +69,24 @@ class RogueNet(nn.Module):
     ):
         super().__init__()
 
+        global_features = obs_space.global_features
+        _obs_space = dataclasses.replace(obs_space, global_features=[])
+        if len(global_features) > 0:
+            _obs_space.entities = {
+                label: Entity(entity.features + global_features)
+                for label, entity in _obs_space.entities.items()
+            }
+        if any(
+            isinstance(a, GlobalCategoricalActionSpace) for a in action_space.values()
+        ):
+            _obs_space.entities["__global__"] = Entity(features=global_features)
+
         self.d_model = cfg.d_model
         self.action_space = action_space
         self.obs_space = obs_space
-        self.embedding = EntityEmbedding(obs_space, cfg.translation, cfg.d_model)
-        self.backbone = Transformer(cfg, obs_space)
+        self._obs_space = _obs_space
+        self.embedding = EntityEmbedding(_obs_space, cfg.translation, cfg.d_model)
+        self.backbone = Transformer(cfg, _obs_space)
         self.action_heads = create_action_heads(action_space, cfg.d_model, cfg.d_qk)
         self.auxiliary_heads = (
             nn.ModuleDict(
@@ -96,7 +112,7 @@ class RogueNet(nn.Module):
             # Ensure consistent dictionary ordering
             entities = {
                 name: entities[name]
-                for name in self.obs_space.entities.keys()
+                for name in list(self.obs_space.entities.keys()) + ["__global__"]
                 if name in entities
             }
             (
@@ -252,8 +268,12 @@ def create_action_heads(
 ) -> nn.ModuleDict:
     action_heads: Dict[str, nn.Module] = {}
     for name, space in action_space.items():
-        if isinstance(space, CategoricalActionSpace):
-            action_heads[name] = CategoricalActionHead(d_model, len(space.choices))
+        if isinstance(space, CategoricalActionSpace) or isinstance(
+            space, GlobalCategoricalActionSpace
+        ):
+            action_heads[name] = CategoricalActionHead(d_model, len(space))
         elif isinstance(space, SelectEntityActionSpace):
             action_heads[name] = PaddedSelectEntityActionHead(d_model, d_qk)
+        else:
+            raise ValueError(f"Unknown action space {space}")
     return nn.ModuleDict(action_heads)

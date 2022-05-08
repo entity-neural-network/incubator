@@ -8,6 +8,7 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import Any, Callable, Dict, Mapping, Optional, Type, Union
 
+import click
 import hyperstate
 import numpy as np
 import torch
@@ -25,6 +26,7 @@ from enn_ppo.ppo import ppo_loss, value_loss
 from enn_ppo.rollout import Rollout
 from entity_gym.environment import *
 from entity_gym.environment.add_metrics_wrapper import AddMetricsWrapper
+from entity_gym.environment.validator import ValidatingEnv
 from entity_gym.examples import ENV_REGISTRY
 from entity_gym.serialization import SampleRecordingVecEnv
 from entity_gym.simple_trace import Tracer
@@ -41,12 +43,10 @@ class SerializableRogueNet(RogueNet, hyperstate.Serializable[TrainConfig, "State
     def deserialize(
         clz, state_dict: Any, config: TrainConfig, state: "State", ctx: Dict[str, Any]
     ) -> "SerializableRogueNet":
-        obs_space: ObsSpace = ctx["obs_space"]
-        action_space: Dict[ActionType, ActionSpace] = ctx["action_space"]
         net = SerializableRogueNet(
             config.net,
-            obs_space,
-            action_space,
+            state.obs_space,
+            state.action_space,
             regression_heads={"value": 1},
         )
         net.load_state_dict(state_dict)
@@ -78,10 +78,14 @@ def _env_factory(
         cfg: EnvConfig, num_envs: int, processes: int, first_env_index: int
     ) -> VecEnv:
         kwargs = json.loads(cfg.kwargs)
-        if processes > 1:
-            return ParallelEnvList(env_cls, kwargs, num_envs, processes)
+        if cfg.validate:
+            create_env = lambda: ValidatingEnv(env_cls(**kwargs))  # type: ignore
         else:
-            return EnvList(env_cls, kwargs, num_envs)
+            create_env = lambda: env_cls(**kwargs)  # type: ignore
+        if processes > 1:
+            return ParallelEnvList(create_env, num_envs, processes)
+        else:
+            return EnvList(create_env, num_envs)
 
     return _create_env
 
@@ -109,6 +113,8 @@ class State(hyperstate.Lazy):
     value_function: Optional[SerializableRogueNet]
     optimizer: SerializableAdamW
     vf_optimizer: Optional[SerializableAdamW]
+    obs_space: ObsSpace
+    action_space: Dict[str, ActionSpace]
 
 
 def train(
@@ -353,26 +359,6 @@ def train(
                 writer.add_scalar(f"{name}.max", value.max, global_step)
                 writer.add_scalar(f"{name}.min", value.min, global_step)
                 writer.add_scalar(f"{name}.count", value.count, global_step)
-            # Double log these to remain compatible with old naming scheme
-            # TODO: remove before release
-            writer.add_scalar(
-                "charts/episodic_return",
-                metrics["episodic_reward"].mean,
-                global_step,
-            )
-            writer.add_scalar(
-                "charts/episodic_length",
-                metrics["episode_length"].mean,
-                global_step,
-            )
-            writer.add_scalar(
-                "charts/episodes", metrics["episodic_reward"].count, global_step
-            )
-            writer.add_scalar("meanrew", metrics["reward"].mean, global_step)
-
-        print(
-            f"global_step={global_step} {'  '.join(f'{name}={value.mean}' for name, value in metrics.items())}"
-        )
 
         values = rollout.values
         actions = rollout.actions
@@ -560,15 +546,47 @@ def train(
                 if isinstance(space, CategoricalActionSpace):
                     _actions = actions.buffers[action_name].as_array().flatten()
                     if len(_actions) > 0:
-                        for i, label in enumerate(space.choices):
+                        for i, label in enumerate(space.index_to_label):
                             writer.add_scalar(
                                 f"actions/{action_name}/{label}",
                                 np.sum(_actions == i).item() / len(_actions),
                                 global_step,
                             )
-            print(
-                "SPS:", int((global_step - initial_step) / (time.time() - start_time))
+
+            fps = (global_step - initial_step) / (time.time() - start_time)
+            digits = int(np.ceil(np.log10(cfg.total_timesteps)))
+            episodic_reward = metrics["episodic_reward"].mean
+            episode_length = metrics["episode_length"].mean
+            episode_count = metrics["episode_length"].count
+            mean_reward = metrics["reward"].mean
+
+            def green(s: str) -> str:
+                return click.style(s, fg="cyan")
+
+            def estyle(f: float) -> str:
+                return click.style(f"{f:.2e}", fg="cyan")
+
+            def fstyle(f: float) -> str:
+                return click.style(f"{f:5.2f}", fg="cyan")
+
+            def tstyle(s: str) -> str:
+                return s
+
+            def symstyle(s: str) -> str:
+                return click.style(s, fg="white", bold=True)
+
+            # fmt: off
+            click.echo(
+                green(f"{global_step:>{digits}}") + symstyle("/") + green(f"{cfg.total_timesteps} ")
+                + f"{symstyle('|')} {tstyle('meanrew')} {estyle(mean_reward)} "
+                + f"{symstyle('|')} {tstyle('explained_var')} {fstyle(explained_var.item())} "
+                + f"{symstyle('|')} {tstyle('entropy')} {fstyle(entropy_loss.item())} "
+                + f"{symstyle('|')} {tstyle('episodic_reward')} {estyle(episodic_reward)} "
+                + f"{symstyle('|')} {tstyle('episode_length')} {estyle(episode_length)} "
+                + f"{symstyle('|')} {tstyle('episodes')} {green(str(episode_count))} "
+                + f"{symstyle('|')} {tstyle('fps')} {green(str(int(fps)))}"
             )
+            # fmt: on
             writer.add_scalar(
                 "charts/SPS",
                 int((global_step - initial_step) / (time.time() - start_time)),
@@ -622,7 +640,7 @@ def gradient_allreduce(model: Any) -> None:
 
 
 def _create_agent(
-    cfg: TrainConfig, obs_space: ObsSpace, action_space: Dict[ActionType, ActionSpace]
+    cfg: TrainConfig, obs_space: ObsSpace, action_space: Dict[ActionName, ActionSpace]
 ) -> SerializableRogueNet:
     return SerializableRogueNet(
         cfg.net,
@@ -674,6 +692,8 @@ def initialize(cfg: TrainConfig, ctx: Dict[str, Any]) -> State:
         value_function=value_function,
         optimizer=optimizer,
         vf_optimizer=vf_optimizer,
+        obs_space=ctx["obs_space"],
+        action_space=ctx["action_space"],
     )
 
 

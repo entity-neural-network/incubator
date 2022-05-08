@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Mapping, Set, Union
+from typing import Any, Dict, List, Mapping, Set
 
 import numpy as np
 import numpy.typing as npt
@@ -14,7 +14,6 @@ from entity_gym.environment import (
     Observation,
     ObsSpace,
 )
-from entity_gym.environment.environment import SelectEntityActionSpace
 
 # Replace Delta buttons with these discrete steps
 DELTA_SPEED_STEPS: List = [-45, -30, -15, -5, -1, 0, 1, 5, 15, 30, 45]
@@ -137,11 +136,9 @@ class DoomEntityEnvironment(Environment):
         if self._is_sector_buffer_enabled:
             obs_space_dict["Walls"] = Entity(["x1", "y1", "x2", "y2", "is_blocking"])
 
-        self._observation_space = ObsSpace(obs_space_dict)
+        self._observation_space = ObsSpace(entities=obs_space_dict)
 
-        self._action_space: Dict[
-            str, Union[CategoricalActionSpace, SelectEntityActionSpace]
-        ] = {}
+        self._action_space: Dict[str, ActionSpace] = {}
         # You can always execute all actions in all steps, so we create a static mask thing
         self._action_mask = {}
         self._available_buttons = self._doomgame.get_available_buttons()
@@ -224,15 +221,15 @@ class DoomEntityEnvironment(Environment):
         doom_action = [0 for _ in range(len(self._available_buttons))]
         for i, button in enumerate(self._available_buttons):
             # There is only one actor (player)
-            button_action = action[button.name].actions[0]  # type: ignore
+            button_action = action[button.name].indices[0]  # type: ignore
             if "DELTA" in button.name:
                 doom_action[i] = DELTA_SPEED_STEPS[button_action]
             else:
                 doom_action[i] = button_action
         return doom_action
 
-    def act(self, action: Mapping[str, Action]) -> Observation:
-        doom_action = self._enn_action_to_doom(action)
+    def act(self, actions: Mapping[str, Action]) -> Observation:
+        doom_action = self._enn_action_to_doom(actions)
         reward = self._doomgame.make_action(doom_action, self._frame_skip)
         terminal = self._doomgame.is_episode_finished()
         if terminal:

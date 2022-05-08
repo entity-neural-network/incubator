@@ -36,14 +36,14 @@ class MineSweeper(Environment):
 
     def obs_space(cls) -> ObsSpace:
         return ObsSpace(
-            {
+            entities={
                 "Mine": Entity(features=["x", "y"]),
                 "Robot": Entity(features=["x", "y"]),
                 "Orbital Cannon": Entity(["cooldown"]),
             }
         )
 
-    def action_space(cls) -> Dict[ActionType, ActionSpace]:
+    def action_space(cls) -> Dict[ActionName, ActionSpace]:
         return {
             "Move": CategoricalActionSpace(
                 ["Up", "Down", "Left", "Right", "Defuse Mines"],
@@ -64,7 +64,7 @@ class MineSweeper(Environment):
     def observe(self) -> Observation:
         done = len(self.mines) == 0 or len(self.robots) == 0
         reward = 1.0 if len(self.mines) == 0 else 0.0
-        return Observation.from_entity_obs(
+        return Observation(
             entities={
                 "Mine": EntityObs(
                     features=self.mines,
@@ -102,7 +102,7 @@ class MineSweeper(Environment):
             reward=reward,
         )
 
-    def act(self, actions: Mapping[ActionType, Action]) -> Observation:
+    def act(self, actions: Mapping[ActionName, Action]) -> Observation:
         fire = actions["Fire Orbital Cannon"]
         assert isinstance(fire, SelectEntityAction)
         remove_robot = None

@@ -45,7 +45,34 @@ class GriddlyEnv(Environment):
 
     @abstractmethod
     def _to_griddly_action(self, action: Mapping[str, Action]) -> np.ndarray:
-        pass
+
+        if len(self._env.action_space_parts) > 2:
+            entity_actions = []
+            for action_name, a in action.items():
+                action_type = self._env.action_names.index(action_name)
+                for entity_id, action_id in a.items():
+                    entity_location = self.entity_locations[entity_id]
+                    entity_actions.append(
+                        np.array(
+                            [
+                                entity_location[0],
+                                entity_location[1],
+                                action_type,
+                                action_id,
+                            ]
+                        )
+                    )
+
+            return np.stack(entity_actions)
+        else:
+
+            for action_name, a in action.items():
+                action_type = self._env.action_names.index(action_name)
+                assert isinstance(a, CategoricalAction)
+                # TODO: this only works if we have a single entity, otherwise we have to map the entityID to an x,y coordinate
+                action_id = a.indices[0]
+
+            return np.array([action_type, action_id])
 
     def _make_observation(
             self, obs: Dict[str, Any], reward: int = 0, done: bool = False
@@ -102,8 +129,8 @@ class GriddlyEnv(Environment):
 
         return self._make_observation(obs)
 
-    def act(self, action: Mapping[str, Action]) -> Observation:
-        g_action = self._to_griddly_action(action)
+    def act(self, actions: Mapping[str, Action]) -> Observation:
+        g_action = self._to_griddly_action(actions)
         obs, reward, done, info = self._env.step(g_action)
 
         self.total_reward += reward

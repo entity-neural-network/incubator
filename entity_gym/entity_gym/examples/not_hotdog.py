@@ -26,7 +26,7 @@ class NotHotdog(Environment):
 
     def obs_space(self) -> ObsSpace:
         return ObsSpace(
-            {
+            entities={
                 "Player": Entity(["step"]),
                 "Object": Entity(["is_hotdog"]),
                 "Hotdog": Entity([]),
@@ -45,12 +45,12 @@ class NotHotdog(Environment):
         self.hotdog_object = random.randint(0, 1) == 1
         return self.observe()
 
-    def act(self, action: Mapping[str, Action]) -> Observation:
+    def act(self, actions: Mapping[str, Action]) -> Observation:
         self.step += 1
 
-        a = action["classify"]
+        a = actions["classify"]
         assert isinstance(a, CategoricalAction), f"{a} is not a CategoricalAction"
-        if a.actions[0] == self.is_hotdog:
+        if a.indices[0] == self.is_hotdog:
             reward = 1
         else:
             reward = 0

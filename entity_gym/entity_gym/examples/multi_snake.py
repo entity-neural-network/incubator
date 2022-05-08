@@ -69,18 +69,17 @@ class MultiSnake(Environment):
 
     def obs_space(cls) -> ObsSpace:
         return ObsSpace(
-            {
-                "SnakeHead": Entity(["x", "y", "color", "step"]),
+            global_features=["step"],
+            entities={
+                "SnakeHead": Entity(["x", "y", "color"]),
                 "SnakeBody": Entity(["x", "y", "color"]),
                 "Food": Entity(["x", "y", "color"]),
-            }
+            },
         )
 
     def action_space(cls) -> Dict[str, ActionSpace]:
         return {
-            "move": CategoricalActionSpace(
-                choices=["up", "down", "left", "right"],
-            ),
+            "move": CategoricalActionSpace(["up", "down", "left", "right"]),
         }
 
     def _spawn_snake(self, color: int) -> None:
@@ -118,10 +117,10 @@ class MultiSnake(Environment):
             self._spawn_food(i)
         return self._observe()
 
-    def act(self, action: Mapping[str, Action]) -> Observation:
+    def act(self, actions: Mapping[str, Action]) -> Observation:
         game_over = False
         self.step += 1
-        move_action = action["move"]
+        move_action = actions["move"]
         self.last_scores = deepcopy(self.scores)
         food_to_spawn = []
         assert isinstance(move_action, CategoricalAction)
@@ -179,6 +178,7 @@ class MultiSnake(Environment):
             return (color - color_offset) % self.num_snakes
 
         return Observation(
+            global_features=[self.step],
             features={
                 "SnakeHead": np.array(
                     [
@@ -186,7 +186,6 @@ class MultiSnake(Environment):
                             s.segments[-1][0],
                             s.segments[-1][1],
                             cycle_color(s.color),
-                            self.step,
                         ]
                         for s in self.snakes
                     ],

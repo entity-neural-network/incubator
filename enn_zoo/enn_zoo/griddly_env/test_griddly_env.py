@@ -22,8 +22,8 @@ def test_griddly_wrapper() -> None:
 
     # Check the observation space is being created correctly from the test environment
     observation_space = env_class.obs_space()
-    assert len(observation_space.entities) == 3
-    assert observation_space.entities["__global__"].features == [
+    assert len(observation_space.entities) == 2
+    assert observation_space.global_features == [
         "_steps",
         "test_global_variable",
     ]
@@ -42,7 +42,7 @@ def test_griddly_wrapper() -> None:
     # Check the action space is being created correctly for the test environment
     action_space = env_class.action_space()
     assert isinstance(action_space["flat"], CategoricalActionSpace)
-    assert action_space["flat"].choices == [
+    assert action_space["flat"].index_to_label == [
         "NOP",
         "Left",
         "Up",
@@ -97,7 +97,9 @@ def test_single_agent() -> None:
     assert env.entity_locations[entity1_id] == [2, 1]
 
     move_down_action = CategoricalAction(
-        actions=np.array([4], dtype=int), actors=[entity1_id]
+        indices=np.array([[4]], dtype=int),
+        actors=[entity1_id],
+        index_to_label=[],
     )
     observation_1 = env.act({"flat": move_down_action})
 
@@ -114,7 +116,7 @@ def test_single_agent() -> None:
     )
 
     remove_down_action = CategoricalAction(
-        actions=np.array([8], dtype=int), actors=[entity1_id]
+        indices=np.array([[4]], dtype=int), actors=[entity1_id], index_to_label=[]
     )
     observation_2 = env.act({"flat": remove_down_action})
 
@@ -155,10 +157,14 @@ def test_single_agent_multi_entity() -> None:
 
     # Move target entity1 down and target entity 2 down
     move_entity_one = CategoricalAction(
-        actions=np.array([[4]], dtype=int), actors=[target_entity_1_id]
+        indices=np.array([[4]], dtype=int),
+        actors=[target_entity_1_id],
+        index_to_label=env.action_space()["move_entity_one"].index_to_label,  # type: ignore
     )
     move_entity_two = CategoricalAction(
-        actions=np.array([[2]], dtype=int), actors=[target_entity_2_id]
+        indices=np.array([[2]], dtype=int),
+        actors=[target_entity_2_id],
+        index_to_label=env.action_space()["move_entity_two"].index_to_label,  # type: ignore
     )
 
     observation_1 = env.act(
@@ -173,10 +179,14 @@ def test_single_agent_multi_entity() -> None:
 
     # Remove entity 1 and remove entity 2
     remove_entity_two = CategoricalAction(
-        actions=np.array([[4]], dtype=int), actors=[target_entity_1_id]
+        indices=np.array([[4]], dtype=int),
+        actors=[target_entity_1_id],
+        index_to_label=env.action_space()["remove_entity_two"].index_to_label,  # type: ignore
     )
     remove_entity_one = CategoricalAction(
-        actions=np.array([[2]], dtype=int), actors=[target_entity_2_id]
+        indices=np.array([[2]], dtype=int),
+        actors=[target_entity_2_id],
+        index_to_label=env.action_space()["remove_entity_one"].index_to_label,  # type: ignore
     )
 
     observation_2 = env.act(

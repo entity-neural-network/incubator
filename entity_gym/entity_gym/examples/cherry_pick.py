@@ -15,7 +15,7 @@ from entity_gym.environment import (
     SelectEntityActionMask,
     SelectEntityActionSpace,
 )
-from entity_gym.environment.environment import EntityType
+from entity_gym.environment.environment import EntityName
 
 
 @dataclass
@@ -35,7 +35,7 @@ class CherryPick(Environment):
 
     def obs_space(self) -> ObsSpace:
         return ObsSpace(
-            {
+            entities={
                 "Cherry": Entity(["quality"]),
                 "Player": Entity([]),
             }
@@ -58,7 +58,7 @@ class CherryPick(Environment):
 
     def observe(self) -> Observation:
         done = self.step == self.num_cherries // 2
-        ids: Dict[EntityType, List[EntityID]] = {
+        ids: Dict[EntityName, List[EntityID]] = {
             "Cherry": [("Cherry", a) for a in range(len(self.cherries))],
             "Player": ["Player"],
         }
@@ -78,9 +78,9 @@ class CherryPick(Environment):
             done=done,
         )
 
-    def act(self, action: Mapping[str, Action]) -> Observation:
-        assert len(action) == 1, action
-        a = action["Pick Cherry"]
+    def act(self, actions: Mapping[str, Action]) -> Observation:
+        assert len(actions) == 1, actions
+        a = actions["Pick Cherry"]
         assert isinstance(a, SelectEntityAction)
         _, chosen_cherry_idx = a.actees[0]
         self.last_reward = self.cherries.pop(chosen_cherry_idx)
