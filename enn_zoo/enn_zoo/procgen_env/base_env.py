@@ -145,7 +145,7 @@ class BaseEnv(Environment):
     def act(self, actions: Mapping[ActionName, Action]) -> Observation:
         act = actions["act"]
         assert isinstance(act, CategoricalAction)
-        self.env.act(act.actions)
+        self.env.act(act.indices)
         return self.observe()
 
 

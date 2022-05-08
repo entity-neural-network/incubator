@@ -69,7 +69,7 @@ class GriddlyEnv(Environment):
                 action_type = self._env.action_names.index(action_name)
                 assert isinstance(a, CategoricalAction)
                 # TODO: this only works if we have a single entity, otherwise we have to map the entityID to an x,y coordinate
-                action_id = a.actions[0]
+                action_id = a.indices[0]
 
             return np.array([action_type, action_id])
 

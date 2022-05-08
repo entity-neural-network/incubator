@@ -221,7 +221,7 @@ class DoomEntityEnvironment(Environment):
         doom_action = [0 for _ in range(len(self._available_buttons))]
         for i, button in enumerate(self._available_buttons):
             # There is only one actor (player)
-            button_action = action[button.name].actions[0]  # type: ignore
+            button_action = action[button.name].indices[0]  # type: ignore
             if "DELTA" in button.name:
                 doom_action[i] = DELTA_SPEED_STEPS[button_action]
             else:

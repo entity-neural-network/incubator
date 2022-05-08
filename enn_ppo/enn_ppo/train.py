@@ -546,7 +546,7 @@ def train(
                 if isinstance(space, CategoricalActionSpace):
                     _actions = actions.buffers[action_name].as_array().flatten()
                     if len(_actions) > 0:
-                        for i, label in enumerate(space.choices):
+                        for i, label in enumerate(space.index_to_label):
                             writer.add_scalar(
                                 f"actions/{action_name}/{label}",
                                 np.sum(_actions == i).item() / len(_actions),
