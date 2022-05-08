@@ -1,6 +1,6 @@
 import os
 from typing import Any, Dict, Optional, Type, Mapping, List, Tuple
-
+import functools
 import numpy as np
 from griddly import GymWrapper, gd
 
@@ -9,7 +9,7 @@ from enn_zoo.griddly_env.level_generators.clusters_generator import (
 )
 from enn_zoo.griddly_env.level_generators.crafter_generator import CrafterLevelGenerator
 from enn_zoo.griddly_env.level_generators.level_generator import LevelGenerator
-from enn_zoo.griddly_env.wrapper import GriddlyEnv
+from enn_zoo.griddly_env.wrappers.griddly_env import GriddlyEnv
 from entity_gym.environment import (
     ActionSpace,
     CategoricalActionSpace,
@@ -20,158 +20,38 @@ from entity_gym.environment import (
     Action,
 )
 
+from enn_zoo.griddly_env.wrappers.grafter_env import (
+    grafter_env
+)
+
 init_path = os.path.dirname(os.path.realpath(__file__))
 
 
-def generate_obs_space(env: Any) -> ObsSpace:
-    # Each entity contains x, y, z positions, plus the values of all variables
-    global_features: List[str] = []
-    if "__global__" in env.observation_space.features:
-        # env.observation_space.features[
-        #     "__griddly_global__"
-        # ] = env.observation_space.features["__global__"]
-        # del env.observation_space.features["__global__"]
-        global_features = env.observation_space.features["__global__"]
-        del env.observation_space.features["__global__"]
+def create_env(env_wrapper: Type[GriddlyEnv] = None, **kwargs: Any) -> Type[GriddlyEnv]:
+    def partialclass():
+        """
+        Make the __init__ partial so we can override the kwargs we are putting here with custom ones later
+        """
 
-    space = {
-        name: Entity(features)
-        for name, features in env.observation_space.features.items()
-    }
-    return ObsSpace(global_features=global_features, entities=space)
+        default_args: Dict[str, Any] = {}
 
+        default_args["player_observer_type"] = gd.ObserverType.ENTITY
+        default_args["global_observer_type"] = gd.ObserverType.SPRITE_2D
 
-def generate_action_space(env: Any) -> Tuple[Dict[str, ActionSpace], List[List[int]]]:
-    if len(env.action_space_parts) > 2:
-        action_space: Dict[str, ActionSpace] = {}
-        for action_type_id, action_name in enumerate(env.action_names):
-            action_mapping = env.action_input_mappings[action_name]
-            input_mappings = action_mapping["InputMappings"]
+        default_args.update(kwargs)
 
-            actions = []
-            actions.append("NOP")  # In Griddly, Action ID 0 is always NOP
-            for action_id in range(1, len(input_mappings) + 1):
-                mapping = input_mappings[str(action_id)]
-                description = mapping["Description"]
-                actions.append(description)
-
-            action_space[action_name] = CategoricalActionSpace(actions)
-
-        return action_space, None
-    else:
-
-        action_space: Dict[str, ActionSpace] = {}
-
-        flat_action_mapping: List[List[int]] = []
-
-        actions = []
-        actions.append("NOP")
-        flat_action_mapping.append([0, 0])
-        for action_type_id, action_name in enumerate(env.action_names):
-            action_mapping = env.action_input_mappings[action_name]
-            input_mappings = action_mapping["InputMappings"]
-
-            for action_id in range(1, len(input_mappings) + 1):
-                mapping = input_mappings[str(action_id)]
-                description = mapping["Description"]
-                actions.append(description)
-
-                flat_action_mapping.append([action_type_id, action_id])
-
-            action_space["flat"] = CategoricalActionSpace(actions)
-
-        return action_space, flat_action_mapping
-
-
-def create_env(
-    yaml_file: str,
-    global_observer_type: Any = gd.ObserverType.SPRITE_2D,
-    image_path: Optional[str] = None,
-    shader_path: Optional[str] = None,
-    level: int = 0,
-    random_levels: bool = False,
-    level_generator: Optional[LevelGenerator] = None,
-) -> Type[GriddlyEnv]:
-    """
-    In order to fit the API for the Environment, we need to pre-load the environment from the yaml and then pass in
-    observation space, action space and the instantiated GymWrapper
-    """
-
-    env = GymWrapper(
-        yaml_file=yaml_file,
-        player_observer_type=gd.ObserverType.ENTITY,
-        image_path=image_path,
-        shader_path=shader_path,
-        level=level,
-    )
-    env.reset()
-    action_space, flat_action_mapping = generate_action_space(env)
-    observation_space = generate_obs_space(env)
-    level_count = env.level_count
-    env.close()
-
-    class InstantiatedGriddlyEnv(GriddlyEnv):
-        @classmethod
-        def _griddly_env(cls) -> Any:
-            return GymWrapper(
-                yaml_file=yaml_file,
-                image_path=image_path,
-                shader_path=shader_path,
-                player_observer_type=gd.ObserverType.ENTITY,
-                global_observer_type=global_observer_type,
-                level=level,
-            )
-
-        @classmethod
-        def obs_space(cls) -> ObsSpace:
-            return observation_space
-
-        @classmethod
-        def action_space(cls) -> Dict[str, ActionSpace]:
-            return action_space
-
-        def _to_griddly_action(self, action: Mapping[str, Action]) -> np.ndarray:
-            if len(self._env.action_space_parts) > 2:
-                entity_actions = []
-                for action_name, a in action.items():
-                    action_type = self._env.action_names.index(action_name)
-                    for entity_id, action_id in a.items():
-                        entity_location = self.entity_locations[entity_id]
-                        entity_actions.append(
-                            np.array(
-                                [
-                                    entity_location[0],
-                                    entity_location[1],
-                                    action_type,
-                                    action_id,
-                                ]
-                            )
-                        )
-
-                return np.stack(entity_actions)
+        def _create_env():
+            if env_wrapper is not None:
+                return env_wrapper(**default_args)
             else:
-                single_action = action["flat"]
-                assert isinstance(single_action, CategoricalAction)
-                return np.array(flat_action_mapping[single_action.indices[0]])
+                class InstantiatedGriddlyEnv(GriddlyEnv):
+                    __init__ = functools.partialmethod(GriddlyEnv.__init__, **default_args)
 
-        def reset(self) -> Observation:
+                return InstantiatedGriddlyEnv
 
-            self.total_reward = 0
-            self.step = 0
+        return _create_env()
 
-            if random_levels:
-                random_level = np.random.choice(level_count)
-                obs = self._env.reset(level_id=random_level)
-                return self._make_observation(obs)
-            elif isinstance(level_generator, LevelGenerator):
-                level_string = level_generator.generate()
-                obs = self._env.reset(level_string=level_string)
-                return self._make_observation(obs)
-            else:
-                obs = self._env.reset()
-                return self._make_observation(obs)
-
-    return InstantiatedGriddlyEnv
+    return partialclass()
 
 
 GRIDDLY_ENVS: Dict[str, Dict[str, Any]] = {
@@ -333,6 +213,7 @@ GRIDDLY_ENVS: Dict[str, Dict[str, Any]] = {
     },
     ############ Grafter Envs ############
     "GDY-Grafter-Single-30": {
+        "env_wrapper": grafter_env,
         "yaml_file": os.path.join(
             init_path, "env_descriptions/grafter/grafter_single.yaml"
         ),
@@ -340,6 +221,7 @@ GRIDDLY_ENVS: Dict[str, Dict[str, Any]] = {
         "image_path": os.path.join(init_path, "images/grafter"),
     },
     "GDY-Grafter-Single-50": {
+        "env_wrapper": grafter_env,
         "yaml_file": os.path.join(
             init_path, "env_descriptions/grafter/grafter_single.yaml"
         ),
@@ -354,6 +236,7 @@ GRIDDLY_ENVS: Dict[str, Dict[str, Any]] = {
         "image_path": os.path.join(init_path, "images/grafter"),
     },
     "GDY-Grafter-4Player-30": {
+        "env_wrapper": grafter_env,
         "yaml_file": os.path.join(
             init_path, "env_descriptions/grafter/grafter_multi_4.yaml"
         ),
@@ -368,6 +251,7 @@ GRIDDLY_ENVS: Dict[str, Dict[str, Any]] = {
         "image_path": os.path.join(init_path, "images/grafter"),
     },
     "GDY-Grafter-4Player-100": {
+        "env_wrapper": grafter_env,
         "yaml_file": os.path.join(
             init_path, "env_descriptions/grafter/grafter_multi_4.yaml"
         ),
@@ -375,6 +259,7 @@ GRIDDLY_ENVS: Dict[str, Dict[str, Any]] = {
         "image_path": os.path.join(init_path, "images/grafter"),
     },
     "GDY-Grafter-8Player-50": {
+        "env_wrapper": grafter_env,
         "yaml_file": os.path.join(
             init_path, "env_descriptions/grafter/grafter_multi_8.yaml"
         ),
@@ -382,6 +267,7 @@ GRIDDLY_ENVS: Dict[str, Dict[str, Any]] = {
         "image_path": os.path.join(init_path, "images/grafter"),
     },
     "GDY-Grafter-8Player-100": {
+        "env_wrapper": grafter_env,
         "yaml_file": os.path.join(
             init_path, "env_descriptions/grafter/grafter_multi_8.yaml"
         ),
@@ -389,6 +275,7 @@ GRIDDLY_ENVS: Dict[str, Dict[str, Any]] = {
         "image_path": os.path.join(init_path, "images/grafter"),
     },
     "GDY-Grafter-8Player-200": {
+        "env_wrapper": grafter_env,
         "yaml_file": os.path.join(
             init_path, "env_descriptions/grafter/grafter_multi_8.yaml"
         ),

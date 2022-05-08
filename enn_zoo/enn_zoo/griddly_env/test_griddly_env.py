@@ -20,8 +20,10 @@ def test_griddly_wrapper() -> None:
         yaml_file=os.path.join(init_path, "env_descriptions/test/test.yaml"),
     )
 
+    env = env_class()
+
     # Check the observation space is being created correctly from the test environment
-    observation_space = env_class.obs_space()
+    observation_space = env.obs_space()
     assert len(observation_space.entities) == 2
     assert observation_space.global_features == [
         "test_global_variable",
@@ -39,7 +41,7 @@ def test_griddly_wrapper() -> None:
     assert observation_space.entities["entity_2"].features == ["x", "y", "z"]
 
     # Check the action space is being created correctly for the test environment
-    action_space = env_class.action_space()
+    action_space = env.action_space()
     assert isinstance(action_space["flat"], CategoricalActionSpace)
     assert action_space["flat"].index_to_label == [
         "NOP",
@@ -53,7 +55,6 @@ def test_griddly_wrapper() -> None:
     ]
 
     # Check that observation is created correctly
-    env = env_class()
     observation = env.reset()
 
     # Check the entities in the observation
