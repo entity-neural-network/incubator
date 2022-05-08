@@ -24,12 +24,16 @@ init_path = os.path.dirname(os.path.realpath(__file__))
 
 def generate_obs_space(env: Any) -> ObsSpace:
     # Each entity contains x, y, z positions, plus the values of all variables
-    global_variables = env.game.get_global_variable_names()
+    if "__global__" in env.observation_space.features:
+        env.observation_space.features[
+            "__griddly_global__"
+        ] = env.observation_space.features["__global__"]
+        del env.observation_space.features["__global__"]
     space = {
         name: Entity(features)
         for name, features in env.observation_space.features.items()
     }
-    return ObsSpace(global_features=global_variables, entities=space)
+    return ObsSpace(entities=space)
 
 
 def generate_action_space(env: Any) -> Dict[str, ActionSpace]:
@@ -57,13 +61,13 @@ def generate_action_space(env: Any) -> Dict[str, ActionSpace]:
 
 
 def create_env(
-        yaml_file: str,
-        global_observer_type: Any = gd.ObserverType.SPRITE_2D,
-        image_path: Optional[str] = None,
-        shader_path: Optional[str] = None,
-        level: int = 0,
-        random_levels: bool = False,
-        level_generator: Optional[LevelGenerator] = None,
+    yaml_file: str,
+    global_observer_type: Any = gd.ObserverType.SPRITE_2D,
+    image_path: Optional[str] = None,
+    shader_path: Optional[str] = None,
+    level: int = 0,
+    random_levels: bool = False,
+    level_generator: Optional[LevelGenerator] = None,
 ) -> Type[GriddlyEnv]:
     """
     In order to fit the API for the Environment, we need to pre-load the environment from the yaml and then pass in
@@ -107,7 +111,7 @@ def create_env(
             if len(self._env.action_space_parts) > 2:
                 entity_actions = []
 
-                for entity_id, action_id in action['flat'].items():
+                for entity_id, action_id in action["flat"].items():
                     entity_location = self.entity_locations[entity_id]
                     entity_actions.append(
                         np.array(
@@ -115,14 +119,14 @@ def create_env(
                                 entity_location[0],
                                 entity_location[1],
                                 flat_action_mapping[action_id][0],
-                                flat_action_mapping[action_id][1]
+                                flat_action_mapping[action_id][1],
                             ]
                         )
                     )
 
                 return np.stack(entity_actions)
             else:
-                return np.array(flat_action_mapping[action['flat'].actions[0]])
+                return np.array(flat_action_mapping[action["flat"].indices[0]])
 
         def reset(self) -> Observation:
 
@@ -303,50 +307,66 @@ GRIDDLY_ENVS: Dict[str, Dict[str, Any]] = {
     },
     ############ Grafter Envs ############
     "GDY-Grafter-Single-30": {
-        "yaml_file": os.path.join(init_path, "env_descriptions/grafter/grafter_single.yaml"),
+        "yaml_file": os.path.join(
+            init_path, "env_descriptions/grafter/grafter_single.yaml"
+        ),
         "level_generator": CrafterLevelGenerator(100, 30, 30, 1),
-        "image_path": os.path.join(init_path, "images/grafter")
+        "image_path": os.path.join(init_path, "images/grafter"),
     },
     "GDY-Grafter-Single-50": {
-        "yaml_file": os.path.join(init_path, "env_descriptions/grafter/grafter_single.yaml"),
+        "yaml_file": os.path.join(
+            init_path, "env_descriptions/grafter/grafter_single.yaml"
+        ),
         "level_generator": CrafterLevelGenerator(100, 50, 50, 1),
-        "image_path": os.path.join(init_path, "images/grafter")
+        "image_path": os.path.join(init_path, "images/grafter"),
     },
     "GDY-Grafter-Single-100": {
-        "yaml_file": os.path.join(init_path, "env_descriptions/grafter/grafter_single.yaml"),
+        "yaml_file": os.path.join(
+            init_path, "env_descriptions/grafter/grafter_single.yaml"
+        ),
         "level_generator": CrafterLevelGenerator(100, 100, 100, 1),
-        "image_path": os.path.join(init_path, "images/grafter")
+        "image_path": os.path.join(init_path, "images/grafter"),
     },
     "GDY-Grafter-4Player-30": {
-        "yaml_file": os.path.join(init_path, "env_descriptions/grafter/grafter_multi_4.yaml"),
+        "yaml_file": os.path.join(
+            init_path, "env_descriptions/grafter/grafter_multi_4.yaml"
+        ),
         "level_generator": CrafterLevelGenerator(100, 30, 30, 4),
-        "image_path": os.path.join(init_path, "images/grafter")
+        "image_path": os.path.join(init_path, "images/grafter"),
     },
     "GDY-Grafter-4Player-50": {
-        "yaml_file": os.path.join(init_path, "env_descriptions/grafter/rafter_multi_4.yaml"),
+        "yaml_file": os.path.join(
+            init_path, "env_descriptions/grafter/rafter_multi_4.yaml"
+        ),
         "level_generator": CrafterLevelGenerator(100, 50, 50, 4),
-        "image_path": os.path.join(init_path, "images/grafter")
+        "image_path": os.path.join(init_path, "images/grafter"),
     },
     "GDY-Grafter-4Player-100": {
-        "yaml_file": os.path.join(init_path, "env_descriptions/grafter/grafter_multi_4.yaml"),
+        "yaml_file": os.path.join(
+            init_path, "env_descriptions/grafter/grafter_multi_4.yaml"
+        ),
         "level_generator": CrafterLevelGenerator(100, 100, 100, 4),
-        "image_path": os.path.join(init_path, "images/grafter")
+        "image_path": os.path.join(init_path, "images/grafter"),
     },
     "GDY-Grafter-8Player-50": {
-        "yaml_file": os.path.join(init_path, "env_descriptions/grafter/grafter_multi_8.yaml"),
+        "yaml_file": os.path.join(
+            init_path, "env_descriptions/grafter/grafter_multi_8.yaml"
+        ),
         "level_generator": CrafterLevelGenerator(100, 30, 30, 8),
-        "image_path": os.path.join(init_path, "images/grafter")
+        "image_path": os.path.join(init_path, "images/grafter"),
     },
     "GDY-Grafter-8Player-100": {
-        "yaml_file": os.path.join(init_path, "env_descriptions/grafter/grafter_multi_8.yaml"),
+        "yaml_file": os.path.join(
+            init_path, "env_descriptions/grafter/grafter_multi_8.yaml"
+        ),
         "level_generator": CrafterLevelGenerator(100, 100, 100, 8),
-        "image_path": os.path.join(init_path, "images/grafter")
-
+        "image_path": os.path.join(init_path, "images/grafter"),
     },
     "GDY-Grafter-8Player-200": {
-        "yaml_file": os.path.join(init_path, "env_descriptions/grafter/grafter_multi_8.yaml"),
+        "yaml_file": os.path.join(
+            init_path, "env_descriptions/grafter/grafter_multi_8.yaml"
+        ),
         "level_generator": CrafterLevelGenerator(100, 200, 200, 8),
-        "image_path": os.path.join(init_path, "images/grafter")
+        "image_path": os.path.join(init_path, "images/grafter"),
     },
-
 }

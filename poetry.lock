@@ -612,7 +612,7 @@ python-versions = ">=3.5"
 
 [[package]]
 name = "imageio"
-version = "2.16.2"
+version = "2.19.0"
 description = "Library for reading and writing a wide range of image, video, scientific, and volumetric data formats."
 category = "main"
 optional = false
@@ -623,15 +623,19 @@ numpy = "*"
 pillow = ">=8.3.2"
 
 [package.extras]
+all-plugins = ["astropy", "av", "imageio-ffmpeg", "opencv-python", "psutil", "tifffile"]
+all-plugins-pypy = ["av", "imageio-ffmpeg", "psutil", "tifffile"]
 build = ["wheel"]
 dev = ["invoke", "pytest", "pytest-cov", "fsspec", "black", "flake8"]
 docs = ["sphinx", "numpydoc", "pydata-sphinx-theme"]
 ffmpeg = ["imageio-ffmpeg", "psutil"]
 fits = ["astropy"]
-full = ["astropy", "black", "flake8", "fsspec", "gdal", "imageio-ffmpeg", "invoke", "itk", "numpydoc", "psutil", "pydata-sphinx-theme", "pytest", "pytest-cov", "sphinx", "tifffile", "wheel"]
+full = ["astropy", "av", "black", "flake8", "fsspec", "gdal", "imageio-ffmpeg", "invoke", "itk", "numpydoc", "opencv-python", "psutil", "pydata-sphinx-theme", "pytest", "pytest-cov", "sphinx", "tifffile", "wheel"]
 gdal = ["gdal"]
 itk = ["itk"]
 linting = ["black", "flake8"]
+opencv = ["opencv-python"]
+pyav = ["av"]
 test = ["invoke", "pytest", "pytest-cov", "fsspec"]
 tifffile = ["tifffile"]
 
@@ -1461,7 +1465,7 @@ test = ["pytest"]
 
 [[package]]
 name = "shortuuid"
-version = "1.0.8"
+version = "1.0.9"
 description = "A generator library for concise, unambiguous and URL-safe UUIDs."
 category = "main"
 optional = false
@@ -1625,7 +1629,7 @@ test = ["pytest"]
 
 [[package]]
 name = "types-requests"
-version = "2.27.19"
+version = "2.27.25"
 description = "Typing stubs for requests"
 category = "main"
 optional = false
@@ -1683,7 +1687,7 @@ testing = ["coverage (>=4)", "coverage-enable-subprocess (>=1)", "flaky (>=3)", 
 
 [[package]]
 name = "wandb"
-version = "0.12.14"
+version = "0.12.16"
 description = "A CLI and library for interacting with the Weights and Biases API."
 category = "main"
 optional = false
@@ -2166,8 +2170,8 @@ idna = [
     {file = "idna-3.3.tar.gz", hash = "sha256:9d643ff0a55b762d5cdb124b8eaa99c66322e2157b69160bc32796e824360e6d"},
 ]
 imageio = [
-    {file = "imageio-2.16.2-py3-none-any.whl", hash = "sha256:4757b5bc41158feb89529721bc14b738c3a0e17284dbdfc3f09ac4ad9dc00a08"},
-    {file = "imageio-2.16.2.tar.gz", hash = "sha256:8fea761d51a53c150cabd82ed36011252c17580c752216b8222f078630dfb9ba"},
+    {file = "imageio-2.19.0-py3-none-any.whl", hash = "sha256:7e803cd50a6b271e96e18f14767f8c2e01f27b84f93768cf9f08ad5277e9d030"},
+    {file = "imageio-2.19.0.tar.gz", hash = "sha256:cd8c946ecdf71f2fc74419b2e3c97a46104e91c2d2c4288d3217eae366778638"},
 ]
 imageio-ffmpeg = [
     {file = "imageio-ffmpeg-0.3.0.tar.gz", hash = "sha256:28500544acdebc195159d53a4670b76d596f368b218317bad5d3cbf43b00d6c2"},
@@ -2788,8 +2792,10 @@ python-ron = [
     {file = "python_ron-0.2.1-cp36-cp36m-manylinux_2_5_x86_64.manylinux1_x86_64.whl", hash = "sha256:ef4e7542ba7c9f4eedfe5c8914d87836cabefc5814f9bd677836b4705c54aadb"},
     {file = "python_ron-0.2.1-cp37-cp37m-macosx_10_7_x86_64.whl", hash = "sha256:927f346b16606bad8ded2c809e901ea26466b3055f77e5bc449755d7c96ecefb"},
     {file = "python_ron-0.2.1-cp37-cp37m-manylinux_2_5_x86_64.manylinux1_x86_64.whl", hash = "sha256:9f3b0de5ac7d8c1a61ea6f0c87b41eeeb403fa0a99455b76762c497898a2fa7e"},
+    {file = "python_ron-0.2.1-cp37-none-win_amd64.whl", hash = "sha256:957c3b0613352c071054656c674cfd1b5ee755a5c07abcd11dcfbc9152a65b52"},
     {file = "python_ron-0.2.1-cp38-cp38-macosx_10_7_x86_64.whl", hash = "sha256:fa5e2d93450469523ace639fe11e73bcbd7617c5b2d864b8fd3dc4a59a6c4ca1"},
     {file = "python_ron-0.2.1-cp38-cp38-manylinux_2_5_x86_64.manylinux1_x86_64.whl", hash = "sha256:1a49953c2585c6e0de5eccc3c1e939b0afc6fafa7eb44a21ca7771dcccc4cdb5"},
+    {file = "python_ron-0.2.1-cp38-none-win_amd64.whl", hash = "sha256:376a9b2adeb1d59411ebefbaf929ac82b325383c8bd8674e963d11927a437c64"},
     {file = "python_ron-0.2.1-cp39-cp39-macosx_10_7_x86_64.whl", hash = "sha256:631f3f144a16a917a3ae1c5d15d6811539ca96cf36be615bfe247e528521e341"},
     {file = "python_ron-0.2.1-cp39-cp39-manylinux_2_5_x86_64.manylinux1_x86_64.whl", hash = "sha256:395b77874f88cf4b7d5e610ce58cbad67a5e8bf30ae827887c6146952ccd4d7c"},
     {file = "python_ron-0.2.1-cp39-none-win_amd64.whl", hash = "sha256:105ae633e23f9d740d7fc2d712b7eb886e49ed209f2eec937abd903c70063db8"},
@@ -2962,8 +2968,8 @@ setproctitle = [
     {file = "setproctitle-1.2.3.tar.gz", hash = "sha256:ecf28b1c07a799d76f4326e508157b71aeda07b84b90368ea451c0710dbd32c0"},
 ]
 shortuuid = [
-    {file = "shortuuid-1.0.8-py3-none-any.whl", hash = "sha256:44a7a86bcf24dbaba2e626cf80c779926b7c3a0d31a3a013e0d3cd1077707d23"},
-    {file = "shortuuid-1.0.8.tar.gz", hash = "sha256:9435e87e5a64f3b92f7110c81f989a3b7bdb9358e22d2359829167da476cfc23"},
+    {file = "shortuuid-1.0.9-py3-none-any.whl", hash = "sha256:b2bb9eb7773170e253bb7ba25971023acb473517a8b76803d9618668cb1dd46f"},
+    {file = "shortuuid-1.0.9.tar.gz", hash = "sha256:459f12fa1acc34ff213b1371467c0325169645a31ed989e268872339af7563d5"},
 ]
 six = [
     {file = "six-1.16.0-py2.py3-none-any.whl", hash = "sha256:8abb2f1d86890a2dfb989f9a77cfcfd3e47c2a354b01111771326f8aa26e0254"},
@@ -3047,8 +3053,8 @@ traitlets = [
     {file = "traitlets-5.1.1.tar.gz", hash = "sha256:059f456c5a7c1c82b98c2e8c799f39c9b8128f6d0d46941ee118daace9eb70c7"},
 ]
 types-requests = [
-    {file = "types-requests-2.27.19.tar.gz", hash = "sha256:795e378117088d1e4bf41a2c01a153b73d6ea40aa9d7c0ac753abde84c0d3a8f"},
-    {file = "types_requests-2.27.19-py3-none-any.whl", hash = "sha256:c6c5384677d98f212516de50c4b2c38ef659b93008fbc5bb4b81726138bc8485"},
+    {file = "types-requests-2.27.25.tar.gz", hash = "sha256:805ae7e38fd9d157153066dc4381cf585fd34dfa212f2fc1fece248c05aac571"},
+    {file = "types_requests-2.27.25-py3-none-any.whl", hash = "sha256:2444905c89731dbcb6bbcd6d873a04252445df7623917c640e463b2b28d2a708"},
 ]
 types-urllib3 = [
     {file = "types-urllib3-1.26.14.tar.gz", hash = "sha256:2a2578e4b36341ccd240b00fccda9826988ff0589a44ba4a664bbd69ef348d27"},
@@ -3067,8 +3073,8 @@ virtualenv = [
     {file = "virtualenv-20.14.1.tar.gz", hash = "sha256:ef589a79795589aada0c1c5b319486797c03b67ac3984c48c669c0e4f50df3a5"},
 ]
 wandb = [
-    {file = "wandb-0.12.14-py2.py3-none-any.whl", hash = "sha256:2bc25af123d98279acd2cdecf1c2911b1d0f456393fc3eebb0e5c199607c7f9a"},
-    {file = "wandb-0.12.14.tar.gz", hash = "sha256:15a6da8739ed098841dff3074dc8edcb818e118e7ded1649c183d158e212fe2d"},
+    {file = "wandb-0.12.16-py2.py3-none-any.whl", hash = "sha256:ed7782dadfb5bc457998eccd995f88ae564cdf2a36b12024e4a5d9a47b1b84e8"},
+    {file = "wandb-0.12.16.tar.gz", hash = "sha256:a738b5eb61081fa96fc2e16ffaf6dbde67b78f973ff45bda61ed93659ca09912"},
 ]
 wcwidth = [
     {file = "wcwidth-0.2.5-py2.py3-none-any.whl", hash = "sha256:beb4802a9cebb9144e99086eff703a642a13d6a0052920003a230f3294bbe784"},

@@ -45,37 +45,10 @@ class GriddlyEnv(Environment):
 
     @abstractmethod
     def _to_griddly_action(self, action: Mapping[str, Action]) -> np.ndarray:
-
-        if len(self._env.action_space_parts) > 2:
-            entity_actions = []
-            for action_name, a in action.items():
-                action_type = self._env.action_names.index(action_name)
-                for entity_id, action_id in a.items():
-                    entity_location = self.entity_locations[entity_id]
-                    entity_actions.append(
-                        np.array(
-                            [
-                                entity_location[0],
-                                entity_location[1],
-                                action_type,
-                                action_id,
-                            ]
-                        )
-                    )
-
-            return np.stack(entity_actions)
-        else:
-
-            for action_name, a in action.items():
-                action_type = self._env.action_names.index(action_name)
-                assert isinstance(a, CategoricalAction)
-                # TODO: this only works if we have a single entity, otherwise we have to map the entityID to an x,y coordinate
-                action_id = a.indices[0]
-
-            return np.array([action_type, action_id])
+        pass
 
     def _make_observation(
-            self, obs: Dict[str, Any], reward: int = 0, done: bool = False
+        self, obs: Dict[str, Any], reward: int = 0, done: bool = False
     ) -> Observation:
         entities = obs["Entities"]
         entity_ids = obs["Ids"]
@@ -83,6 +56,13 @@ class GriddlyEnv(Environment):
         actor_ids = obs["ActorIds"]
 
         self.entity_locations = obs["Locations"]
+
+        global_features = None
+        if "__global__" in entities:
+            entities["__griddly_global__"] = entities["__global__"]
+            entity_ids["__griddly_global__"] = entity_ids["__global__"]
+            del entities["__global__"]
+            del entity_ids["__global__"]
 
         entities = {
             name: np.array(obs, dtype=np.float32) for name, obs in entities.items()
@@ -96,7 +76,9 @@ class GriddlyEnv(Environment):
         for action_name in self._env.action_names:
             if action_name not in actor_ids or action_name not in actor_masks:
                 continue
-            for action_id, actor_mask in zip(actor_ids[action_name], actor_masks[action_name]):
+            for action_id, actor_mask in zip(
+                actor_ids[action_name], actor_masks[action_name]
+            ):
                 if action_id not in flat_action_accumulate:
                     flat_action_accumulate[action_id] = [1]
 
@@ -114,6 +96,7 @@ class GriddlyEnv(Environment):
         }
 
         return Observation(
+            # global_features=global_features,
             features=entities,
             ids=entity_ids,
             actions=action_masks,

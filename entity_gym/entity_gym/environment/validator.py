@@ -1,6 +1,7 @@
-from typing import Dict, Mapping
+from typing import Dict, Mapping, Any
 
 import numpy as np
+import numpy.typing as npt
 
 from entity_gym.environment.environment import (
     Action,
@@ -39,6 +40,9 @@ class ValidatingEnv(Environment):
             print(f"Invalid observation:\n{e}")
             raise e
         return obs
+
+    def render(self, **kwargs: Any) -> npt.NDArray[np.uint8]:
+        return self.env.render(**kwargs)
 
     def obs_space(self) -> ObsSpace:
         return self._obs_space

@@ -17,7 +17,7 @@ init_path = os.path.dirname(os.path.realpath(__file__))
 def test_griddly_wrapper() -> None:
     env_class = create_env(
         global_observer_type=gd.ObserverType.BLOCK_2D,
-        yaml_file=os.path.join(init_path, "env_descriptions/test/test.yaml")
+        yaml_file=os.path.join(init_path, "env_descriptions/test/test.yaml"),
     )
 
     # Check the observation space is being created correctly from the test environment
@@ -77,6 +77,7 @@ def test_griddly_wrapper() -> None:
         == np.array([[1, 1, 1, 1, 0, 1, 1, 1]])  # can do everything but move down
     )
 
+
 def test_single_agent() -> None:
     """
     Create an environment and perform different action types to make sure the commands are translated
@@ -84,7 +85,7 @@ def test_single_agent() -> None:
     """
     env_cls = create_env(
         global_observer_type=gd.ObserverType.BLOCK_2D,
-        yaml_file=os.path.join(init_path, "env_descriptions/test/test_actions.yaml")
+        yaml_file=os.path.join(init_path, "env_descriptions/test/test_actions.yaml"),
     )
     env = env_cls()
 
@@ -139,7 +140,7 @@ def test_single_agent_multi_entity() -> None:
         global_observer_type=gd.ObserverType.BLOCK_2D,
         yaml_file=os.path.join(
             init_path, "env_descriptions/test/test_multi_entities_actions.yaml"
-        )
+        ),
     )
     env = env_cls()
 
