@@ -1,5 +1,5 @@
 """
-The envionment module defines the core interfaces that make up an `Environment <#entity_gym.environment.Environment>`_.
+The envionment module defines the core interfaces that make up an `Environment <#entity_gym.env.Environment>`_.
 
 Actions
 -------
@@ -13,16 +13,16 @@ There are three parts to every action:
 
 There are curently three different action spaces:
 
-* `GlobalCategoricalActionSpace <#entity_gym.environment.GlobalCategoricalActionSpace>`_ allows the agent to choose a single option from a discrete set of actions.
-* `CategoricalActionSpace <#entity_gym.environment.CategoricalActionSpace>`_ allows multiple entities to choose a single option from a discrete set of actions.
-* `SelectEntityActionSpace <#entity_gym.environment.SelectEntityActionSpace>`_ allows multiple entities to choose another entity.
+* `GlobalCategoricalActionSpace <#entity_gym.env.GlobalCategoricalActionSpace>`_ allows the agent to choose a single option from a discrete set of actions.
+* `CategoricalActionSpace <#entity_gym.env.CategoricalActionSpace>`_ allows multiple entities to choose a single option from a discrete set of actions.
+* `SelectEntityActionSpace <#entity_gym.env.SelectEntityActionSpace>`_ allows multiple entities to choose another entity.
 
 Observations
 ------------
 
 Observations are how agents receive information from the environment.
-Each `Environment <#entity_gym.environment.Environment>`_ must define an `ObsSpace <#entity_gym.environment.ObsSpace>`_, which specifies the shape of the observations returned by this environment.
-On each timestep, the environment returns an `Observation <#entity_gym.environment.Observation>`_ object, which contains all the entities and features that are visible to the agent.
+Each `Environment <#entity_gym.env.Environment>`_ must define an `ObsSpace <#entity_gym.env.ObsSpace>`_, which specifies the shape of the observations returned by this environment.
+On each timestep, the environment returns an `Observation <#entity_gym.env.Observation>`_ object, which contains all the entities and features that are visible to the agent.
 """
 from .env_list import *
 from .environment import *
@@ -60,4 +60,7 @@ __all__ = [
     "VecObs",
     "VecCategoricalActionMask",
     "VecSelectEntityActionMask",
+    # Wrappers
+    "ValidatingEnv",
+    "AddMetricsWrapper",
 ]
