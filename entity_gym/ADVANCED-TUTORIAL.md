@@ -232,19 +232,19 @@ class MineSweeper(Environment):
         return self.observe()
     
     def observe(self) -> Observation:
-        return Observation.from_entity_obs(
+        return Observation(
             entities={
-                "Mine": EntityObs(
-                    features=self.mines,
-                    ids=[("Mine", i) for i in range(len(self.mines))],
+                "Mine": (
+                    self.mines,
+                    [("Mine", i) for i in range(len(self.mines))],
                 ),
-                "Robot": EntityObs(
-                    features=self.robots,
-                    ids=[("Robot", i) for i in range(len(self.robots))],
+                "Robot": (
+                    self.robots,
+                    [("Robot", i) for i in range(len(self.robots))],
                 ),
-                "Orbital Cannon": EntityObs(
-                    features=[(self.orbital_cannon_cooldown,)],
-                    ids=[("Orbital Cannon", 0)],
+                "Orbital Cannon": (
+                    =[(self.orbital_cannon_cooldown,)],
+                    =[("Orbital Cannon", 0)],
                 )
             },
             actions={
