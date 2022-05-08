@@ -29,6 +29,8 @@ from .environment import *
 from .parallel_env_list import *
 from .vec_env import *
 from .action import *
+from .validator import ValidatingEnv
+from .add_metrics_wrapper import AddMetricsWrapper
 
 __all__ = [
     "Environment",

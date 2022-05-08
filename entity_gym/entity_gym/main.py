@@ -1,6 +1,6 @@
 import argparse
 
-from entity_gym.cli_runner import CliRunner
+from entity_gym.runner import CliRunner
 from entity_gym.examples import ENV_REGISTRY
 
 if __name__ == "__main__":

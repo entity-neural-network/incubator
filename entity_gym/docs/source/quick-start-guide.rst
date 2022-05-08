@@ -21,7 +21,7 @@ Create a new file ``treasure_hunt.py`` with the following contents:
 .. code-block:: python
 
     from typing import Dict, Mapping
-    from entity_gym.cli_runner import CliRunner
+    from entity_gym.runner import CliRunner
     from entity_gym.env import *
 
     # The `Environment` class defines the interface that all entity gym environments must implement.

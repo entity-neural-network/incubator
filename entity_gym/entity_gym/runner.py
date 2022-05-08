@@ -3,7 +3,6 @@ from typing import Dict, Optional
 import click
 import numpy as np
 
-from entity_gym.agent import Agent
 from entity_gym.env import (
     Action,
     CategoricalAction,
@@ -22,8 +21,31 @@ from entity_gym.env.environment import (
 )
 from entity_gym.env.validator import ValidatingEnv
 
+from abc import ABC, abstractmethod
+from typing import Dict, Tuple
+
+from entity_gym.env.environment import Action, Observation
+
+
+class Agent(ABC):
+    @abstractmethod
+    def act(self, obs: Observation) -> Tuple[Dict[str, Action], float]:
+        pass
+
 
 class CliRunner:
+    """
+    Interactively run any entity gym environment in a CLI.
+
+    Example:
+
+    .. code-block:: pycon
+
+        >>> from entity_gym.runner import CliRunner
+        >>> from entity_gym.examples import TreasureHunt
+        >>> CliRunner(TreasureHunt()).run()
+    """
+
     def __init__(self, env: Environment, agent: Optional[Agent] = None) -> None:
         self.env = ValidatingEnv(env)
         self.agent = agent
@@ -267,4 +289,5 @@ def print_obs(
             print(f"{entity_index} {rendered}{id}")
             entity_index += 1
 
-__all__ = ["CliRunner"]
+
+__all__ = ["CliRunner", "Agent"]

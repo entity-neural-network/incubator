@@ -189,7 +189,7 @@ As we might have hoped, the agent now moves toward the left. It also assigns muc
 Finally, let's use the `CliRunner` class to observe the agent in its natural environment:
 
 ```python
->>> from entity_gym.cli_runner import CliRunner
+>>> from entity_gym.runner import CliRunner
 >>> from entity_gym.examples.tutorial import TreasureHunt
 >>> CliRunner(TreasureHunt(), agent).run()
 ```
