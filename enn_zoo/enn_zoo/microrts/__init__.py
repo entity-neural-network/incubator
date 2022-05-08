@@ -1,7 +1,7 @@
 import json
 import os
 import xml.etree.ElementTree as ET
-from typing import Any, Dict, List, Mapping, MutableMapping, Optional, Sequence
+from typing import Any, Dict, List, Mapping, Sequence, Tuple
 
 import gym_microrts
 import jpype
@@ -24,7 +24,7 @@ from entity_gym.environment import (
     Observation,
     ObsSpace,
 )
-from entity_gym.environment.environment import EntityObs
+from entity_gym.environment.environment import Features
 
 
 class GymMicrorts(Environment):
@@ -308,16 +308,19 @@ class GymMicrorts(Environment):
             ),
         )
 
-    def generate_entities(self, response: Any) -> Mapping[str, Optional[EntityObs]]:
-        entities: MutableMapping[str, Optional[EntityObs]] = {}
+    def generate_entities(
+        self, response: Any
+    ) -> Dict[str, Tuple[Features, Sequence[Sequence[int]]]]:
+        entities: Dict[str, Tuple[Features, Sequence[Sequence[int]]]] = {}
         for entity_type, observation in zip(
             ["Resource", "Base", "Barracks", "Worker", "Light", "Heavy", "Ranged"],
             response.observation,
         ):
             observation = np.array(observation).astype(np.float32)
             if len(observation) > 0:
-                entities[entity_type] = EntityObs(
-                    features=observation[:, 1:], ids=observation[:, 0].astype(np.int32)
+                entities[entity_type] = (
+                    observation[:, 1:],
+                    observation[:, 0].astype(np.int32),
                 )
         return entities
 
