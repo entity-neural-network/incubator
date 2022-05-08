@@ -66,13 +66,13 @@ def generate_action_space(env: Any) -> Tuple[Dict[str, ActionSpace], List[List[i
 
 
 def create_env(
-        yaml_file: str,
-        global_observer_type: Any = gd.ObserverType.SPRITE_2D,
-        image_path: Optional[str] = None,
-        shader_path: Optional[str] = None,
-        level: int = 0,
-        random_levels: bool = False,
-        level_generator: Optional[LevelGenerator] = None,
+    yaml_file: str,
+    global_observer_type: Any = gd.ObserverType.SPRITE_2D,
+    image_path: Optional[str] = None,
+    shader_path: Optional[str] = None,
+    level: int = 0,
+    random_levels: bool = False,
+    level_generator: Optional[LevelGenerator] = None,
 ) -> Type[GriddlyEnv]:
     """
     In order to fit the API for the Environment, we need to pre-load the environment from the yaml and then pass in
