@@ -32,7 +32,7 @@ Environment:
       - eq: [ player_count, 0 ]
   Variables:
 
-    # ACHEIVEMENTS
+    # ACHIEVEMENTS
     - Name: ach_collect_coal
       InitialValue: 0
       PerPlayer: true
@@ -1509,7 +1509,7 @@ Actions:
                 Delay: 3
                 Randomize: true
         Dst:
-          Object: [ _boundary, _empty, cow, water, stone, plant, player, zombie, skeleton, coal, lava, iron, diamond, table, furnace ]
+          Object: [ _boundary, _empty, cow, tree, water, stone, plant, player, zombie, skeleton, coal, lava, iron, diamond, table, furnace ]
 
   - Name: zombie_chase_player
     InputMapping:
