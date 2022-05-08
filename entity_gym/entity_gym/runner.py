@@ -1,4 +1,5 @@
-from typing import Dict, Optional
+from abc import ABC, abstractmethod
+from typing import Dict, Optional, Tuple
 
 import click
 import numpy as np
@@ -15,16 +16,13 @@ from entity_gym.env import (
     SelectEntityActionSpace,
 )
 from entity_gym.env.environment import (
+    Action,
     GlobalCategoricalAction,
     GlobalCategoricalActionMask,
     GlobalCategoricalActionSpace,
+    Observation,
 )
 from entity_gym.env.validator import ValidatingEnv
-
-from abc import ABC, abstractmethod
-from typing import Dict, Tuple
-
-from entity_gym.env.environment import Action, Observation
 
 
 class Agent(ABC):

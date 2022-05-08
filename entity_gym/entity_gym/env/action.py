@@ -1,9 +1,10 @@
 from dataclasses import dataclass
 from typing import List, Optional, Sequence, Union
-from .common import EntityID, EntityName
 
 import numpy as np
 import numpy.typing as npt
+
+from .common import EntityID, EntityName
 
 
 @dataclass
@@ -43,8 +44,6 @@ class SelectEntityActionSpace:
     """
     Allows multiple entities to each select another entity.
     """
-
-    pass
 
 
 ActionSpace = Union[

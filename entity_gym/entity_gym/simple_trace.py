@@ -9,6 +9,7 @@ class Tracer:
         if cuda:
             try:
                 import torch
+
                 cuda = torch.cuda.is_available()
             except ImportError:
                 cuda = False
@@ -25,6 +26,7 @@ class Tracer:
     def end(self, name: str) -> None:
         if self.cuda:
             import torch
+
             torch.cuda.synchronize()
         self.total_time[self.stack] += time.time() - self.start_time.pop()
         actual_name = self.callstack.pop()

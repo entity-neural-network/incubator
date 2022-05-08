@@ -1,5 +1,5 @@
 """
-The envionment module defines the core interfaces that make up an `Environment <#entity_gym.env.Environment>`_.
+The environment module defines the core interfaces that make up an `Environment <#entity_gym.env.Environment>`_.
 
 Actions
 -------
@@ -11,7 +11,7 @@ There are three parts to every action:
 * :code:`ActionMask` is used to further constrain the available actions on a specific timestep. For example, only "up" and "down" may be available some timestep.
 * :code:`Action` represent the actual action that is chosen by an agent. For example, the "down" action may have been chosen.
 
-There are curently three different action spaces:
+There are currently three different action spaces:
 
 * `GlobalCategoricalActionSpace <#entity_gym.env.GlobalCategoricalActionSpace>`_ allows the agent to choose a single option from a discrete set of actions.
 * `CategoricalActionSpace <#entity_gym.env.CategoricalActionSpace>`_ allows multiple entities to choose a single option from a discrete set of actions.
@@ -24,13 +24,13 @@ Observations are how agents receive information from the environment.
 Each `Environment <#entity_gym.env.Environment>`_ must define an `ObsSpace <#entity_gym.env.ObsSpace>`_, which specifies the shape of the observations returned by this environment.
 On each timestep, the environment returns an `Observation <#entity_gym.env.Observation>`_ object, which contains all the entities and features that are visible to the agent.
 """
+from .action import *
+from .add_metrics_wrapper import AddMetricsWrapper
 from .env_list import *
 from .environment import *
 from .parallel_env_list import *
-from .vec_env import *
-from .action import *
 from .validator import ValidatingEnv
-from .add_metrics_wrapper import AddMetricsWrapper
+from .vec_env import *
 
 __all__ = [
     "Environment",

@@ -1,11 +1,12 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple, Type, Union
-from .common import EntityID, EntityName, ActionName, Features
-from .action import *
+from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import numpy.typing as npt
+
+from .action import *
+from .common import ActionName, EntityID, EntityName, Features
 
 
 @dataclass
@@ -250,7 +251,6 @@ class Environment(ABC):
 
     def close(self) -> None:
         """Closes the environment."""
-        pass
 
     def _filter_obs(self, obs: Observation, obs_filter: ObsSpace) -> Observation:
         selectors = self._compile_feature_filter(obs_filter)
