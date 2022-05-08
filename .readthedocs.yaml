@@ -26,5 +26,6 @@ python:
   # Install our python package before building the docs
   install:
     - requirements: entity_gym/docs/requirements.txt
-      method: pip
+  install:
+    - method: pip
       path: entity_gym
