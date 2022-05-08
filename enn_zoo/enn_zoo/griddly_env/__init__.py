@@ -1,5 +1,5 @@
 import os
-from typing import Any, Dict, Optional, Type, Mapping
+from typing import Any, Dict, Optional, Type, Mapping, List, Tuple
 
 import numpy as np
 from griddly import GymWrapper, gd
@@ -13,6 +13,7 @@ from enn_zoo.griddly_env.wrapper import GriddlyEnv
 from entity_gym.environment import (
     ActionSpace,
     CategoricalActionSpace,
+    CategoricalAction,
     Entity,
     Observation,
     ObsSpace,
@@ -24,22 +25,26 @@ init_path = os.path.dirname(os.path.realpath(__file__))
 
 def generate_obs_space(env: Any) -> ObsSpace:
     # Each entity contains x, y, z positions, plus the values of all variables
+    global_features: List[str] = []
     if "__global__" in env.observation_space.features:
-        env.observation_space.features[
-            "__griddly_global__"
-        ] = env.observation_space.features["__global__"]
+        # env.observation_space.features[
+        #     "__griddly_global__"
+        # ] = env.observation_space.features["__global__"]
+        # del env.observation_space.features["__global__"]
+        global_features = env.observation_space.features["__global__"]
         del env.observation_space.features["__global__"]
+
     space = {
         name: Entity(features)
         for name, features in env.observation_space.features.items()
     }
-    return ObsSpace(entities=space)
+    return ObsSpace(global_features=global_features, entities=space)
 
 
-def generate_action_space(env: Any) -> Dict[str, ActionSpace]:
+def generate_action_space(env: Any) -> Tuple[Dict[str, ActionSpace], List[List[int]]]:
     action_space: Dict[str, ActionSpace] = {}
 
-    flat_action_mapping = []
+    flat_action_mapping: List[List[int]] = []
 
     actions = []
     actions.append("NOP")
@@ -61,13 +66,13 @@ def generate_action_space(env: Any) -> Dict[str, ActionSpace]:
 
 
 def create_env(
-    yaml_file: str,
-    global_observer_type: Any = gd.ObserverType.SPRITE_2D,
-    image_path: Optional[str] = None,
-    shader_path: Optional[str] = None,
-    level: int = 0,
-    random_levels: bool = False,
-    level_generator: Optional[LevelGenerator] = None,
+        yaml_file: str,
+        global_observer_type: Any = gd.ObserverType.SPRITE_2D,
+        image_path: Optional[str] = None,
+        shader_path: Optional[str] = None,
+        level: int = 0,
+        random_levels: bool = False,
+        level_generator: Optional[LevelGenerator] = None,
 ) -> Type[GriddlyEnv]:
     """
     In order to fit the API for the Environment, we need to pre-load the environment from the yaml and then pass in
@@ -126,7 +131,9 @@ def create_env(
 
                 return np.stack(entity_actions)
             else:
-                return np.array(flat_action_mapping[action["flat"].indices[0]])
+                single_action = action["flat"]
+                assert isinstance(single_action, CategoricalAction)
+                return np.array(flat_action_mapping[single_action.indices[0]])
 
         def reset(self) -> Observation:
 

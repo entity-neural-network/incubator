@@ -59,8 +59,9 @@ class GriddlyEnv(Environment):
 
         global_features = None
         if "__global__" in entities:
-            entities["__griddly_global__"] = entities["__global__"]
-            entity_ids["__griddly_global__"] = entity_ids["__global__"]
+            global_features = entities["__global__"][0]
+            # entities["__griddly_global__"] = entities["__global__"]
+            # entity_ids["__griddly_global__"] = entity_ids["__global__"]
             del entities["__global__"]
             del entity_ids["__global__"]
 
@@ -96,7 +97,7 @@ class GriddlyEnv(Environment):
         }
 
         return Observation(
-            # global_features=global_features,
+            global_features=global_features,
             features=entities,
             ids=entity_ids,
             actions=action_masks,

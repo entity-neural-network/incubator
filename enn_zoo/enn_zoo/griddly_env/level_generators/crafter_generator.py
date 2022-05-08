@@ -1,6 +1,8 @@
 import functools
+from typing import List, Tuple, Sequence, Any, Dict, Union, Set
 
 import numpy as np
+import numpy.typing as npt
 import opensimplex
 
 from enn_zoo.griddly_env.level_generators.level_generator import LevelGenerator
@@ -11,14 +13,14 @@ class CrafterLevelGenerator(LevelGenerator):
     Pretty much this: https://github.com/danijar/crafter/blob/main/crafter/worldgen.py
     """
 
-    def __init__(self, seed, width, height, num_players):
+    def __init__(self, seed: int, width: int, height: int, num_players: int) -> None:
         self._width = width
         self._height = height
         self._num_players = num_players
         self._walkable = {"G", "P", "S"}
         self._random = np.random.RandomState(seed)
 
-    def _get_level_string(self, world):
+    def _get_level_string(self, world: np.ndarray) -> str:
         level_string = ""
         for h in range(0, self._height):
             for w in range(0, self._width):
@@ -32,22 +34,22 @@ class CrafterLevelGenerator(LevelGenerator):
         Generate a crafter-style level and return the griddly level string for it
         :return:
         """
-        world = np.chararray(
+        world: np.ndarray = np.chararray(
             shape=(self._width, self._height), unicode=True, itemsize=4
         )
-        tunnels = np.zeros((self._width, self._height), np.bool)
+        tunnels: np.ndarray = np.zeros((self._width, self._height), np.bool_)
 
-        simplex = opensimplex.OpenSimplex(seed=self._random.randint(0, 2**31 - 1))
+        simplex = opensimplex.OpenSimplex(seed=self._random.randint(0, 2 ** 31 - 1))
         for x in range(self._width):
             for y in range(self._height):
                 self._set_material(world, (x, y), simplex, tunnels)
 
         # Add the players to random grass locations:
-        players = []
-        not_tunnels = set(map(tuple, np.array(np.where(tunnels == False)).T))
-        grass = set(map(tuple, np.array(np.where(world == "G")).T))
+        players: List[Tuple[int, int]] = []
+        not_tunnels: Set[Tuple[int, int]] = set(map(tuple, np.array(np.where(tunnels == False)).T)) # type: ignore
+        grass: Set[Tuple[int, int]] = set(map(tuple, np.array(np.where(world == "G")).T)) # type: ignore
 
-        possible_player_locations = list(not_tunnels & grass)
+        possible_player_locations: List[Tuple[int, int]] = list(not_tunnels & grass)
 
         for p in range(self._num_players):
             players.append(
@@ -60,7 +62,8 @@ class CrafterLevelGenerator(LevelGenerator):
 
         return self._get_level_string(world)
 
-    def _place_player(self, world, possible_locations, players):
+    def _place_player(self, world: np.ndarray, possible_locations: List[Tuple[int, int]], players: List[Tuple[int, int]]) -> Tuple[
+        int, int]:
 
         player_location_valid = False
 
@@ -72,10 +75,12 @@ class CrafterLevelGenerator(LevelGenerator):
             possible_locations.remove(player_pos)
 
             if dist > 10:
-                world[player_pos[0], player_pos[1]] = f"p{len(players)+1}/G"
+                world[player_pos[0], player_pos[1]] = f"p{len(players) + 1}/G"
                 return player_pos
 
-    def _set_material(self, world, pos, simplex, tunnels):
+        return (0, 0)
+
+    def _set_material(self, world: np.ndarray, pos: Tuple[int, int], simplex: Any, tunnels: np.ndarray) -> None:
         x, y = pos
         start_x, start_y = self._random.randint((0, 0), (self._width, self._height))
         simplex = functools.partial(self._simplex, simplex)
@@ -118,7 +123,7 @@ class CrafterLevelGenerator(LevelGenerator):
             else:
                 world[x, y] = "G"
 
-    def _get_min_player_distance(self, pos, players):
+    def _get_min_player_distance(self, pos: Tuple[int, int], players: List[Tuple[int, int]]) -> float:
         dist = np.inf
         for player_pos in players:
             cur_dist = np.linalg.norm(np.array(player_pos) - np.array(pos))
@@ -126,7 +131,8 @@ class CrafterLevelGenerator(LevelGenerator):
                 dist = dist
         return dist
 
-    def _set_object(self, world, pos, players, tunnels):
+    def _set_object(self, world: np.ndarray, pos: Tuple[int, int], players: List[Tuple[int, int]],
+                    tunnels: np.ndarray) -> None:
         x, y = pos
         uniform = self._random.uniform
 
@@ -142,10 +148,10 @@ class CrafterLevelGenerator(LevelGenerator):
         elif material == "P" and tunnels[x, y] and uniform() > 0.95:  # skeleton
             world[x, y] = f"@/{material}"
 
-    def _simplex(self, simplex, x, y, z, sizes, normalize=True):
+    def _simplex(self, simplex: Any, x: int, y: int, z: int, sizes: Union[int, Dict[int, float]], normalize: bool = True) -> float:
         if not isinstance(sizes, dict):
             sizes = {sizes: 1}
-        value = 0
+        value: float = 0
         for size, weight in sizes.items():
             value += weight * simplex.noise3(x / size, y / size, z)
         if normalize:
