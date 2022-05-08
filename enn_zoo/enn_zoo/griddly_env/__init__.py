@@ -42,27 +42,45 @@ def generate_obs_space(env: Any) -> ObsSpace:
 
 
 def generate_action_space(env: Any) -> Tuple[Dict[str, ActionSpace], List[List[int]]]:
-    action_space: Dict[str, ActionSpace] = {}
+    if len(env.action_space_parts) > 2:
+        action_space: Dict[str, ActionSpace] = {}
+        for action_type_id, action_name in enumerate(env.action_names):
+            action_mapping = env.action_input_mappings[action_name]
+            input_mappings = action_mapping["InputMappings"]
 
-    flat_action_mapping: List[List[int]] = []
+            actions = []
+            actions.append("NOP")  # In Griddly, Action ID 0 is always NOP
+            for action_id in range(1, len(input_mappings) + 1):
+                mapping = input_mappings[str(action_id)]
+                description = mapping["Description"]
+                actions.append(description)
 
-    actions = []
-    actions.append("NOP")
-    flat_action_mapping.append([0, 0])
-    for action_type_id, action_name in enumerate(env.action_names):
-        action_mapping = env.action_input_mappings[action_name]
-        input_mappings = action_mapping["InputMappings"]
+            action_space[action_name] = CategoricalActionSpace(actions)
 
-        for action_id in range(1, len(input_mappings) + 1):
-            mapping = input_mappings[str(action_id)]
-            description = mapping["Description"]
-            actions.append(description)
+        return action_space, None
+    else:
 
-            flat_action_mapping.append([action_type_id, action_id])
+        action_space: Dict[str, ActionSpace] = {}
 
-        action_space["flat"] = CategoricalActionSpace(actions)
+        flat_action_mapping: List[List[int]] = []
 
-    return action_space, flat_action_mapping
+        actions = []
+        actions.append("NOP")
+        flat_action_mapping.append([0, 0])
+        for action_type_id, action_name in enumerate(env.action_names):
+            action_mapping = env.action_input_mappings[action_name]
+            input_mappings = action_mapping["InputMappings"]
+
+            for action_id in range(1, len(input_mappings) + 1):
+                mapping = input_mappings[str(action_id)]
+                description = mapping["Description"]
+                actions.append(description)
+
+                flat_action_mapping.append([action_type_id, action_id])
+
+            action_space["flat"] = CategoricalActionSpace(actions)
+
+        return action_space, flat_action_mapping
 
 
 def create_env(
@@ -115,19 +133,20 @@ def create_env(
         def _to_griddly_action(self, action: Mapping[str, Action]) -> np.ndarray:
             if len(self._env.action_space_parts) > 2:
                 entity_actions = []
-
-                for entity_id, action_id in action["flat"].items():
-                    entity_location = self.entity_locations[entity_id]
-                    entity_actions.append(
-                        np.array(
-                            [
-                                entity_location[0],
-                                entity_location[1],
-                                flat_action_mapping[action_id][0],
-                                flat_action_mapping[action_id][1],
-                            ]
+                for action_name, a in action.items():
+                    action_type = self._env.action_names.index(action_name)
+                    for entity_id, action_id in a.items():
+                        entity_location = self.entity_locations[entity_id]
+                        entity_actions.append(
+                            np.array(
+                                [
+                                    entity_location[0],
+                                    entity_location[1],
+                                    action_type,
+                                    action_id,
+                                ]
+                            )
                         )
-                    )
 
                 return np.stack(entity_actions)
             else:
