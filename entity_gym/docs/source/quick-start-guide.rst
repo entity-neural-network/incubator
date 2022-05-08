@@ -186,7 +186,7 @@ Now, we are going to place additional entities in the environment:
 
 We define the new entity types by specifying the ``ObsSpace.entities`` dictionary in the ``obs_space`` method.
 Similarly, ``_observe`` now returns a ``features`` dictionary with an entry specifying the current positions of both entities.
-The logic that defines how the entites are spawned and affect the game is added to ``reset`` and ``act``.
+The logic that defines how the entities are spawned and affect the game is added to ``reset`` and ``act``.
 
 .. code-block:: python
 
