@@ -121,9 +121,7 @@ Change the `action_space` and `act` methods to the following:
         def action_space(self) -> Dict[str, ActionSpace]:
             # The `GlobalCategoricalActionSpace` allows the agent to choose from set of discrete actions.
             return {
-                "move": GlobalCategoricalActionSpace(
-                    choices=["up", "down", "left", "right"]
-                )
+                "move": GlobalCategoricalActionSpace(["up", "down", "left", "right"])
             }
 
         def act(self, actions: Mapping[ActionName, Action]) -> Observation:
