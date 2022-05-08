@@ -28,6 +28,8 @@ from entity_gym.env.environment import Action, Observation
 
 
 class Agent(ABC):
+    """Interface for an agent that receives observations and outputs actions."""
+
     @abstractmethod
     def act(self, obs: Observation) -> Tuple[Dict[str, Action], float]:
         pass
