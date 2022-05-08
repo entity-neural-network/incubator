@@ -131,13 +131,13 @@ If we wanted the ``"move"`` action to be unavailable on some timestep, we could 
             # Adjust the player's position according to the chosen action.
             action = actions["move"]
             assert isinstance(action, GlobalCategoricalAction)
-            if action.choice == "up" and self.y_pos < 10:
+            if action.label == "up" and self.y_pos < 10:
                 self.y_pos += 1
-            elif action.choice == "down" and self.y_pos > -10:
+            elif action.label == "down" and self.y_pos > -10:
                 self.y_pos -= 1
-            elif action.choice == "left" and self.x_pos > -10:
+            elif action.label == "left" and self.x_pos > -10:
                 self.x_pos -= 1
-            elif action.choice == "right" and self.x_pos < 10:
+            elif action.label == "right" and self.x_pos < 10:
                 self.x_pos += 1
             return self._observe()
 
@@ -223,13 +223,13 @@ Now, we are going to place additional entities in the environment.
         def act(self, actions: Mapping[ActionName, Action]) -> Observation:
             action = actions["move"]
             assert isinstance(action, GlobalCategoricalAction)
-            if action.choice == "up" and self.y_pos < 10:
+            if action.label == "up" and self.y_pos < 10:
                 self.y_pos += 1
-            elif action.choice == "down" and self.y_pos > -10:
+            elif action.label == "down" and self.y_pos > -10:
                 self.y_pos -= 1
-            elif action.choice == "left" and self.x_pos > -10:
+            elif action.label == "left" and self.x_pos > -10:
                 self.x_pos -= 1
-            elif action.choice == "right" and self.x_pos < 10:
+            elif action.label == "right" and self.x_pos < 10:
                 self.x_pos += 1
 
             reward = 0.0
