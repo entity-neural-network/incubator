@@ -1,32 +1,25 @@
-import os
-from typing import Any, Dict, Optional, Type, Mapping, List, Tuple
 import functools
-import numpy as np
-from griddly import GymWrapper, gd
+import os
+from typing import Any, Dict, Type, Optional, Callable
+
+from griddly import gd
 
 from enn_zoo.griddly_env.level_generators.clusters_generator import (
     ClustersLevelGenerator,
 )
 from enn_zoo.griddly_env.level_generators.crafter_generator import CrafterLevelGenerator
 from enn_zoo.griddly_env.level_generators.level_generator import LevelGenerator
-from enn_zoo.griddly_env.wrappers.griddly_env import GriddlyEnv
-from entity_gym.environment import (
-    ActionSpace,
-    CategoricalActionSpace,
-    CategoricalAction,
-    Entity,
-    Observation,
-    ObsSpace,
-    Action,
-)
-
 from enn_zoo.griddly_env.wrappers.grafter_env import grafter_env
+from enn_zoo.griddly_env.wrappers.griddly_env import GriddlyEnv
 
 init_path = os.path.dirname(os.path.realpath(__file__))
 
 
-def create_env(env_wrapper: Type[GriddlyEnv] = None, **kwargs: Any) -> Type[GriddlyEnv]:
-    def partialclass():
+def create_env(
+    env_wrapper: Optional[Callable[[Dict[str, Any]], Type[GriddlyEnv]]] = None,
+    **kwargs: Any
+) -> Type[GriddlyEnv]:
+    def partialclass() -> Type[GriddlyEnv]:
         """
         Make the __init__ partial so we can override the kwargs we are putting here with custom ones later
         """
@@ -38,19 +31,14 @@ def create_env(env_wrapper: Type[GriddlyEnv] = None, **kwargs: Any) -> Type[Grid
 
         default_args.update(kwargs)
 
-        def _create_env():
-            if env_wrapper is not None:
-                return env_wrapper(**default_args)
-            else:
+        if env_wrapper is not None:
+            return env_wrapper(**default_args)  # type: ignore
+        else:
 
-                class InstantiatedGriddlyEnv(GriddlyEnv):
-                    __init__ = functools.partialmethod(
-                        GriddlyEnv.__init__, **default_args
-                    )
+            class InstantiatedGriddlyEnv(GriddlyEnv):
+                __init__ = functools.partialmethod(GriddlyEnv.__init__, **default_args)  # type: ignore
 
-                return InstantiatedGriddlyEnv
-
-        return _create_env()
+            return InstantiatedGriddlyEnv  # type: ignore
 
     return partialclass()
 

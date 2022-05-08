@@ -6,11 +6,11 @@ from entity_gym.environment import (
 )
 
 
-def grafter_env(**kwargs) -> Type[GriddlyEnv]:
+def grafter_env(**kwargs: Any) -> Type[GriddlyEnv]:
     class InstantiatedGrafterEnv(GriddlyEnv):
-        __init__ = functools.partialmethod(GriddlyEnv.__init__, **kwargs)
+        __init__ = functools.partialmethod(GriddlyEnv.__init__, **kwargs)  # type: ignore
 
-        def _add_grafter_metrics(self, observation) -> Observation:
+        def _add_grafter_metrics(self, observation: Observation) -> Observation:
             # metrics
             return observation
 
@@ -23,4 +23,4 @@ def grafter_env(**kwargs) -> Type[GriddlyEnv]:
             observation = super().make_observation(obs, reward, done)
             return self._add_grafter_metrics(observation)
 
-    return InstantiatedGrafterEnv
+    return InstantiatedGrafterEnv  # type: ignore

@@ -97,7 +97,8 @@ class GriddlyEnv(Environment):
             entity_actions = []
             for action_name, a in action.items():
                 action_type = self._env.action_names.index(action_name)
-                for entity_id, action_id in a.items():
+                assert isinstance(a, CategoricalAction)
+                for entity_id, action_id in zip(a.actors, a.indices):
                     entity_location = self.entity_locations[entity_id]
                     entity_actions.append(
                         np.array(
@@ -180,7 +181,7 @@ class GriddlyEnv(Environment):
         self.step = 0
 
         if self._random_levels:
-            random_level = np.random.choice(level_count)
+            random_level = np.random.choice(self._env.level_count)
             obs = self._env.reset(level_id=random_level)
             return self.make_observation(obs)
         elif isinstance(self._level_generator, LevelGenerator):
