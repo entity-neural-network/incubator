@@ -20,13 +20,13 @@ class CrafterLevelGenerator(LevelGenerator):
         self._random = np.random.RandomState(seed)
 
     def _get_level_string(self, world: np.ndarray) -> str:
-        level_string = ""
+        level_string = []
         for h in range(0, self._height):
             for w in range(0, self._width):
-                level_string += world[w, h].ljust(4)
-            level_string += "\n"
+                level_string.append(world[w, h].ljust(4))
+            level_string.append("\n")
 
-        return level_string
+        return "".join(level_string)
 
     def generate(self) -> str:
         """
