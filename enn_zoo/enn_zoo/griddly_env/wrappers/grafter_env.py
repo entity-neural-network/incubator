@@ -1,5 +1,6 @@
 import functools
 from typing import Any, Dict, Type
+
 import numpy as np
 
 from enn_zoo.griddly_env.wrappers.griddly_env import GriddlyEnv
@@ -44,30 +45,28 @@ def grafter_env(**kwargs: Any) -> Type[GriddlyEnv]:
         def _add_grafter_metrics(self, observation: Observation) -> Observation:
             # If the env is done, calculate the grafter score
             if observation.done:
-                acheivements = self._env.game.get_global_variable(achievement_names)
+                achievements = self._env.game.get_global_variable(achievement_names)
 
-                for ach_name, values in acheivements.items():
+                for ach_name, values in achievements.items():
                     self.achievement_counter[ach_name] += values[1]  # type: ignore
 
                 self.total_episodes += 1  # type: ignore
 
                 sum_log = 0
-                for ach_name, counter in self.achievement_counter.items():
-                    sum_log += np.log(1 + 100 * counter / self.total_episodes)
+                for ach_name, counter in self.achievement_counter.items():  # type: ignore
+                    sum_log += np.log(1 + 100 * counter / self.total_episodes)  # type: ignore
 
                 crafter_score = np.exp(sum_log / len(achievement_names)) - 1
 
-                observation.metrics = {
-                    "crafter_score": crafter_score
-                }
+                observation.metrics = {"crafter_score": crafter_score}
 
             return observation
 
         def make_observation(
-                self,
-                obs: Dict[str, Any],
-                reward: int = 0,
-                done: bool = False,
+            self,
+            obs: Dict[str, Any],
+            reward: int = 0,
+            done: bool = False,
         ) -> Observation:
             observation = super().make_observation(obs, reward, done)
             return self._add_grafter_metrics(observation)
