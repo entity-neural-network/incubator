@@ -172,6 +172,7 @@ class RelposEncoding(nn.Module, RelposEncodingConfig):
         if self.value_gate is not None:
             self.value_gate_proj = nn.Linear(dmodel, dhead)
         self.cached_rkvs: Optional[Tuple[torch.Tensor, torch.Tensor]] = None
+        self.global_entity = "__global__" in obs_space.entities
 
     def relattn_logits(self, queries: torch.Tensor) -> torch.Tensor:
         assert self.cached_rkvs is not None
@@ -213,6 +214,8 @@ class RelposEncoding(nn.Module, RelposEncodingConfig):
         # Type of each entity
         entity_type: torch.Tensor,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
+        if "__global__" in x and not self.global_entity:
+            x = {k: v for k, v in x.items() if k != "__global__"}
         relative_positions, entity_type = self._relative_positions(
             x, index_map, packpad_index, shape, entity_type
         )
