@@ -421,7 +421,7 @@ def train(
                     b_action_masks = action_masks[mb_inds]
                     b_logprobs = logprobs[mb_inds]
                     b_actions = actions[mb_inds]
-                    mb_advantages = b_advantages[mb_inds]  # type: ignore
+                    mb_advantages = b_advantages[mb_inds]
 
                     with tracer.span("forward"):
                         (
@@ -453,8 +453,8 @@ def train(
                     v_loss = value_loss(
                         cfg.ppo,
                         newvalue,
-                        b_returns[mb_inds],  # type: ignore
-                        b_values[mb_inds],  # type: ignore
+                        b_returns[mb_inds],
+                        b_values[mb_inds],
                         tracer,
                     )
 

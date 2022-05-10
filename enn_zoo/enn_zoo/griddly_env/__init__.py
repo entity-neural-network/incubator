@@ -1,121 +1,45 @@
+import functools
 import os
-from typing import Any, Dict, Optional, Type
+from typing import Any, Callable, Dict, Optional, Type
 
-import numpy as np
-from griddly import GymWrapper, gd
+from griddly import gd
 
 from enn_zoo.griddly_env.level_generators.clusters_generator import (
     ClustersLevelGenerator,
 )
-from enn_zoo.griddly_env.level_generators.level_generator import LevelGenerator
-from enn_zoo.griddly_env.wrapper import GriddlyEnv
-from entity_gym.environment import (
-    ActionSpace,
-    CategoricalActionSpace,
-    Entity,
-    Observation,
-    ObsSpace,
-)
+from enn_zoo.griddly_env.level_generators.crafter_generator import CrafterLevelGenerator
+from enn_zoo.griddly_env.wrappers.grafter_env import grafter_env
+from enn_zoo.griddly_env.wrappers.griddly_env import GriddlyEnv
 
 init_path = os.path.dirname(os.path.realpath(__file__))
 
 
-def generate_obs_space(env: Any) -> ObsSpace:
-    # Each entity contains x, y, z positions, plus the values of all variables
-    global_variables = env.game.get_global_variable_names()
-    space = {
-        name: Entity(features)
-        for name, features in env.observation_space.features.items()
-    }
-    return ObsSpace(global_features=global_variables, entities=space)
-
-
-def generate_action_space(env: Any) -> Dict[str, ActionSpace]:
-    action_space: Dict[str, ActionSpace] = {}
-    for action_name, action_mapping in env.action_input_mappings.items():
-        # Ignore internal actions for the action space
-        if action_mapping["Internal"] == True:
-            continue
-
-        input_mappings = action_mapping["InputMappings"]
-
-        actions = []
-        actions.append("NOP")  # In Griddly, Action ID 0 is always NOP
-        for action_id in range(1, len(input_mappings) + 1):
-            mapping = input_mappings[str(action_id)]
-            description = mapping["Description"]
-            actions.append(description)
-
-        action_space[action_name] = CategoricalActionSpace(actions)
-
-    return action_space
-
-
 def create_env(
-    yaml_file: str,
-    global_observer_type: Any = gd.ObserverType.BLOCK_2D,
-    image_path: Optional[str] = None,
-    shader_path: Optional[str] = None,
-    level: int = 0,
-    random_levels: bool = False,
-    level_generator: Optional[LevelGenerator] = None,
+    env_wrapper: Optional[Callable[[Dict[str, Any]], Type[GriddlyEnv]]] = None,
+    **kwargs: Any
 ) -> Type[GriddlyEnv]:
-    """
-    In order to fit the API for the Environment, we need to pre-load the environment from the yaml and then pass in
-    observation space, action space and the instantiated GymWrapper
-    """
+    def partialclass() -> Type[GriddlyEnv]:
+        """
+        Make the __init__ partial so we can override the kwargs we are putting here with custom ones later
+        """
 
-    env = GymWrapper(
-        yaml_file=yaml_file,
-        player_observer_type=gd.ObserverType.ENTITY,
-        image_path=image_path,
-        shader_path=shader_path,
-        level=level,
-    )
-    env.reset()
-    action_space = generate_action_space(env)
-    observation_space = generate_obs_space(env)
-    level_count = env.level_count
-    env.close()
+        default_args: Dict[str, Any] = {}
 
-    class InstantiatedGriddlyEnv(GriddlyEnv):
-        @classmethod
-        def _griddly_env(cls) -> Any:
-            return GymWrapper(
-                yaml_file=yaml_file,
-                image_path=image_path,
-                shader_path=shader_path,
-                player_observer_type=gd.ObserverType.ENTITY,
-                global_observer_type=global_observer_type,
-                level=level,
-            )
+        default_args["player_observer_type"] = gd.ObserverType.ENTITY
+        default_args["global_observer_type"] = gd.ObserverType.SPRITE_2D
 
-        @classmethod
-        def obs_space(cls) -> ObsSpace:
-            return observation_space
+        default_args.update(kwargs)
 
-        @classmethod
-        def action_space(cls) -> Dict[str, ActionSpace]:
-            return action_space
+        if env_wrapper is not None:
+            return env_wrapper(**default_args)  # type: ignore
+        else:
 
-        def reset(self) -> Observation:
+            class InstantiatedGriddlyEnv(GriddlyEnv):
+                __init__ = functools.partialmethod(GriddlyEnv.__init__, **default_args)  # type: ignore
 
-            self.total_reward = 0
-            self.step = 0
+            return InstantiatedGriddlyEnv  # type: ignore
 
-            if random_levels:
-                random_level = np.random.choice(level_count)
-                obs = self._env.reset(level_id=random_level)
-                return self._make_observation(obs)
-            elif isinstance(level_generator, LevelGenerator):
-                level_string = level_generator.generate()
-                obs = self._env.reset(level_string=level_string)
-                return self._make_observation(obs)
-            else:
-                obs = self._env.reset()
-                return self._make_observation(obs)
-
-    return InstantiatedGriddlyEnv
+    return partialclass()
 
 
 GRIDDLY_ENVS: Dict[str, Dict[str, Any]] = {
@@ -274,5 +198,76 @@ GRIDDLY_ENVS: Dict[str, Dict[str, Any]] = {
     "GDY-Clusters-4": {
         "yaml_file": os.path.join(init_path, "env_descriptions/clusters.yaml"),
         "level": 4,
+    },
+    ############ Grafter Envs ############
+    "GDY-Grafter-Single-30": {
+        "env_wrapper": grafter_env,
+        "yaml_file": os.path.join(
+            init_path, "env_descriptions/grafter/grafter_single.yaml"
+        ),
+        "level_generator": CrafterLevelGenerator(100, 30, 30, 1),
+        "image_path": os.path.join(init_path, "images/grafter"),
+    },
+    "GDY-Grafter-Single-50": {
+        "env_wrapper": grafter_env,
+        "yaml_file": os.path.join(
+            init_path, "env_descriptions/grafter/grafter_single.yaml"
+        ),
+        "level_generator": CrafterLevelGenerator(100, 50, 50, 1),
+        "image_path": os.path.join(init_path, "images/grafter"),
+    },
+    "GDY-Grafter-Single-100": {
+        "yaml_file": os.path.join(
+            init_path, "env_descriptions/grafter/grafter_single.yaml"
+        ),
+        "level_generator": CrafterLevelGenerator(100, 100, 100, 1),
+        "image_path": os.path.join(init_path, "images/grafter"),
+    },
+    "GDY-Grafter-4Player-30": {
+        "env_wrapper": grafter_env,
+        "yaml_file": os.path.join(
+            init_path, "env_descriptions/grafter/grafter_multi_4.yaml"
+        ),
+        "level_generator": CrafterLevelGenerator(100, 30, 30, 4),
+        "image_path": os.path.join(init_path, "images/grafter"),
+    },
+    "GDY-Grafter-4Player-50": {
+        "yaml_file": os.path.join(
+            init_path, "env_descriptions/grafter/rafter_multi_4.yaml"
+        ),
+        "level_generator": CrafterLevelGenerator(100, 50, 50, 4),
+        "image_path": os.path.join(init_path, "images/grafter"),
+    },
+    "GDY-Grafter-4Player-100": {
+        "env_wrapper": grafter_env,
+        "yaml_file": os.path.join(
+            init_path, "env_descriptions/grafter/grafter_multi_4.yaml"
+        ),
+        "level_generator": CrafterLevelGenerator(100, 100, 100, 4),
+        "image_path": os.path.join(init_path, "images/grafter"),
+    },
+    "GDY-Grafter-8Player-50": {
+        "env_wrapper": grafter_env,
+        "yaml_file": os.path.join(
+            init_path, "env_descriptions/grafter/grafter_multi_8.yaml"
+        ),
+        "level_generator": CrafterLevelGenerator(100, 30, 30, 8),
+        "image_path": os.path.join(init_path, "images/grafter"),
+    },
+    "GDY-Grafter-8Player-100": {
+        "env_wrapper": grafter_env,
+        "yaml_file": os.path.join(
+            init_path, "env_descriptions/grafter/grafter_multi_8.yaml"
+        ),
+        "level_generator": CrafterLevelGenerator(100, 100, 100, 8),
+        "image_path": os.path.join(init_path, "images/grafter"),
+    },
+    "GDY-Grafter-8Player-200": {
+        "env_wrapper": grafter_env,
+        "yaml_file": os.path.join(
+            init_path, "env_descriptions/grafter/grafter_multi_8.yaml"
+        ),
+        "level_generator": CrafterLevelGenerator(100, 200, 200, 8),
+        "image_path": os.path.join(init_path, "images/grafter"),
     },
 }

@@ -6,7 +6,7 @@ authors = ["Clemens Winter <clemenswinter1@gmail.com>"]
 
 [tool.poetry.dependencies]
 python = ">=3.8.0,<3.10"
-griddly = {version = "1.3.0"}
+griddly = {version = "1.3.5"}
 requests = "^2.27.1"
 orjson = "^3.6.5"
 types-requests = "^2.27.7"
@@ -15,6 +15,8 @@ enn_ppo = {path = "../enn_ppo", develop = true}
 web-pdb = "^1.5.7"
 vizdoom = {version = "^1.1.11", optional = true}
 procgen = "^0.10.7"
+opensimplex = "^0.4.2"
+numba = "^0.55.1"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
