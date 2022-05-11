@@ -3,7 +3,6 @@ from typing import Any, Dict, List, Mapping, Set
 import numpy as np
 import numpy.typing as npt
 import vizdoom as vzd  # type: ignore
-
 from entity_gym.env import (
     Action,
     ActionSpace,

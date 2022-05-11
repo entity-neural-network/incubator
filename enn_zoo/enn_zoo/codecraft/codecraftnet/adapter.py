@@ -6,6 +6,8 @@ import numpy as np
 import numpy.typing as npt
 import torch
 import torch.nn as nn
+from entity_gym.env.vec_env import VecActionMask
+from entity_gym.simple_trace import Tracer
 from hyperstate import StateManager
 from ragged_buffer import RaggedBufferBool, RaggedBufferF32, RaggedBufferI64
 
@@ -16,8 +18,6 @@ from enn_zoo.codecraft.codecraftnet.codecraftnet import (
     TransformerPolicy8HS,
 )
 from enn_zoo.codecraft.codecraftnet.config import Config
-from entity_gym.env.vec_env import VecActionMask
-from entity_gym.simple_trace import Tracer
 
 
 class CCNetAdapter(nn.Module):

@@ -15,6 +15,12 @@ import torch
 import torch.distributed as dist
 import torch.nn as nn
 import torch.optim as optim
+from entity_gym.env import *
+from entity_gym.env.add_metrics_wrapper import AddMetricsWrapper
+from entity_gym.env.validator import ValidatingEnv
+from entity_gym.examples import ENV_REGISTRY
+from entity_gym.serialization import SampleRecordingVecEnv
+from entity_gym.simple_trace import Tracer
 from hyperstate import StateManager
 from torch.utils.tensorboard import SummaryWriter
 
@@ -24,12 +30,6 @@ from enn_ppo.eval import run_eval
 from enn_ppo.gae import returns_and_advantages
 from enn_ppo.ppo import ppo_loss, value_loss
 from enn_ppo.rollout import Rollout
-from entity_gym.env import *
-from entity_gym.env.add_metrics_wrapper import AddMetricsWrapper
-from entity_gym.env.validator import ValidatingEnv
-from entity_gym.examples import ENV_REGISTRY
-from entity_gym.serialization import SampleRecordingVecEnv
-from entity_gym.simple_trace import Tracer
 from rogue_net.rogue_net import RogueNet
 
 EnvFactory = Callable[[EnvConfig, int, int, int], VecEnv]

@@ -1,16 +1,16 @@
 from typing import Dict, Iterator, Mapping, Optional, Protocol, Tuple
 
+import entity_gym.runner
 import numpy as np
 import numpy.typing as npt
 import torch
-from ragged_buffer import RaggedBufferBool, RaggedBufferF32, RaggedBufferI64
-
-import entity_gym.runner
 from entity_gym.env import Action, Observation, VecActionMask
 from entity_gym.env.env_list import action_index_to_actions
 from entity_gym.env.environment import ActionName
 from entity_gym.env.vec_env import batch_obs
 from entity_gym.simple_trace import Tracer
+from ragged_buffer import RaggedBufferBool, RaggedBufferF32, RaggedBufferI64
+
 from rogue_net.rogue_net import RogueNet
 
 

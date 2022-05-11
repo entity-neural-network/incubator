@@ -2,9 +2,9 @@ import functools
 from typing import Any, Dict, Type
 
 import numpy as np
+from entity_gym.env import Observation
 
 from enn_zoo.griddly_env.wrappers.griddly_env import GriddlyEnv
-from entity_gym.env import Observation
 
 
 def grafter_env(**kwargs: Any) -> Type[GriddlyEnv]:

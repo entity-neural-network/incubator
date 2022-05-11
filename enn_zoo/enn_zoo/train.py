@@ -6,6 +6,8 @@ from typing import Callable, Mapping, Optional, Type, Union
 import hyperstate
 import torch
 import web_pdb
+from entity_gym.env import *
+from entity_gym.examples import ENV_REGISTRY
 from hyperstate import StateManager
 
 import enn_ppo.config as config
@@ -21,8 +23,6 @@ from enn_zoo.procgen_env.boss_fight import BossFight
 from enn_zoo.procgen_env.leaper import Leaper
 from enn_zoo.procgen_env.plunder import Plunder
 from enn_zoo.procgen_env.star_pilot import StarPilot
-from entity_gym.env import *
-from entity_gym.examples import ENV_REGISTRY
 from rogue_net.rogue_net import RogueNet, RogueNetConfig
 
 
