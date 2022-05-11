@@ -4,14 +4,14 @@ import numpy as np
 import numpy.typing as npt
 import ragged_buffer
 import torch
-from ragged_buffer import RaggedBufferBool, RaggedBufferF32, RaggedBufferI64
-
-from enn_ppo.agent import PPOAgent
 from entity_gym.env import *
 from entity_gym.env.vec_env import Metric
 from entity_gym.ragged_dict import RaggedActionDict, RaggedBatchDict
 from entity_gym.serialization.sample_recorder import SampleRecordingVecEnv
 from entity_gym.simple_trace import Tracer
+from ragged_buffer import RaggedBufferBool, RaggedBufferF32, RaggedBufferI64
+
+from enn_ppo.agent import PPOAgent
 from rogue_net.rogue_net import tensor_dict_to_ragged
 
 

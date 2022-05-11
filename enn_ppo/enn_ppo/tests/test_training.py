@@ -1,4 +1,6 @@
+from entity_gym.examples import ENV_REGISTRY
 from hyperstate import StateManager
+from rogue_net.relpos_encoding import RelposEncodingConfig
 
 from enn_ppo.config import RolloutConfig
 from enn_ppo.train import (
@@ -10,8 +12,6 @@ from enn_ppo.train import (
     initialize,
     train,
 )
-from entity_gym.examples import ENV_REGISTRY
-from rogue_net.relpos_encoding import RelposEncodingConfig
 from rogue_net.rogue_net import RogueNetConfig
 
 

@@ -7,13 +7,13 @@ from typing import Any, Callable, Dict, List, Mapping, Optional, Tuple, Union
 
 import numpy as np
 import numpy.typing as npt
+from entity_gym.env import ObsSpace, VecEnv
+from entity_gym.env.environment import ActionSpace, CategoricalActionSpace, Entity
+from entity_gym.env.vec_env import Metric, VecCategoricalActionMask, VecObs
 from ragged_buffer import RaggedBufferBool, RaggedBufferF32, RaggedBufferI64
 
 from enn_zoo.codecraft import rest_client
 from enn_zoo.codecraft.rest_client import ObsConfig, Rules
-from entity_gym.env import ObsSpace, VecEnv
-from entity_gym.env.environment import ActionSpace, CategoricalActionSpace, Entity
-from entity_gym.env.vec_env import Metric, VecCategoricalActionMask, VecObs
 
 from .maps import (
     map_allied_wealth,

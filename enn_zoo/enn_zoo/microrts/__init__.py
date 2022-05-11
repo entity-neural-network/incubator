@@ -8,11 +8,6 @@ import jpype
 import jpype.imports
 import numpy as np
 import numpy.typing as npt
-from gym_microrts import microrts_ai
-from jpype.imports import registerDomain
-from jpype.types import JArray
-from PIL import Image
-
 from entity_gym.env import (
     Action,
     ActionSpace,
@@ -25,6 +20,10 @@ from entity_gym.env import (
     ObsSpace,
 )
 from entity_gym.env.environment import Features
+from gym_microrts import microrts_ai
+from jpype.imports import registerDomain
+from jpype.types import JArray
+from PIL import Image
 
 
 class GymMicrorts(Environment):

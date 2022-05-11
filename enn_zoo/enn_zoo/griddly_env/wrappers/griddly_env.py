@@ -2,9 +2,6 @@ from typing import Any, Dict, List, Mapping, Optional, Tuple
 
 import numpy as np
 import numpy.typing as npt
-from griddly import GymWrapper
-
-from enn_zoo.griddly_env.level_generators.level_generator import LevelGenerator
 from entity_gym.env import (
     Action,
     ActionSpace,
@@ -16,6 +13,9 @@ from entity_gym.env import (
     ObsSpace,
 )
 from entity_gym.env.environment import CategoricalAction
+from griddly import GymWrapper
+
+from enn_zoo.griddly_env.level_generators.level_generator import LevelGenerator
 
 
 class GriddlyEnv(Environment):

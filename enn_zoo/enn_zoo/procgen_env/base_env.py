@@ -2,11 +2,11 @@ from abc import abstractmethod
 from typing import Dict, List, Mapping
 
 import numpy as np
+from entity_gym.env import *
 from procgen import ProcgenGym3Env
 
 from enn_zoo.procgen_env.deserializer import ByteBuffer
 from enn_zoo.procgen_env.fast_deserializer import MinimalProcgenState
-from entity_gym.env import *
 
 ENTITY_FEATS = [
     "x",
