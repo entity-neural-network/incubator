@@ -166,12 +166,14 @@ def train(
             xp_info.xp_def.project,
             xp_info.sanitized_name + "-" + xp_info.id,
         )
+        id = xp_info.id
         Path(str(out_dir)).mkdir(parents=True, exist_ok=True)
 
         init_process(xp_info)
         rank = xp_info.replica_index
         parallelism = xp_info.replicas()
     else:
+        id = None
         out_dir = None
         rank = 0
         parallelism = 1
@@ -253,6 +255,7 @@ def train(
                 name=run_name,
                 save_code=True,
                 dir=data_dir,
+                id=id,
             )
             wandb.watch(agent)
 
@@ -418,7 +421,7 @@ def train(
                     b_action_masks = action_masks[mb_inds]
                     b_logprobs = logprobs[mb_inds]
                     b_actions = actions[mb_inds]
-                    mb_advantages = b_advantages[mb_inds]  # type: ignore
+                    mb_advantages = b_advantages[mb_inds]
 
                     with tracer.span("forward"):
                         (
@@ -450,8 +453,8 @@ def train(
                     v_loss = value_loss(
                         cfg.ppo,
                         newvalue,
-                        b_returns[mb_inds],  # type: ignore
-                        b_values[mb_inds],  # type: ignore
+                        b_returns[mb_inds],
+                        b_values[mb_inds],
                         tracer,
                     )
 

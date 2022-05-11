@@ -3,6 +3,8 @@ Environment:
   Name: Clusters Multi
   Description: Cluster the coloured objects together by pushing them against the static coloured blocks.
   Observers:
+    Entity:
+      IncludeMasks: true
     Sprite2D:
       TileSize: 24
       BackgroundTile: oryx/oryx_fantasy/floor1-2.png

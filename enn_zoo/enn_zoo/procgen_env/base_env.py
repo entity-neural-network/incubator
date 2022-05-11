@@ -118,6 +118,7 @@ class BaseEnv(Environment):
                 [0],
             )
         }
+        total = 1
         for type_id, name in self._entity_types().items():
             feats = state.entities[state.entities[:, 6] == type_id]
             if feats.shape[0] > 0:
@@ -125,15 +126,13 @@ class BaseEnv(Environment):
                     [feats, global_feats.repeat(feats.shape[0], axis=0)],
                     axis=1,
                 )
+                total += feats.shape[0]
             else:
                 feats = np.zeros(
                     (0, feats.shape[1] + global_feats.shape[1]), dtype=np.float32
                 )
             entities[name] = feats
-        assert (
-            sum(e.features.shape[0] for e in entities.values())  # type: ignore
-            == state.entities.shape[0]
-        )
+        assert total == state.entities.shape[0]
 
         return Observation(
             entities=entities,
