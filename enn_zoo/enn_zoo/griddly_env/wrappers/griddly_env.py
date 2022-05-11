@@ -5,7 +5,7 @@ import numpy.typing as npt
 from griddly import GymWrapper
 
 from enn_zoo.griddly_env.level_generators.level_generator import LevelGenerator
-from entity_gym.environment import (
+from entity_gym.env import (
     Action,
     ActionSpace,
     CategoricalActionMask,
@@ -15,7 +15,7 @@ from entity_gym.environment import (
     Observation,
     ObsSpace,
 )
-from entity_gym.environment.environment import CategoricalAction
+from entity_gym.env.environment import CategoricalAction
 
 
 class GriddlyEnv(Environment):
