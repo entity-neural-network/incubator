@@ -853,6 +853,7 @@ Actions:
         Dst:
           Object: [ grass, sand, path, water, lava ]
           Commands:
+            - remove: true
             - spawn: stone
 
       # Player places a table
