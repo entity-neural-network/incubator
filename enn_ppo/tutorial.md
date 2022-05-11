@@ -141,7 +141,7 @@ Paste the following code into a Python console:
 ```python
 from enn_ppo import load_checkpoint
 from enn_ppo.agent import RogueNetAgent
-from entity_gym.environment import *
+from entity_gym.env import *
 checkpoint = load_checkpoint("checkpoints/latest-step000000098304")
 agent = RogueNetAgent(checkpoint.state.agent)
 obs = Observation(
