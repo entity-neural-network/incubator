@@ -29,7 +29,9 @@ Environment:
       RotateAvatarImage: false
   Termination:
     End:
-      - eq: [ player_count, 0 ]
+      - or:
+          - eq: [ _steps, 10000 ]
+          - eq: [ player_count, 0 ]
   Player:
     Count: 1
     AvatarObject: player

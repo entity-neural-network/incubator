@@ -28,8 +28,11 @@ Environment:
       TileSize: 10
       RotateAvatarImage: false
   Termination:
-    End:
-      - eq: [ player_count, 0 ]
+    Termination:
+      End:
+        - or:
+            - eq: [ _steps, 10000 ]
+            - eq: [ player_count, 0 ]
   Variables:
 
     # ACHIEVEMENTS
