@@ -13,7 +13,7 @@ import wandb
 from ragged_buffer import RaggedBufferBool, RaggedBufferF32, RaggedBufferI64
 from torch.optim import AdamW
 
-from entity_gym.environment.vec_env import VecActionMask
+from entity_gym.env.vec_env import VecActionMask
 from entity_gym.ragged_dict import RaggedActionDict, RaggedBatchDict
 from entity_gym.serialization import Trace
 from entity_gym.serialization.sample_loader import Episode, MergedSamples

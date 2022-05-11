@@ -16,7 +16,7 @@ from enn_zoo.codecraft.codecraftnet.codecraftnet import (
     TransformerPolicy8HS,
 )
 from enn_zoo.codecraft.codecraftnet.config import Config
-from entity_gym.environment.vec_env import VecActionMask
+from entity_gym.env.vec_env import VecActionMask
 from entity_gym.simple_trace import Tracer
 
 

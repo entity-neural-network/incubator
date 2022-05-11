@@ -14,8 +14,8 @@ from ragged_buffer import (
     RaggedBufferI64,
 )
 
-from entity_gym.environment import ActionSpace, ObsSpace, VecActionMask
-from entity_gym.environment.environment import (
+from entity_gym.env import ActionSpace, ObsSpace, VecActionMask
+from entity_gym.env.environment import (
     CategoricalActionSpace,
     Entity,
     GlobalCategoricalActionSpace,

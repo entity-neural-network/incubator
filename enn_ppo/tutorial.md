@@ -141,7 +141,7 @@ Paste the following code into a Python console:
 ```python
 from enn_ppo import load_checkpoint
 from enn_ppo.agent import RogueNetAgent
-from entity_gym.environment import *
+from entity_gym.env import *
 checkpoint = load_checkpoint("checkpoints/latest-step000000098304")
 agent = RogueNetAgent(checkpoint.state.agent)
 obs = Observation(
@@ -189,7 +189,7 @@ As we might have hoped, the agent now moves toward the left. It also assigns muc
 Finally, let's use the `CliRunner` class to observe the agent in its natural environment:
 
 ```python
->>> from entity_gym.cli_runner import CliRunner
+>>> from entity_gym.runner import CliRunner
 >>> from entity_gym.examples.tutorial import TreasureHunt
 >>> CliRunner(TreasureHunt(), agent).run()
 ```

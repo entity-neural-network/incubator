@@ -8,7 +8,7 @@ from ragged_buffer import RaggedBufferI64
 from torch import nn
 from torch.distributions.categorical import Categorical
 
-from entity_gym.environment import VecActionMask, VecSelectEntityActionMask
+from entity_gym.env import VecActionMask, VecSelectEntityActionMask
 from rogue_net.ragged_tensor import RaggedTensor
 
 

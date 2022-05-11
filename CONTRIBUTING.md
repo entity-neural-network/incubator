@@ -74,3 +74,25 @@ poetry run pre-commit run --all-files
 ```bash
 poetry run pytest .
 ```
+
+## Building docs
+
+To build the documentation for entity-gym, go to the entity_gym/docs folder and run the following command:
+
+```bash
+poetry run make html
+```
+
+You can use [watchexec](https://github.com/watchexec/watchexec) to automatically rebuild the documentation on changes:
+
+```
+watchexec -w ../entity_gym -w source -i source/generated -i source/entity_gym -- poetry run make html
+```
+
+You can view the generated docs by openaing `entity_gym/docs/build/html` in a browser.
+
+Some files won't be automatically cleaned up after the build, so you can manually clean up the build directory by running:
+
+```
+poetry run make clean && rm -rf source/generated source/entity_gym
+```

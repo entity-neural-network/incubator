@@ -4,7 +4,7 @@ import torch
 from ragged_buffer import RaggedBufferF32
 
 from enn_ppo.config import PPOConfig
-from entity_gym.environment.environment import ActionName
+from entity_gym.env.environment import ActionName
 from entity_gym.simple_trace import Tracer
 
 

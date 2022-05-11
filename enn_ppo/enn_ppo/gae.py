@@ -4,7 +4,7 @@ from typing import Tuple
 import torch
 
 from enn_ppo.agent import PPOAgent
-from entity_gym.environment import *
+from entity_gym.env import *
 from entity_gym.simple_trace import Tracer
 
 from .config import *

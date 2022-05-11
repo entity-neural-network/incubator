@@ -5,7 +5,7 @@ import numpy as np
 from griddly import gd
 
 from enn_zoo.griddly_env import create_env
-from entity_gym.environment import (
+from entity_gym.env import (
     CategoricalAction,
     CategoricalActionMask,
     CategoricalActionSpace,

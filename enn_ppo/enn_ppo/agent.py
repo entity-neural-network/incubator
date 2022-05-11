@@ -5,11 +5,11 @@ import numpy.typing as npt
 import torch
 from ragged_buffer import RaggedBufferBool, RaggedBufferF32, RaggedBufferI64
 
-import entity_gym.agent
-from entity_gym.environment import Action, Observation, VecActionMask
-from entity_gym.environment.env_list import action_index_to_actions
-from entity_gym.environment.environment import ActionName
-from entity_gym.environment.vec_env import batch_obs
+import entity_gym.runner
+from entity_gym.env import Action, Observation, VecActionMask
+from entity_gym.env.env_list import action_index_to_actions
+from entity_gym.env.environment import ActionName
+from entity_gym.env.vec_env import batch_obs
 from entity_gym.simple_trace import Tracer
 from rogue_net.rogue_net import RogueNet
 
@@ -48,7 +48,7 @@ class PPOAgent(Protocol):
         ...
 
 
-class RogueNetAgent(entity_gym.agent.Agent):
+class RogueNetAgent(entity_gym.runner.Agent):
     def __init__(self, agent: RogueNet):
         self.agent = agent
 
