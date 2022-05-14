@@ -1,5 +1,7 @@
 # ENN Incubator
 
+[![Discord](https://img.shields.io/discord/913497968701747270?style=flat-square)](https://discord.gg/SjVqhSW4Qf)
+
 The enn-incubator repo was used to develop a number of different projects which have since been split out into their own repos:
 
 - [entity-gym](https://github.com/entity-neural-network/entity-gym): Abstraction over reinforcement learning environments that represent observations as lists of structured objects.
