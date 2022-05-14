@@ -3,16 +3,16 @@ from contextlib import ExitStack
 from dataclasses import dataclass
 from typing import Callable, Mapping, Optional, Type, Union
 
+import enn_trainer.config as config
 import hyperstate
 import torch
 import web_pdb
+from enn_trainer.agent import PPOAgent
+from enn_trainer.train import State, initialize, train
 from entity_gym.env import *
 from entity_gym.examples import ENV_REGISTRY
 from hyperstate import StateManager
 
-import enn_ppo.config as config
-from enn_ppo.agent import PPOAgent
-from enn_ppo.train import State, initialize, train
 from enn_zoo import griddly_env
 from enn_zoo.codecraft.cc_vec_env import CodeCraftVecEnv
 from enn_zoo.codecraft.codecraftnet.adapter import CCNetAdapter

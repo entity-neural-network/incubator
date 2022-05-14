@@ -11,12 +11,12 @@ requests = "^2.27.1"
 orjson = "^3.6.5"
 types-requests = "^2.27.7"
 hyperstate = "^0.3.9"
-enn_ppo = {path = "../enn_ppo", develop = true}
 web-pdb = "^1.5.7"
 vizdoom = {version = "^1.1.11", optional = true}
 procgen = "^0.10.7"
 opensimplex = "^0.4.2"
 numba = "^0.55.1"
+enn-trainer = "^0.1.0"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
