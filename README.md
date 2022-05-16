@@ -1,20 +1,11 @@
 # ENN Incubator
 
-[![Actions Status](https://github.com/entity-neural-network/incubator/workflows/Tests/badge.svg)](https://github.com/entity-neural-network/incubator/actions)
 [![Discord](https://img.shields.io/discord/913497968701747270?style=flat-square)](https://discord.gg/SjVqhSW4Qf)
 
-Collection of in-progress libraries for entity neural networks: [Neural Network Architectures for Structured State](https://docs.google.com/document/d/1Q87zeY7Z4u9cU0oLoH-BPQZDBQd4tHLWiEkj5YDSGw4)
+The enn-incubator repo was used to develop a number of different projects which have since been split out into their own repos:
 
-- [Entity Gym](entity_gym): Abstraction over reinforcement learning environments that represent observations as lists of structured objects.
-- [ENN-PPO](enn_ppo): PPO training loop for entity-gym environments.
-- [RogueNet](rogue_net): Ragged batch transformer implementation that accepts variable length lists of structured objects as inputs.
-- [ENN-Zoo](enn_zoo): Collection of entity gym bindings for different environments.
-- [ENN-BC](enn_bc): Supervised training loop on behavioral cloning datasets collected from entity-gym policies.
+- [entity-gym](https://github.com/entity-neural-network/entity-gym): Abstraction over reinforcement learning environments that represent observations as lists of structured objects.
+- [enn-trainer](https://github.com/entity-neural-network/enn-trainer): PPO training loop for entity-gym environments.
+- [rogue-net](https://github.com/entity-neural-network/rogue-net): Ragged batch transformer implementation that accepts variable length lists of structured objects as inputs.
+- [enn-zoo](https://github.com/entity-neural-network/enn-zoo): Collection of entity gym bindings for different environments.
 
-## Contributing
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for pointers on how to contribute.
-
-## License
-
-All ENN Incubator projects are dual-licensed under Apache-2.0 and MIT.
