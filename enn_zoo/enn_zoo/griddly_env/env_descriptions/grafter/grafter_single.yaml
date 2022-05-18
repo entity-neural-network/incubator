@@ -5,6 +5,7 @@ Environment:
   Observers:
     Entity:
       IncludeMasks: true
+      TrackAvatar: true
       Width: 9
       Height: 7
       OffsetY: -1
@@ -49,7 +50,7 @@ Environment:
       OffsetY: -1
       PaddingTile: sprite2d/padding.png
       ResourceConfig:
-        ShaderPath: "shaders"
+        ShaderPath: "shaders/"
       Shader:
         GlobalVariables:
           - inv_wood_sword

@@ -243,7 +243,7 @@ void main() {
 
         outRenderInventory = 0;
 
-        float lightLevel = clamp(cos(PI*steps/360)+1.0, 0.0, 1.0);
+        float lightLevel = 1.0;
         outLightLevel = vec4(lightLevel, lightLevel, lightLevel, 1.0);
 
         outFragTextureCoords = vec3(

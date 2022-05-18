@@ -206,7 +206,7 @@ GRIDDLY_ENVS: Dict[str, Dict[str, Any]] = {
             init_path, "env_descriptions/grafter/grafter_single.yaml"
         ),
         "level_generator": CrafterLevelGenerator(100, 30, 30, 1),
-        "global_observer_type": "PlayerSprite2D",
+        "global_observer_type": "GlobalSprite2D",
         "image_path": os.path.join(init_path, "images/grafter"),
     },
     "GDY-Grafter-Single-50": {
@@ -214,7 +214,7 @@ GRIDDLY_ENVS: Dict[str, Dict[str, Any]] = {
         "yaml_file": os.path.join(
             init_path, "env_descriptions/grafter/grafter_single.yaml"
         ),
-        "global_observer_type": "PlayerSprite2D",
+        "global_observer_type": "GlobalSprite2D",
         "level_generator": CrafterLevelGenerator(100, 50, 50, 1),
         "image_path": os.path.join(init_path, "images/grafter"),
     },
@@ -222,7 +222,7 @@ GRIDDLY_ENVS: Dict[str, Dict[str, Any]] = {
         "yaml_file": os.path.join(
             init_path, "env_descriptions/grafter/grafter_single.yaml"
         ),
-        "global_observer_type": "PlayerSprite2D",
+        "global_observer_type": "GlobalSprite2D",
         "level_generator": CrafterLevelGenerator(100, 100, 100, 1),
         "image_path": os.path.join(init_path, "images/grafter"),
     },
