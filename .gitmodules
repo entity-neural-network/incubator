@@ -1,0 +1,12 @@
+[submodule "enn-zoo"]
+	path = enn-zoo
+	url = https://github.com/entity-neural-network/enn-zoo.git
+[submodule "enn-trainer"]
+	path = enn-trainer
+	url = https://github.com/entity-neural-network/enn-trainer.git
+[submodule "rogue-net"]
+	path = rogue-net
+	url = https://github.com/entity-neural-network/rogue-net.git
+[submodule "entity-gym"]
+	path = entity-gym
+	url = https://github.com/entity-neural-network/entity-gym.git
